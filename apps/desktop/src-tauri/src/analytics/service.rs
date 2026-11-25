@@ -21,12 +21,13 @@ use super::transport::{Cancellation, Transport, TransportError};
 use crate::match_history::MatchEntry;
 use crate::replay_library::{ReplayBundle, ReplayLibrary};
 use serde_json::{json, Value};
-use std::collections::{BTreeSet, HashMap, VecDeque};
+use std::collections::{BTreeSet, HashMap};
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 
 const MAX_TOOL_ROUNDS: u8 = 8;
 
@@ -38,7 +39,6 @@ fn tool_round_limit_reached(rounds: u8) -> bool {
 pub(crate) struct AnalyticsService {
     store: AnalyticsStore,
     lane_history: LaneHistoryStore,
-    seen_lane_bundles: Arc<Mutex<VecDeque<String>>>,
     coach_review: Arc<Mutex<Option<CoachReviewSession>>>,
     transport: Arc<dyn Transport>,
     active: Arc<Mutex<HashMap<String, Cancellation>>>,
@@ -63,6 +63,7 @@ pub(crate) struct PreparedChat {
     scrubber_time_s: Option<f64>,
     report: bool,
     history: Vec<Value>,
+    history_prefix_len: usize,
     cancellation: Cancellation,
 }
 
@@ -87,8 +88,7 @@ impl AnalyticsService {
     ) -> Self {
         Self {
             store: AnalyticsStore::open(data_dir, install_key),
-            lane_history: LaneHistoryStore::open(&data_dir.join("analytics")),
-            seen_lane_bundles: Arc::new(Mutex::new(VecDeque::new())),
+            lane_history: LaneHistoryStore::open(&data_dir.join("analytics"), install_key),
             coach_review: Arc::new(Mutex::new(None)),
             transport,
             active: Arc::new(Mutex::new(HashMap::new())),
@@ -99,9 +99,30 @@ impl AnalyticsService {
         &self.store
     }
 
+    pub(crate) fn delete_match_data_for_match(&self, match_id: &str) -> Result<bool, &'static str> {
+        let match_key = self.store.match_key(match_id)?;
+        self.store.delete_match_data_by_key(&match_key)
+    }
+
+    pub(crate) fn delete_orphan_match_data(&self, orphan_key: &str) -> Result<bool, &'static str> {
+        self.store.delete_match_data_by_key(orphan_key)
+    }
+
+    pub(crate) fn orphan_analysis_keys(
+        &self,
+        library: &ReplayLibrary,
+    ) -> Result<Vec<String>, &'static str> {
+        let library_matches = library.list().map_err(|_| "library_unavailable")?;
+        let library_match_keys = library_matches
+            .matches
+            .iter()
+            .map(|entry| self.store.match_key(&entry.match_id))
+            .collect::<Result<Vec<_>, _>>()?;
+        self.store.orphan_match_keys(&library_match_keys)
+    }
+
     pub(crate) fn clear_lane_history(&self) -> Result<(), &'static str> {
         self.lane_history.clear()?;
-        lock(&self.seen_lane_bundles).clear();
         *lock(&self.coach_review) = None;
         Ok(())
     }
@@ -110,15 +131,11 @@ impl AnalyticsService {
         if own_hero.is_none() {
             return;
         }
-        let mut seen = lock(&self.seen_lane_bundles);
-        if seen.iter().any(|previous| previous == bundle_hash) {
-            return;
-        }
         let records = records_from_digest(digest, own_hero);
         if records.is_empty() {
             return;
         }
-        if let Err(error) = self.lane_history.append(&records) {
+        if let Err(error) = self.lane_history.append_bundle(bundle_hash, &records) {
             crate::log_warn!(
                 "analytics",
                 "lane_history_write_failed",
@@ -126,12 +143,6 @@ impl AnalyticsService {
             );
             let _ = error;
             return;
-        }
-        seen.push_back(bundle_hash.to_owned());
-        let capacity =
-            (super::lane_expectation::config_integer("/lane_store_max_records") / 3).max(1);
-        while seen.len() > capacity {
-            seen.pop_front();
         }
     }
 
@@ -473,7 +484,7 @@ impl AnalyticsService {
             .and_then(|entry| entry.hero.clone())
             .or_else(|| self.store.own_hero(&options.match_id));
         let bundle = library.open_bundle(&options.match_id).ok();
-        let (digest, bundle_hash) = if let Some(bundle) = bundle.as_ref() {
+        let (mut digest, bundle_hash) = if let Some(bundle) = bundle.as_ref() {
             let bundle_hash = knowledge::bundle_hash(&bundle.manifest)?;
             let match_key = self.store.match_key(&options.match_id).ok();
             let lane_history = self.lane_history_records();
@@ -509,6 +520,7 @@ impl AnalyticsService {
                 .ok_or("bundle_unavailable")?;
             (digest, meta.bundle_hash)
         };
+        knowledge::remove_personal_fields(&mut digest);
         let viewer = knowledge::session_viewer(&digest, own_hero.as_deref(), gsi);
         let notes = self
             .store
@@ -595,7 +607,14 @@ impl AnalyticsService {
         } else {
             self.store.chat(&options.match_id)?
         };
-        if estimate_history_tokens(&history) > HISTORY_TOKEN_BUDGET {
+        let history_prefix_len = history.len();
+        let request_history = history_for_request(
+            &history,
+            &settings.provider,
+            &settings.model,
+            history_prefix_len,
+        )?;
+        if estimate_history_tokens(&request_history) > HISTORY_TOKEN_BUDGET {
             return Err("history_budget_exceeded");
         }
         let bytes = crate::secrets::random::<16>().ok_or("request_id_unavailable")?;
@@ -624,11 +643,22 @@ impl AnalyticsService {
             scrubber_time_s: options.scrubber_time_s,
             report,
             history,
+            history_prefix_len,
             cancellation,
         })
     }
 
     pub(crate) fn spawn_chat(&self, prepared: PreparedChat, app: tauri::AppHandle) {
+        let match_barrier = app.state::<crate::AppState>().match_active.clone();
+        self.spawn_chat_with_barrier(prepared, app, match_barrier);
+    }
+
+    fn spawn_chat_with_barrier(
+        &self,
+        prepared: PreparedChat,
+        app: tauri::AppHandle,
+        match_barrier: Arc<dyn Fn() -> bool + Send + Sync>,
+    ) {
         let service = self.clone();
         let request_id = prepared.request_id.clone();
         let thread_request_id = request_id.clone();
@@ -636,7 +666,23 @@ impl AnalyticsService {
         let spawned = thread::Builder::new()
             .name("analytics-claude-chat".to_owned())
             .spawn(move || {
+                let stop_monitor = Arc::new(AtomicBool::new(false));
+                let monitor = watch_match_barrier(
+                    prepared.cancellation.clone(),
+                    match_barrier,
+                    service.transport.clone(),
+                    stop_monitor.clone(),
+                );
+                if monitor.is_err() {
+                    prepared
+                        .cancellation
+                        .cancel_if_barrier_monitor_unavailable();
+                }
                 service.run_chat(prepared, &thread_app);
+                stop_monitor.store(true, Ordering::Release);
+                if let Ok(monitor) = monitor {
+                    let _ = monitor.join();
+                }
                 lock(&service.active).remove(&thread_request_id);
             });
         if spawned.is_err() {
@@ -654,7 +700,12 @@ impl AnalyticsService {
         history: &[Value],
         question: Option<&str>,
     ) -> Result<OutgoingRequest, &'static str> {
-        let history = history_for_request(history, &prepared.provider_id, &prepared.model)?;
+        let history = history_for_request(
+            history,
+            &prepared.provider_id,
+            &prepared.model,
+            prepared.history_prefix_len,
+        )?;
         let volatile = question
             .map(|_| format_volatile(prepared.scrubber_time_s, prepared.selected_hero.as_deref()));
         if prepared.provider_id == "anthropic" {
@@ -1050,7 +1101,9 @@ impl AnalyticsService {
         let own_hero = gsi
             .and_then(|entry| entry.hero.clone())
             .or_else(|| self.store.own_hero(match_id));
-        let (digest, bundle_hash, bundle_available) = match library.open_bundle(match_id) {
+        let (mut digest, bundle_hash, bundle_available, personal_averages) = match library
+            .open_bundle(match_id)
+        {
             Ok(bundle) => {
                 let bundle_hash = knowledge::bundle_hash(&bundle.manifest)?;
                 let match_key = self.store.match_key(match_id).ok();
@@ -1067,28 +1120,43 @@ impl AnalyticsService {
                     &lane_history,
                     own_hero.as_deref(),
                 )?;
+                let personal_averages = lane_expectation::personal_averages(&digest, &lane_history);
                 self.capture_lane_history(&bundle_hash, &digest, own_hero.as_deref());
                 log_match_result_conflict(&digest);
                 let bytes = knowledge::canonical_bytes(&digest)?;
                 self.store
                     .write_knowledge(match_id, &bundle_hash, KNOWLEDGE_VERSION, &bytes)?;
-                (digest, bundle_hash, true)
+                (digest, bundle_hash, true, personal_averages)
             }
             Err(_) => {
                 let (meta, digest) = self
                     .store
                     .read_latest_knowledge(match_id)?
                     .ok_or("bundle_unavailable")?;
-                (digest, meta.bundle_hash, false)
+                let lane_history = self.lane_history_records();
+                let personal_averages = lane_expectation::personal_averages(&digest, &lane_history);
+                (digest, meta.bundle_hash, false, personal_averages)
             }
         };
+        knowledge::remove_personal_fields(&mut digest);
         let note_index = self
             .store
             .list_notes(match_id, &summary_markdown(&digest))?;
         let history_tokens = self
             .store
             .chat(match_id)
-            .map(|history| estimate_history_tokens(&history))
+            .ok()
+            .and_then(|history| {
+                let preferences = self.store.preferences().ok()?;
+                let projected = history_for_request(
+                    &history,
+                    &preferences.provider,
+                    &preferences.model,
+                    history.len(),
+                )
+                .ok()?;
+                Some(estimate_history_tokens(&projected))
+            })
             .unwrap_or(0);
         let viewer = knowledge::session_viewer(&digest, own_hero.as_deref(), gsi);
         let own = viewer.get("own_hero").and_then(Value::as_str);
@@ -1110,6 +1178,7 @@ impl AnalyticsService {
             "bundle_available":bundle_available,
             "own_hero_id":own,
             "viewer":viewer,
+            "personal_averages":personal_averages,
             "notes":note_index,
             "reports":reports,
             "chat_history_estimated_tokens":history_tokens,
@@ -1179,7 +1248,10 @@ impl AnalyticsService {
             .read_latest_knowledge(match_id)
             .ok()
             .flatten()
-            .map(|(_, digest)| summary_markdown(&digest))
+            .map(|(_, mut digest)| {
+                knowledge::remove_personal_fields(&mut digest);
+                summary_markdown(&digest)
+            })
             .unwrap_or_else(|| {
                 "# สรุปแมตช์\n\nรีเพลย์ถูกนำออกจากคลังแล้ว และยังไม่มี digest ที่จัดเก็บไว้.".to_owned()
             })
@@ -1198,6 +1270,7 @@ impl AnalyticsService {
                     &prepared.request_id,
                     ApiError::Stream(code.into()),
                     None,
+                    Some(&prepared.cancellation),
                     app,
                 );
                 return;
@@ -1216,6 +1289,7 @@ impl AnalyticsService {
                 &prepared.request_id,
                 ApiError::Stream("request_serialization_failed".into()),
                 None,
+                Some(&prepared.cancellation),
                 app,
             );
             return;
@@ -1237,6 +1311,7 @@ impl AnalyticsService {
                 &prepared.request_id,
                 ApiError::Stream("chat_storage_failed".into()),
                 None,
+                Some(&prepared.cancellation),
                 app,
             );
             return;
@@ -1340,6 +1415,10 @@ impl AnalyticsService {
                     break;
                 }
                 Some("tool_use") => {
+                    if prepared.cancellation.is_cancelled() {
+                        final_error = Some(ApiError::Cancelled);
+                        break 'conversation;
+                    }
                     tool_rounds = tool_rounds.saturating_add(1);
                     let over_round_limit = tool_round_limit_reached(tool_rounds);
                     let mut results = Vec::new();
@@ -1369,6 +1448,7 @@ impl AnalyticsService {
                         let tool_id = block.get("id").and_then(Value::as_str).unwrap_or("invalid");
                         let name = block.get("name").and_then(Value::as_str).unwrap_or("");
                         let input = block.get("input").unwrap_or(&Value::Null);
+                        emit_tool_activity(app, &prepared.request_id, name, "started");
                         let result: Result<Value, &'static str> = if over_round_limit {
                             Err("tool_round_limit")
                         } else if name == "write_note" {
@@ -1401,8 +1481,14 @@ impl AnalyticsService {
                             )
                         };
                         match result {
-                            Ok(value) => results.push(json!({"type":"tool_result","tool_use_id":tool_id,"content":serde_json::to_string(&value).unwrap_or_else(|_|"{\"error\":\"tool_result_invalid\"}".into())})),
-                            Err(code) => results.push(json!({"type":"tool_result","tool_use_id":tool_id,"is_error":true,"content":serde_json::to_string(&json!({"error":code})).unwrap_or_else(|_|"{\"error\":\"tool_failed\"}".into())})),
+                            Ok(value) => {
+                                emit_tool_activity(app, &prepared.request_id, name, "completed");
+                                results.push(json!({"type":"tool_result","tool_use_id":tool_id,"content":serde_json::to_string(&value).unwrap_or_else(|_|"{\"error\":\"tool_result_invalid\"}".into())}));
+                            }
+                            Err(code) => {
+                                emit_tool_activity(app, &prepared.request_id, name, "failed");
+                                results.push(json!({"type":"tool_result","tool_use_id":tool_id,"is_error":true,"content":serde_json::to_string(&json!({"error":code})).unwrap_or_else(|_|"{\"error\":\"tool_failed\"}".into())}));
+                            }
                         }
                     }
                     let result_message = json!({"role":"user","content":results});
@@ -1452,7 +1538,11 @@ impl AnalyticsService {
             final_error = Some(ApiError::Cancelled);
         }
         if let Some(error) = final_error {
-            let _ = app.emit("analytics://complete", json!({"request_id":prepared.request_id,"error":error.renderer_text(),"usage":usage_json(&usage_total),"bytes_sent":bytes_sent,"bytes_received":bytes_received}));
+            let mut payload = json!({"request_id":prepared.request_id,"error":error.renderer_text(),"usage":usage_json(&usage_total),"bytes_sent":bytes_sent,"bytes_received":bytes_received});
+            if let Some(reason_code) = prepared.cancellation.reason_code() {
+                payload["reason_code"] = json!(reason_code);
+            }
+            let _ = app.emit("analytics://complete", payload);
         } else {
             if prepared.report {
                 if report_markdown.trim().is_empty() {
@@ -1483,6 +1573,7 @@ impl AnalyticsService {
                         &prepared.request_id,
                         ApiError::Stream(code.into()),
                         None,
+                        Some(&prepared.cancellation),
                         app,
                     ),
                 }
@@ -1713,9 +1804,14 @@ impl AnalyticsService {
         request_id: &str,
         error: ApiError,
         usage: Option<&Usage>,
+        cancellation: Option<&Cancellation>,
         app: &tauri::AppHandle,
     ) {
-        let _ = app.emit("analytics://complete", json!({"request_id":request_id,"error":error.renderer_text(),"usage":usage.map(usage_values)}));
+        let mut payload = json!({"request_id":request_id,"error":error.renderer_text(),"usage":usage.map(usage_values)});
+        if let Some(reason_code) = cancellation.and_then(Cancellation::reason_code) {
+            payload["reason_code"] = json!(reason_code);
+        }
+        let _ = app.emit("analytics://complete", payload);
     }
 }
 
@@ -1900,6 +1996,28 @@ fn wait_cancel(cancellation: &Cancellation, millis: u64) -> bool {
     }
     cancellation.is_cancelled()
 }
+
+fn watch_match_barrier(
+    cancellation: Cancellation,
+    match_barrier: Arc<dyn Fn() -> bool + Send + Sync>,
+    transport: Arc<dyn Transport>,
+    stop: Arc<AtomicBool>,
+) -> std::io::Result<thread::JoinHandle<()>> {
+    thread::Builder::new()
+        .name("analytics-match-barrier".to_owned())
+        .spawn(move || loop {
+            if stop.load(Ordering::Acquire) {
+                break;
+            }
+            if match_barrier() {
+                cancellation.cancel_for_match_phase();
+                transport.cancel_current();
+                break;
+            }
+            thread::sleep(Duration::from_millis(10));
+        })
+}
+
 fn emit_neutral_text(
     events: &[NeutralEvent],
     request_id: &str,
@@ -1919,6 +2037,30 @@ fn emit_neutral_text(
     }
 }
 
+fn tool_activity_payload(request_id: &str, name: &str, status: &str) -> Value {
+    let tool = match name {
+        "get_deaths"
+        | "get_hero_card"
+        | "get_hero_series"
+        | "get_items"
+        | "get_lane"
+        | "get_objectives"
+        | "get_phase_stats"
+        | "get_teamfight"
+        | "read_saved_analysis"
+        | "write_note" => name,
+        _ => "unknown",
+    };
+    json!({"request_id":request_id,"tool":tool,"status":status})
+}
+
+fn emit_tool_activity(app: &tauri::AppHandle, request_id: &str, name: &str, status: &str) {
+    let _ = app.emit(
+        "analytics://tool-activity",
+        tool_activity_payload(request_id, name, status),
+    );
+}
+
 fn chat_entry(provider: &str, model: &str, message: Value) -> Value {
     json!({"provider":provider,"model":model,"message":message})
 }
@@ -1927,29 +2069,50 @@ fn history_for_request(
     history: &[Value],
     target_provider: &str,
     target_model: &str,
+    prior_history_len: usize,
 ) -> Result<Vec<Value>, &'static str> {
     history
         .iter()
-        .map(|entry| {
+        .enumerate()
+        .filter_map(|(index, entry)| {
             let Some(message) = entry.get("message") else {
                 // Version-1 chat files contain bare Anthropic-shaped messages.
-                return Ok(entry.clone());
+                let mut message = entry.clone();
+                if index < prior_history_len && !strip_tool_artifacts(&mut message) {
+                    return None;
+                }
+                return Some(Ok(message));
             };
             let source_provider = entry
                 .get("provider")
                 .and_then(Value::as_str)
-                .ok_or("history_invalid")?;
+                .ok_or("history_invalid");
+            let source_provider = match source_provider {
+                Ok(provider) => provider,
+                Err(error) => return Some(Err(error)),
+            };
             let source_model = entry
                 .get("model")
                 .and_then(Value::as_str)
-                .ok_or("history_invalid")?;
+                .ok_or("history_invalid");
+            let source_model = match source_model {
+                Ok(model) => model,
+                Err(error) => return Some(Err(error)),
+            };
+            let prior_turn = index < prior_history_len;
+            let mut request_message = message.clone();
+            if prior_turn && !strip_tool_artifacts(&mut request_message) {
+                return None;
+            }
             if target_provider != "anthropic"
                 || (source_provider == target_provider && source_model == target_model)
             {
-                return Ok(message.clone());
+                return Some(Ok(request_message));
             }
-            let mut message = message.clone();
-            if let Some(blocks) = message.get_mut("content").and_then(Value::as_array_mut) {
+            if let Some(blocks) = request_message
+                .get_mut("content")
+                .and_then(Value::as_array_mut)
+            {
                 blocks.retain(|block| {
                     !matches!(
                         block.get("type").and_then(Value::as_str),
@@ -1957,9 +2120,39 @@ fn history_for_request(
                     )
                 });
             }
-            Ok(message)
+            Some(Ok(request_message))
         })
         .collect()
+}
+
+fn strip_tool_artifacts(message: &mut Value) -> bool {
+    let Some(object) = message.as_object_mut() else {
+        return true;
+    };
+    let role_is_tool = object.get("role").and_then(Value::as_str) == Some("tool");
+    let has_tool_call_id = object.remove("tool_call_id").is_some();
+    object.remove("tool_calls");
+    if let Some(blocks) = object.get_mut("content").and_then(Value::as_array_mut) {
+        blocks.retain(|block| {
+            !matches!(
+                block.get("type").and_then(Value::as_str),
+                Some("tool_use" | "tool_result")
+            )
+        });
+        if blocks.is_empty() {
+            object.remove("content");
+        }
+    }
+    if role_is_tool || has_tool_call_id {
+        return false;
+    }
+    let has_content = object.get("content").is_some_and(|content| match content {
+        Value::String(text) => !text.is_empty(),
+        Value::Array(blocks) => !blocks.is_empty(),
+        Value::Null => false,
+        _ => true,
+    });
+    has_content || object.keys().any(|key| key != "role")
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -2043,6 +2236,19 @@ mod tests {
     }
 
     #[test]
+    fn tool_activity_payload_contains_no_arguments_or_results() {
+        let payload = tool_activity_payload("request-1", "get_deaths", "started");
+        assert_eq!(payload["request_id"], "request-1");
+        assert_eq!(payload["tool"], "get_deaths");
+        assert_eq!(payload["status"], "started");
+        assert!(payload.get("input").is_none());
+        assert!(payload.get("result").is_none());
+
+        let unknown = tool_activity_payload("request-1", "provider-controlled", "failed");
+        assert_eq!(unknown["tool"], "unknown");
+    }
+
+    #[test]
     fn closed_ai_gates_make_zero_transport_calls() {
         let directory = root();
         let transport = Arc::new(FakeTransport::default());
@@ -2114,7 +2320,7 @@ mod tests {
             ]}),
         );
         let to_anthropic =
-            history_for_request(&[previous.clone()], "anthropic", "claude-opus-5-5").unwrap();
+            history_for_request(&[previous.clone()], "anthropic", "claude-opus-5-5", 1).unwrap();
         let blocks = to_anthropic[0]["content"].as_array().unwrap();
         assert_eq!(blocks.len(), 1);
         assert_eq!(blocks[0]["text"], "public answer");
@@ -2124,16 +2330,226 @@ mod tests {
             "claude-opus-5-5",
             json!({"role":"assistant","content":[{"type":"thinking","thinking":"same-model"}]}),
         );
-        let forwarded =
-            history_for_request(&[same_provider_and_model], "anthropic", "claude-opus-5-5")
-                .unwrap();
+        let forwarded = history_for_request(
+            &[same_provider_and_model],
+            "anthropic",
+            "claude-opus-5-5",
+            1,
+        )
+        .unwrap();
         assert_eq!(forwarded[0]["content"][0]["thinking"], "same-model");
         assert!(history_for_request(
             &[json!({"provider":"anthropic","message":{}})],
             "anthropic",
-            "claude-opus-5-5"
+            "claude-opus-5-5",
+            1
         )
         .is_err());
+    }
+
+    #[test]
+    fn five_tool_using_questions_keep_text_and_drop_old_tool_pairs_under_budget() {
+        let mut history = Vec::new();
+        for index in 0..5 {
+            let tool_id = format!("tool-{index}");
+            history.push(chat_entry(
+                "anthropic",
+                "claude-opus-5-5",
+                json!({"role":"user","content":[{"type":"text","text":format!("question {index}")}]}),
+            ));
+            history.push(chat_entry(
+                "anthropic",
+                "claude-opus-5-5",
+                json!({"role":"assistant","content":[
+                    {"type":"text","text":format!("answer {index}")},
+                    {"type":"tool_use","id":tool_id,"name":"get_deaths","input":{"padding":"x".repeat(10_000)}}
+                ]}),
+            ));
+            history.push(chat_entry(
+                "anthropic",
+                "claude-opus-5-5",
+                json!({"role":"user","content":[
+                    {"type":"tool_result","tool_use_id":tool_id,"content":"y".repeat(10_000)}
+                ]}),
+            ));
+        }
+
+        let request_history =
+            history_for_request(&history, "anthropic", "claude-opus-5-5", history.len()).unwrap();
+
+        assert!(estimate_history_tokens(&history) > HISTORY_TOKEN_BUDGET);
+        assert!(estimate_history_tokens(&request_history) <= HISTORY_TOKEN_BUDGET);
+        assert_eq!(
+            request_history
+                .iter()
+                .filter(|entry| entry["content"].as_array().is_some_and(|blocks| {
+                    blocks.iter().any(|block| {
+                        block["type"].as_str() == Some("text")
+                            && block["text"]
+                                .as_str()
+                                .is_some_and(|text| text.starts_with("answer "))
+                    })
+                }))
+                .count(),
+            5
+        );
+        assert_eq!(
+            request_history
+                .iter()
+                .filter(|entry| entry["content"].as_array().is_some_and(|blocks| {
+                    blocks.iter().any(|block| {
+                        block["type"].as_str() == Some("text")
+                            && block["text"]
+                                .as_str()
+                                .is_some_and(|text| text.starts_with("question "))
+                    })
+                }))
+                .count(),
+            5
+        );
+        assert!(request_history.iter().all(|entry| {
+            entry["content"].as_array().is_none_or(|blocks| {
+                blocks.iter().all(|block| {
+                    !matches!(block["type"].as_str(), Some("tool_use" | "tool_result"))
+                })
+            })
+        }));
+        assert!(history.iter().any(|entry| {
+            entry
+                .pointer("/message/content/0/type")
+                .and_then(Value::as_str)
+                == Some("text")
+        }));
+        assert!(history.iter().any(|entry| {
+            entry
+                .pointer("/message/content/0/type")
+                .and_then(Value::as_str)
+                == Some("tool_result")
+        }));
+    }
+
+    #[test]
+    fn request_projection_keeps_tool_blocks_from_the_active_turn() {
+        let earlier = chat_entry(
+            "anthropic",
+            "claude-opus-5-5",
+            json!({"role":"assistant","content":[
+                {"type":"text","text":"earlier answer"},
+                {"type":"tool_use","id":"old-1","name":"get_lane","input":{"lane":"mid"}}
+            ]}),
+        );
+        let earlier_result = chat_entry(
+            "anthropic",
+            "claude-opus-5-5",
+            json!({"role":"user","content":[{"type":"tool_result","tool_use_id":"old-1","content":"old result"}]}),
+        );
+        let current = chat_entry(
+            "anthropic",
+            "claude-opus-5-5",
+            json!({"role":"assistant","content":[{"type":"tool_use","id":"current-1","name":"get_lane","input":{"lane":"top"}}]}),
+        );
+        let current_result = chat_entry(
+            "anthropic",
+            "claude-opus-5-5",
+            json!({"role":"user","content":[{"type":"tool_result","tool_use_id":"current-1","content":"current result"}]}),
+        );
+        let history = vec![earlier, earlier_result, current, current_result];
+
+        let projected = history_for_request(&history, "anthropic", "claude-opus-5-5", 2).unwrap();
+
+        assert_eq!(projected.len(), 3);
+        assert_eq!(projected[0]["content"][0]["text"], "earlier answer");
+        assert_eq!(projected[1]["content"][0]["id"], "current-1");
+        assert_eq!(projected[2]["content"][0]["tool_use_id"], "current-1");
+    }
+
+    #[test]
+    fn a_match_phase_barrier_cancels_an_inflight_transport_request_with_a_reason() {
+        use crate::analytics::protocol::OutgoingRequest;
+        use crate::analytics::providers::endpoint::RequestEndpoint;
+        use crate::analytics::transport::{Transport, TransportError};
+
+        #[derive(Default)]
+        struct BlockingTransport {
+            cancelled: AtomicBool,
+        }
+        impl Transport for BlockingTransport {
+            fn post(
+                &self,
+                _endpoint: &RequestEndpoint,
+                _request: &OutgoingRequest,
+                cancellation: &Cancellation,
+                _on_chunk: &mut dyn FnMut(u16, &[u8]),
+            ) -> Result<super::super::transport::ResponseMeta, TransportError> {
+                while !self.cancelled.load(Ordering::Acquire) {
+                    if cancellation.is_cancelled() {
+                        return Err(TransportError::Cancelled);
+                    }
+                    thread::sleep(Duration::from_millis(5));
+                }
+                Err(TransportError::Cancelled)
+            }
+
+            fn get(
+                &self,
+                _endpoint: &RequestEndpoint,
+                _headers: &[(String, String)],
+                _cancellation: &Cancellation,
+            ) -> Result<super::super::transport::ResponseMeta, TransportError> {
+                Err(TransportError::Network)
+            }
+
+            fn cancel_current(&self) {
+                self.cancelled.store(true, Ordering::Release);
+            }
+        }
+
+        let phase_active = Arc::new(AtomicBool::new(false));
+        let barrier = {
+            let phase_active = phase_active.clone();
+            Arc::new(move || phase_active.load(Ordering::Acquire))
+                as Arc<dyn Fn() -> bool + Send + Sync>
+        };
+        let transport = Arc::new(BlockingTransport::default());
+        let cancellation = Cancellation::default();
+        let stop = Arc::new(AtomicBool::new(false));
+        let monitor = watch_match_barrier(
+            cancellation.clone(),
+            barrier,
+            transport.clone(),
+            stop.clone(),
+        );
+        let request = {
+            let cancellation = cancellation.clone();
+            let transport = transport.clone();
+            thread::spawn(move || {
+                transport.post(
+                    &RequestEndpoint {
+                        secure: false,
+                        host: "127.0.0.1".into(),
+                        port: 4000,
+                        path: "/v1/messages".into(),
+                    },
+                    &OutgoingRequest {
+                        headers: Vec::new(),
+                        body: Vec::new(),
+                    },
+                    &cancellation,
+                    &mut |_, _| {},
+                )
+            })
+        };
+
+        thread::sleep(Duration::from_millis(20));
+        phase_active.store(true, Ordering::Release);
+        assert!(matches!(
+            request.join().unwrap(),
+            Err(TransportError::Cancelled)
+        ));
+        assert_eq!(cancellation.reason_code(), Some("match_phase_started"));
+        assert!(transport.cancelled.load(Ordering::Acquire));
+        stop.store(true, Ordering::Release);
+        monitor.unwrap().join().unwrap();
     }
 
     #[test]

@@ -5,7 +5,7 @@ use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
-pub(crate) const KNOWLEDGE_VERSION: u32 = 3;
+pub(crate) const KNOWLEDGE_VERSION: u32 = 4;
 pub(super) const ENGINE_REPARSE_REASON: &str = "re-parse with engine 0.3.0 to get this";
 
 pub(crate) struct KnowledgeInput<'a> {
@@ -76,8 +76,8 @@ pub(crate) fn build_with_sources(
     match_key: Option<&str>,
     local_history: &[MatchEntry],
     opendota_history: &[MatchEntry],
-    lane_history: &[LaneHistoryRecord],
-    own_hero: Option<&str>,
+    _lane_history: &[LaneHistoryRecord],
+    _own_hero: Option<&str>,
 ) -> Result<Value, &'static str> {
     // Read the hash only as an integrity/cache input. It is deliberately absent from the digest.
     let _cache_hash = bundle_hash(input.manifest).ok();
@@ -137,7 +137,8 @@ pub(crate) fn build_with_sources(
             &phase_bounds,
         ));
     }
-    lane_expectation::enrich_lanes(match_data, world, &profiles, &mut lanes, lane_history);
+    // Personal lane history is projected for the UI elsewhere and never enters the cached digest.
+    lane_expectation::enrich_lanes(match_data, world, &profiles, &mut lanes, _lane_history);
     let objective_data = objectives(world, &hero_by_id);
     let team_phases = team_phase_summaries(
         &heroes,
@@ -154,7 +155,6 @@ pub(crate) fn build_with_sources(
     let result = resolve_match_result(
         match_data,
         &heroes,
-        own_hero,
         match_key,
         local_history,
         opendota_history,
@@ -213,11 +213,57 @@ pub(crate) fn session_viewer(
         .or_else(|| gsi.and_then(|entry| entry.hero.as_deref()))
         .and_then(normalize_hero_id)
         .filter(|hero| hero_ids.contains(hero.as_str()));
-    viewer_json(viewer_id.as_deref(), gsi)
+    let mut viewer = viewer_json(viewer_id.as_deref(), gsi);
+    let own_side = viewer_id.as_deref().and_then(|id| {
+        digest
+            .get("heroes")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .find(|hero| hero.get("id").and_then(Value::as_str) == Some(id))
+            .and_then(|hero| hero.get("side"))
+            .and_then(Value::as_str)
+            .filter(|side| matches!(*side, "radiant" | "dire"))
+    });
+    let winner = digest
+        .pointer("/meta/result/winner")
+        .and_then(Value::as_str)
+        .filter(|side| matches!(*side, "radiant" | "dire"));
+    let own_result = own_side
+        .zip(winner)
+        .map(|(side, winner)| if side == winner { "win" } else { "loss" });
+    if let Some(object) = viewer.as_object_mut() {
+        object.insert(
+            "own_side".into(),
+            own_side.map(Value::from).unwrap_or(Value::Null),
+        );
+        object.insert(
+            "own_result".into(),
+            own_result.map(Value::from).unwrap_or(Value::Null),
+        );
+    }
+    viewer
 }
 
 pub(crate) fn canonical_bytes(value: &Value) -> Result<Vec<u8>, &'static str> {
     serde_json::to_vec(&canonicalize(value.clone())).map_err(|_| "knowledge_serialization_failed")
+}
+
+pub(crate) fn remove_personal_fields(digest: &mut Value) {
+    if let Some(meta) = digest.get_mut("meta").and_then(Value::as_object_mut) {
+        meta.remove("viewer");
+        if let Some(result) = meta.get_mut("result").and_then(Value::as_object_mut) {
+            result.remove("own_side");
+            result.remove("own_result");
+        }
+    }
+    if let Some(lanes) = digest.get_mut("lanes").and_then(Value::as_array_mut) {
+        for lane in lanes {
+            if let Some(lane) = lane.as_object_mut() {
+                lane.remove("personal_average");
+            }
+        }
+    }
 }
 
 fn valid_sha256(value: &str) -> bool {
@@ -1312,15 +1358,11 @@ fn side_kills(
 fn resolve_match_result(
     match_data: &Value,
     heroes: &[HeroInfo<'_>],
-    own_hero: Option<&str>,
     match_key: Option<&str>,
     local_history: &[MatchEntry],
     opendota_history: &[MatchEntry],
     engine_schema_31: bool,
 ) -> Value {
-    let own_side = own_hero
-        .and_then(|own| heroes.iter().find(|hero| hero.id == own))
-        .map(|hero| hero.side);
     let engine = engine_schema_31
         .then(|| {
             match_data
@@ -1372,20 +1414,19 @@ fn resolve_match_result(
             "replay engine and match history results disagree; hiding result"
         );
         return json!({
-            "winner":null,"source":null,"own_side":own_side,"own_result":null,
+            "winner":null,"source":null,
             "conflict":true,"reason":"sources_disagree","warning":"sources_disagree"
         });
     }
     if mismatch {
         return json!({
-            "winner":null,"source":null,"own_side":own_side,"own_result":null,
+            "winner":null,"source":null,
             "conflict":false,"reason":"history_hero_mismatch"
         });
     }
     if let Some((source, winner)) = candidates.first() {
-        let own_result = own_side.map(|side| if side == *winner { "win" } else { "loss" });
         return json!({
-            "winner":winner,"source":source,"own_side":own_side,"own_result":own_result,
+            "winner":winner,"source":source,
             "conflict":false,"reason":null
         });
     }
@@ -1398,7 +1439,7 @@ fn resolve_match_result(
             .unwrap_or("match winner is not present in the bundle")
     };
     json!({
-        "winner":null,"source":null,"own_side":own_side,"own_result":null,
+        "winner":null,"source":null,
         "conflict":false,"reason":reason
     })
 }
@@ -1797,6 +1838,54 @@ mod tests {
     }
 
     #[test]
+    fn cached_digest_bytes_do_not_change_with_personal_lane_history_or_own_hero() {
+        let (manifest, match_data, world) = fixture();
+        let input = KnowledgeInput {
+            manifest: &manifest,
+            match_data: &match_data,
+            world: &world,
+        };
+        let plain = build_with_sources(&input, None, &[], &[], &[], None).unwrap();
+        let personal_lane_history = vec![LaneHistoryRecord {
+            patch: Some("synthetic".into()),
+            game_mode: Some(2),
+            lane: "top".into(),
+            shape: "1v1".into(),
+            radiant: vec![super::super::lane_history::LaneHeroRecord {
+                hero: "npc_dota_hero_axe".into(),
+                role: Some("offlane".into()),
+            }],
+            dire: vec![],
+            score: Some(7.0),
+            score_reason: None,
+            constants_version: 0,
+            own_lane: true,
+        }];
+        let with_personal_history = build_with_sources(
+            &input,
+            None,
+            &[],
+            &[],
+            &personal_lane_history,
+            Some("npc_dota_hero_axe"),
+        )
+        .unwrap();
+
+        assert_eq!(
+            canonical_bytes(&plain).unwrap(),
+            canonical_bytes(&with_personal_history).unwrap()
+        );
+        assert!(plain.pointer("/meta/result/own_side").is_none());
+        assert!(plain.pointer("/meta/result/own_result").is_none());
+        assert!(plain
+            .get("lanes")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .all(|lane| lane.get("personal_average").is_none()));
+    }
+
+    #[test]
     fn local_gsi_result_is_resolved_after_the_engine_result() {
         let (manifest, match_data, world) = fixture();
         let gsi = history_entry("key", Some(MatchResult::Win), "kohbor", "npc_dota_hero_axe");
@@ -1815,7 +1904,21 @@ mod tests {
         .unwrap();
         assert_eq!(digest["meta"]["result"]["winner"], "radiant");
         assert_eq!(digest["meta"]["result"]["source"], "gsi_history");
-        assert_eq!(digest["meta"]["result"]["own_result"], "win");
+        assert!(digest["meta"]["result"].get("own_side").is_none());
+        assert!(digest["meta"]["result"].get("own_result").is_none());
+        assert_eq!(
+            session_viewer(
+                &digest,
+                Some("npc_dota_hero_axe"),
+                Some(&history_entry(
+                    "key",
+                    Some(MatchResult::Win),
+                    "kohbor",
+                    "npc_dota_hero_axe",
+                ))
+            )["own_result"],
+            "win"
+        );
         assert!(digest["meta"].get("viewer").is_none());
         assert!(digest["heroes"][0]["final"]["a"].is_null());
         assert_eq!(
@@ -2054,7 +2157,7 @@ mod tests {
         let hash = format!("{:x}", Sha256::digest(&bytes));
         assert_eq!(
             hash,
-            "2daa5d865715936dccd6c453f585f88c2f47abd3a76b064fd1a87d05de3ef987"
+            "93ab7cdf9e1759f8a8edfbc1ece9c50774eec74d007b4ba385cab2f3eb2bc644"
         );
     }
 
@@ -2067,7 +2170,7 @@ mod tests {
             world: &world,
         })
         .unwrap();
-        assert_eq!(digest["knowledge_version"], 3);
+        assert_eq!(digest["knowledge_version"], 4);
         assert_eq!(digest["meta"]["result"]["winner"], "radiant");
         assert_eq!(digest["meta"]["result"]["source"], "engine");
         assert_eq!(digest["meta"]["draft"], match_data["meta"]["draft"]);
@@ -2084,7 +2187,7 @@ mod tests {
         );
         assert_eq!(
             format!("{:x}", Sha256::digest(canonical_bytes(&digest).unwrap())),
-            "89d086f3296a27c3048f1d3adb9397616fe7eee7d8791b0af30e42a8132a5ad6"
+            "f0f69bbe40a9c7416d2ed633c6671391828ac2544b1dedea6e96d82bb860eb8d"
         );
     }
 
@@ -2116,7 +2219,7 @@ mod tests {
         assert_eq!(digest["heroes"][0]["damage_out_reason"], reparse);
         assert_eq!(
             format!("{:x}", Sha256::digest(canonical_bytes(&digest).unwrap())),
-            "dfac51bc4655c6aa5be993b31b41b47437f8222f78d8be053b370a8faec2d320"
+            "69b6b9b4952ebbaed6bdb4f7d6689a4df4a9cbbe32b8b54ecd05c2efbc900243"
         );
     }
 

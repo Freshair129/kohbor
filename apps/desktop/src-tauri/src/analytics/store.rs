@@ -562,6 +562,82 @@ impl AnalyticsStore {
         Ok(hmac_match_key(key, id.as_bytes()))
     }
 
+    pub(crate) fn delete_match_data_by_key(&self, match_key: &str) -> Result<bool, &'static str> {
+        if !valid_match_key(match_key) {
+            return Err("invalid_match_key");
+        }
+        let Some(root) = self.checked_analytics_root()? else {
+            return Ok(false);
+        };
+        let target = root.join(match_key);
+        let metadata = match fs::symlink_metadata(&target) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+            Err(_) => return Err("storage_unavailable"),
+        };
+        if metadata.file_type().is_symlink() || !metadata.is_dir() {
+            return Err("analytics_path_invalid");
+        }
+        let canonical_target = fs::canonicalize(&target).map_err(|_| "analytics_path_invalid")?;
+        if canonical_target.parent() != Some(root.as_path()) {
+            return Err("analytics_path_invalid");
+        }
+        fs::remove_dir_all(canonical_target).map_err(|_| "storage_unavailable")?;
+        Ok(true)
+    }
+
+    pub(crate) fn orphan_match_keys(
+        &self,
+        library_match_keys: &[String],
+    ) -> Result<Vec<String>, &'static str> {
+        let Some(root) = self.checked_analytics_root()? else {
+            return Ok(Vec::new());
+        };
+        let entries = fs::read_dir(&root).map_err(|_| "storage_unavailable")?;
+        let mut orphans = Vec::new();
+        for entry in entries {
+            let entry = entry.map_err(|_| "storage_unavailable")?;
+            let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
+                continue;
+            };
+            if !valid_match_key(&name) || library_match_keys.iter().any(|known| known == &name) {
+                continue;
+            }
+            let metadata = entry.file_type().map_err(|_| "storage_unavailable")?;
+            if metadata.is_symlink() || !metadata.is_dir() {
+                continue;
+            }
+            let canonical_entry =
+                fs::canonicalize(entry.path()).map_err(|_| "analytics_path_invalid")?;
+            if canonical_entry.parent() == Some(root.as_path()) {
+                orphans.push(name);
+            }
+        }
+        orphans.sort();
+        Ok(orphans)
+    }
+
+    fn checked_analytics_root(&self) -> Result<Option<PathBuf>, &'static str> {
+        let metadata = match fs::symlink_metadata(&self.root) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(_) => return Err("storage_unavailable"),
+        };
+        if metadata.file_type().is_symlink() || !metadata.is_dir() {
+            return Err("analytics_path_invalid");
+        }
+        let data_root = self.root.parent().ok_or("analytics_path_invalid")?;
+        let canonical_data_root =
+            fs::canonicalize(data_root).map_err(|_| "analytics_path_invalid")?;
+        let canonical_root = fs::canonicalize(&self.root).map_err(|_| "analytics_path_invalid")?;
+        if canonical_root.parent() != Some(canonical_data_root.as_path())
+            || canonical_root.file_name().and_then(|name| name.to_str()) != Some("analytics")
+        {
+            return Err("analytics_path_invalid");
+        }
+        Ok(Some(canonical_root))
+    }
+
     fn match_dir(&self, match_id: &str) -> Result<PathBuf, &'static str> {
         Ok(self.root.join(self.match_key(match_id)?))
     }
@@ -1051,6 +1127,13 @@ fn valid_sha256(value: &str) -> bool {
     value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
+fn valid_match_key(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
 fn safe_model_slug(model: &str) -> String {
     let slug = model
         .chars()
@@ -1347,6 +1430,49 @@ mod tests {
     }
     fn store(dir: &Path) -> AnalyticsStore {
         AnalyticsStore::open(dir, Some([7; 32]))
+    }
+
+    #[test]
+    fn match_data_delete_removes_only_the_selected_analytics_folder() {
+        let dir = root();
+        let store = store(&dir);
+        let selected_key = store.match_key("1001").unwrap();
+        let other_key = store.match_key("2002").unwrap();
+        let selected = store.root().join(&selected_key);
+        let other = store.root().join(&other_key);
+        let outside = dir.join("analytics-outside-sentinel.txt");
+        fs::create_dir_all(selected.join("chat")).unwrap();
+        fs::create_dir_all(other.join("notes")).unwrap();
+        fs::write(selected.join("chat").join("history.json"), b"chat").unwrap();
+        fs::write(other.join("notes").join("keep.md"), b"keep").unwrap();
+        fs::write(&outside, b"keep outside analytics").unwrap();
+
+        assert!(store.delete_match_data_by_key(&selected_key).unwrap());
+        assert!(!selected.exists());
+        assert!(other.join("notes").join("keep.md").exists());
+        assert_eq!(fs::read(&outside).unwrap(), b"keep outside analytics");
+        assert_eq!(
+            store.delete_match_data_by_key("..\\analytics-outside-sentinel.txt"),
+            Err("invalid_match_key")
+        );
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn orphan_listing_returns_only_unknown_hashed_match_folders() {
+        let dir = root();
+        let store = store(&dir);
+        let known = store.match_key("1001").unwrap();
+        let orphan = store.match_key("2002").unwrap();
+        fs::create_dir_all(store.root().join(&known)).unwrap();
+        fs::create_dir_all(store.root().join(&orphan)).unwrap();
+        fs::create_dir_all(store.root().join("not-a-match-key")).unwrap();
+
+        assert_eq!(
+            store.orphan_match_keys(&[known.clone()]).unwrap(),
+            vec![orphan]
+        );
+        let _ = fs::remove_dir_all(dir);
     }
 
     #[test]
