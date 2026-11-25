@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { buildLineSegments, laneBadgeLabel, laneExpectationReading, matchupRows, showLaneExpectationInStrip } from "./presentationModel.mjs";
+import { buildLineSegments, heroComparisonEngineMetric, heroMetricValue, laneBadgeLabel, laneExpectationReading, matchResultPresentation, matchupRows, orderedDraftEntries, showLaneExpectationInStrip } from "./presentationModel.mjs";
 import "./knowledge.css";
 
 export type KnowledgeHero = {
@@ -9,6 +9,13 @@ export type KnowledgeHero = {
   slot: number;
   lane?: { lane: "top" | "mid" | "bot" | null; share?: number | null; reason?: string };
   final?: Record<string, { value?: number | null; reason?: string } | number | null>;
+  rates?: { gpm?: number | null; gpm_reason?: string | null; gpm_source?: string | null };
+  gold_earned?: number | null;
+  gold_earned_reason?: string | null;
+  gold_earned_source?: string | null;
+  hero_damage?: number | null;
+  hero_damage_reason?: string | null;
+  hero_damage_source?: string | null;
   phases?: Record<string, Record<string, unknown>>;
   items?: unknown;
   final_items?: unknown;
@@ -170,9 +177,26 @@ export function MatchSummaryTab({ digest, loading, onSeek }: Pick<KnowledgePanel
     ...(digest.objectives?.other_tracks ?? []),
   ];
   const unknownBuildingCount = (digest.objectives?.buildings ?? []).filter((item: any) => item.destroyed == null).length;
+  const result = matchResultPresentation(digest.meta?.result);
+  const draft = orderedDraftEntries(digest.meta?.draft);
   return <div className="a2k-summary">
     <header className="a2k-summary__header"><h2>สรุปแมตช์</h2><span>{valueAt(digest.meta?.patch)} · {timeText(digest.meta?.duration_s)}</span></header>
-    <p className="a2k-summary__score">Radiant {valueAt(digest.meta?.kills?.radiant)} — {valueAt(digest.meta?.kills?.dire)} Dire · ผลแมตช์ {valueAt(digest.meta?.result?.winner)} · แหล่ง {valueAt(digest.meta?.result?.source)}</p>
+    <p className="a2k-summary__score">Radiant {valueAt(digest.meta?.kills?.radiant)} — {valueAt(digest.meta?.kills?.dire)} Dire · ผลแมตช์ {result.text}{result.source ? ` · ${result.source}` : ""}</p>
+    {result.warning && <p className="a2k-result-warning" role="alert">{result.warning}</p>}
+    <section className="a2k-draft" aria-label="ลำดับการเลือกและแบนฮีโร่">
+      <h3>ลำดับ Draft</h3>
+      {draft === null ? <p title={digest.meta?.draft_reason ?? undefined}>—</p> : draft.length === 0 ? <p>ไม่มีข้อมูล pick/ban ใน replay</p> :
+        <ol>{draft.map((entry) => <li key={entry.order}><span>{entry.order}</span> · {entry.team} · {entry.kind} · {entry.hero}</li>)}</ol>}
+    </section>
+    <section className="a2k-engine-hero-stats" aria-label="สถิติฮีโร่จาก replay engine">
+      <h3>สถิติฮีโร่จากรีเพลย์</h3>
+      <div className="a2k-engine-hero-stats__head"><b>ฮีโร่</b><b>HD</b><b>GPM</b></div>
+      {(digest.heroes ?? []).map((hero) => <div className="a2k-engine-hero-stats__row" key={hero.id}>
+        <span>{hero.hero}</span>
+        <span title={hero.hero_damage_reason ?? (hero.hero_damage_source ? `ที่มา: ${hero.hero_damage_source}` : undefined)}>{heroMetricValue(hero.hero_damage)}</span>
+        <span title={hero.rates?.gpm_reason ?? (hero.rates?.gpm_source ? `ที่มา: ${hero.rates.gpm_source}` : undefined)}>{heroMetricValue(hero.rates?.gpm)}</span>
+      </div>)}
+    </section>
     <AdvantageChart digest={digest} onSeek={onSeek} />
     <LaneCards digest={digest} onSeek={onSeek} />
     <section><h3>จังหวะสำคัญ</h3><ul>{(digest.teamfights ?? []).map((fight) => <li key={fight.n}><button onClick={() => onSeek?.(Number(fight.t?.[0] ?? 0))}>{timeText(fight.t?.[0])}–{timeText(fight.t?.[1])}</button> · ทีมไฟต์ {valueAt(fight.n)} · ตาย {fight.deaths?.length ?? "— ไม่ทราบ"}</li>)}</ul></section>
@@ -191,21 +215,28 @@ export function HeroComparisonTab({ digest, selectedHeroId, opponentHeroId, onSe
     ["LH ที่ 10:00", "at_10.lh"], ["Deny ที่ 10:00", "at_10.dn"],
     ["มูลค่าสุทธิที่ 10:00", "at_10.nw"], ["XP ที่ 10:00", "at_10.xp"],
     ["NW/นาที", "rates.nw_per_min"], ["XPM", "rates.xpm"],
+    ["ฮีโร่ดาเมจ (HD)", "hero_damage"], ["ทองที่หาได้/นาที (GPM)", "rates.gpm"],
     ["K / D", "final"], ["เวลาตาย (วินาที)", "dead_s"],
     ["รูนที่เก็บ", "runes"], ["ทีมไฟต์ที่เข้าร่วม", "teamfights_present"],
   ] as const;
   const readMetric = (hero: KnowledgeHero | undefined, path: string) => {
+    if (path === "hero_damage") return heroComparisonEngineMetric(hero, "hd");
+    if (path === "rates.gpm") return heroComparisonEngineMetric(hero, "gpm");
     if (!hero) return "— ไม่ทราบ";
     if (path === "final") return `${valueAt((hero.final as any)?.k)} / ${valueAt((hero.final as any)?.d)}`;
     const value = path.split(".").reduce<any>((current, key) => current?.[key], hero as any);
     return Array.isArray(value) ? `${value.length}` : valueAt(value);
   };
+  const engineMetricTitle = (hero: KnowledgeHero | undefined, path: string) => {
+    if (path === "hero_damage") return hero?.hero_damage_reason ?? (hero?.hero_damage_source ? `ที่มา: ${hero.hero_damage_source}` : undefined);
+    if (path === "rates.gpm") return hero?.rates?.gpm_reason ?? (hero?.rates?.gpm_source ? `ที่มา: ${hero.rates.gpm_source}` : undefined);
+    return undefined;
+  };
   return <div className="a2k-comparison"><h2>เทียบเลน/ฮีโร่</h2><MatchupStrip digest={digest} selectedHeroId={selected?.id} onSelectHero={onSelectHero} />
     {selected && <section>
       <label>ฮีโร่ที่เลือก <select value={selected.id} onChange={(event) => onSelectHero?.(event.target.value)}>{heroes.map((hero) => <option key={hero.id} value={hero.id}>{hero.hero} · {SIDE_NAMES[hero.side]}</option>)}</select></label>
       {opponent && <label>ฮีโร่ฝั่งตรงข้าม <select value={opponent.id} onChange={(event) => onSelectOpponentHero?.(event.target.value)}>{heroes.filter((hero) => hero.side !== selected.side).map((hero) => <option key={hero.id} value={hero.id}>{hero.hero} · {LANE_NAMES[hero.lane?.lane ?? "unknown"]}</option>)}</select></label>}
-      <table><thead><tr><th>ตัวเลข</th><th>{selected.hero}</th><th>{opponent?.hero ?? "คู่เทียบไม่ทราบ"}</th></tr></thead><tbody>{comparisonRows.map(([label, path]) => <tr key={label}><th>{label}</th><td>{readMetric(selected, path)}</td><td>{readMetric(opponent, path)}</td></tr>)}
-        <tr><th>ฮีโร่ดาเมจ</th><td>— ไม่ทราบ · attacker-side damage ไม่มีใน bundle</td><td>— ไม่ทราบ · attacker-side damage ไม่มีใน bundle</td></tr>
+      <table><thead><tr><th>ตัวเลข</th><th>{selected.hero}</th><th>{opponent?.hero ?? "คู่เทียบไม่ทราบ"}</th></tr></thead><tbody>{comparisonRows.map(([label, path]) => <tr key={label}><th>{label}</th><td title={engineMetricTitle(selected, path)}>{readMetric(selected, path)}</td><td title={engineMetricTitle(opponent, path)}>{readMetric(opponent, path)}</td></tr>)}
       </tbody></table>
       <div className="a2k-phase-table"><h3>เปรียบเทียบตามช่วง</h3>{["laning", "mid", "late"].map((phase) => <p key={phase}><b>{phase}</b> · {selected.hero}: K {valueAt((selected.phases as any)?.[phase]?.k)} / D {valueAt((selected.phases as any)?.[phase]?.d)} · {opponent?.hero ?? "คู่เทียบไม่ทราบ"}: K {valueAt((opponent?.phases as any)?.[phase]?.k)} / D {valueAt((opponent?.phases as any)?.[phase]?.d)}</p>)}</div>
       <p><b>ไอเท็ม</b> · {JSON.stringify(selected.items ?? "— ไม่ทราบ")} ↔ {JSON.stringify(opponent?.items ?? "— ไม่ทราบ")}</p>

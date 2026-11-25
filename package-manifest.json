@@ -283,8 +283,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/analytics/knowledge.rs",
-      "bytes": 83078,
-      "sha256": "d8b0411a4f127ebeb71f80d0035cb02a798b158f15f7d7f352303a95b3a6f65f"
+      "bytes": 93535,
+      "sha256": "7aa5db8e3a28ce5f3bbdf7648110499fada672f128e0de8ff9d231e68e7fea16"
     },
     {
       "path": "apps/desktop/src-tauri/src/analytics/lane_expectation.rs",
@@ -343,8 +343,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/analytics/tools.rs",
-      "bytes": 57183,
-      "sha256": "c53a9a0a6c95268f9e1f1a557f02b289c86c63a061cdf858b3931b1c4337b36c"
+      "bytes": 63518,
+      "sha256": "f48a8bfb6f81f2c84a324d449814456b98cd988a51578a6402560206fe4ad759"
     },
     {
       "path": "apps/desktop/src-tauri/src/analytics/transport.rs",
@@ -1013,23 +1013,23 @@
     },
     {
       "path": "apps/desktop/src/analytics/heroCardView.d.mts",
-      "bytes": 501,
-      "sha256": "fd02aa7af157a3f6d7c1a21cf71603ea85afa500af7b948ce78d5ab601214d08"
+      "bytes": 671,
+      "sha256": "55253f6a256295507e2413cf7ac2c405dda6c9520c5c000c38c16e0159e318e7"
     },
     {
       "path": "apps/desktop/src/analytics/heroCardView.mjs",
-      "bytes": 723,
-      "sha256": "734c8b768458b9f9aa6796c6cad48ead500a5f2e7c43529e0f07cb7faac5db6c"
+      "bytes": 1241,
+      "sha256": "fe64782522963adced9ade6c88b9ed2520d504d6f107aa33a25eeefd5c1abd2d"
     },
     {
       "path": "apps/desktop/src/analytics/knowledge/index.tsx",
-      "bytes": 21822,
-      "sha256": "83f997d506a13d63115cebeaccc7bd74fa036c0d7a0f15262158b5131cd34484"
+      "bytes": 24240,
+      "sha256": "9c515f51079fab3272b2fe44557dd7418956b6b285e04f78672937123154e71e"
     },
     {
       "path": "apps/desktop/src/analytics/knowledge/knowledge.css",
-      "bytes": 4958,
-      "sha256": "bae0e418aabecd295e8a8235e22fbac68ff0435156b15b8262003a14e0dcc362"
+      "bytes": 5828,
+      "sha256": "e7ee45f48a4e82030fad2c6de422f6658384cd8f666aa3b552809dc4d18e0c5f"
     },
     {
       "path": "apps/desktop/src/analytics/knowledge/presentationModel.d.mts",
@@ -1038,8 +1038,8 @@
     },
     {
       "path": "apps/desktop/src/analytics/knowledge/presentationModel.mjs",
-      "bytes": 4505,
-      "sha256": "46c2513242e4b8fd628767e53a67c99a636a9d3d8f197747dec0a376e09e3f27"
+      "bytes": 6648,
+      "sha256": "2cc79d8e12547bda876d659707b72baa5217f273be3b4061851557b0d558c82d"
     },
     {
       "path": "apps/desktop/src/analytics/provider-model.d.mts",
@@ -12943,8 +12943,8 @@
     },
     {
       "path": "apps/desktop/src/live/heroCard.css",
-      "bytes": 39327,
-      "sha256": "303f7f5ff0c193cf1fa3a12dd3483df89d573574de7007e646add05192d5a192"
+      "bytes": 39689,
+      "sha256": "ddfbe9bf776737bfc0bea1f79ac2b620c2251d43f01fa597427c1fd3ed4ca418"
     },
     {
       "path": "apps/desktop/src/live/heroCardModel.ts",
@@ -13873,8 +13873,8 @@
     },
     {
       "path": "apps/desktop/tests/analytics-knowledge.test.mjs",
-      "bytes": 5962,
-      "sha256": "45f5a2835c3b3310e9f5f6c416065706d2a84b04dd9690ef77ed8a408720223c"
+      "bytes": 8953,
+      "sha256": "073fa63889245369eaf046254e0df4bb508a3923fb127783a0e7395305c719c3"
     },
     {
       "path": "apps/desktop/tests/analytics-markdown.test.ts",
@@ -15568,8 +15568,8 @@
     },
     {
       "path": "docs/design/LANE-EXPECTATION.md",
-      "bytes": 6307,
-      "sha256": "9f024b6e5400c1b61b45bde06a43f6864bd4b4e87d9dd7c68da588fc7bbb38fb"
+      "bytes": 6803,
+      "sha256": "6c16f609de7638ec6b4cab97f308dd953c5bc3bd9fde51b09f8cc966f485f2bd"
     },
     {
       "path": "docs/design/MEDIA-PACK-SPEC.md",

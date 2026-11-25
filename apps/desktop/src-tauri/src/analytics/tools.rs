@@ -1,3 +1,4 @@
+use super::knowledge::ENGINE_REPARSE_REASON;
 use super::lane_expectation;
 use super::store::AnalyticsStore;
 use crate::replay_library::ReplayBundle;
@@ -33,7 +34,7 @@ pub(crate) fn definitions(tools_supported: bool) -> Vec<Value> {
             "Read a bounded, downsampled series for one roster hero.",
             object_schema(
                 json!({
-                    "hero":hero_id_schema(),"metric":{"type":"string","enum":["nw","gold","lh","dn","xp","lvl","hp","mp"]},"from":number_schema(0.0),"to":number_schema(0.0),"step_s":{"type":"integer","minimum":10,"maximum":1800}
+                    "hero":hero_id_schema(),"metric":{"type":"string","enum":["nw","gold","gold_earned","lh","dn","xp","lvl","hp","mp"]},"from":number_schema(0.0),"to":number_schema(0.0),"step_s":{"type":"integer","minimum":10,"maximum":1800}
                 }),
                 vec!["hero", "metric", "from", "to", "step_s"],
             ),
@@ -490,6 +491,19 @@ fn get_hero_card(
     })
     .collect::<serde_json::Map<_, _>>();
     let profile_known = |path: &str| profile.pointer(path).cloned().unwrap_or(Value::Null);
+    let schema_31 = match_data.pointer("/meta/schema").and_then(Value::as_str) == Some("3.1");
+    let gold_earned = if schema_31 {
+        sample(raw.get("gold_earned")).unwrap_or(Value::Null)
+    } else {
+        Value::Null
+    };
+    let gold_earned_reason = if !schema_31 {
+        Some(ENGINE_REPARSE_REASON)
+    } else if gold_earned.is_null() {
+        Some("gold earned sample is missing at this time")
+    } else {
+        None
+    };
     let field = |series: Option<&Value>, reason: &str| {
         let value = sample(series).unwrap_or(Value::Null);
         json!({"value":value,"reason":value.is_null().then_some(reason).map(Value::from)})
@@ -630,8 +644,10 @@ fn get_hero_card(
         "neutral_items":{"value":finds.clone().map(Value::Array).unwrap_or(Value::Null),"reason":finds.is_none().then_some("neutral item tracks are missing from the bundle").map(Value::from)},
         "buffs":{"value":buffs.clone().map(Value::Array).unwrap_or(Value::Null),"reason":buffs.is_none().then_some("modifier tracks are missing from the bundle").map(Value::from)},
         "derived":{"value":null,"reason":"patch-scoped derived-stat tables are not verified by this host slice"},
-        "hero_damage":{"value":null,"reason":"attacker-side damage is not present in the bundle"},
-        "gold_earned":{"value":null,"reason":"total gold earned is not present in the bundle"}
+        "hero_damage":{"value":profile_known("/hero_damage"),"components":profile_known("/damage_out"),"source":profile_known("/hero_damage_source"),"reason":profile_known("/hero_damage_reason")},
+        "gold_earned":{"value":gold_earned,"source":if !gold_earned.is_null() { Value::from("engine") } else { Value::Null },"reason":gold_earned_reason.map(Value::from).unwrap_or(Value::Null)},
+        "gold_earned_final":{"value":profile_known("/gold_earned"),"source":profile_known("/gold_earned_source"),"reason":profile_known("/gold_earned_reason")},
+        "true_gpm":{"value":profile_known("/rates/gpm"),"source":profile_known("/rates/gpm_source"),"reason":profile_known("/rates/gpm_reason")}
     }))
 }
 
@@ -797,7 +813,19 @@ fn get_hero_series(
         .get("metric")
         .and_then(Value::as_str)
         .ok_or("invalid_metric")?;
-    if !["nw", "gold", "lh", "dn", "xp", "lvl", "hp", "mp"].contains(&metric) {
+    if ![
+        "nw",
+        "gold",
+        "gold_earned",
+        "lh",
+        "dn",
+        "xp",
+        "lvl",
+        "hp",
+        "mp",
+    ]
+    .contains(&metric)
+    {
         return Err("invalid_metric");
     }
     let digest = json!({"meta":{"duration_s":match_data.pointer("/meta/duration_s").and_then(Value::as_f64).or_else(||match_data.get("t1").and_then(Value::as_f64)).unwrap_or(0.0)}});
@@ -821,12 +849,64 @@ fn get_hero_series(
         .get("t0")
         .and_then(Value::as_f64)
         .filter(|v| v.is_finite());
-    let points = times.into_iter().map(|time| {
-        let index = t0.map(|start| (time as f64 - start).floor() as i64).filter(|value|*value>=0);
-        let sample = |series: Option<&Value>| -> Value { index.and_then(|value|usize::try_from(value).ok()).and_then(|index|series?.as_array()?.get(index).cloned()).unwrap_or(Value::Null) };
-        let value = match metric { "nw"=>sample(hero.get("eco")).get(1).cloned().unwrap_or(Value::Null),"gold"=>sample(hero.get("eco")).get(0).cloned().unwrap_or(Value::Null),"lh"=>sample(hero.get("eco")).get(2).cloned().unwrap_or(Value::Null),"dn"=>sample(hero.get("eco")).get(3).cloned().unwrap_or(Value::Null),"xp"=>sample(hero.pointer("/st/xp")),"lvl"=>sample(hero.get("lvl")),"hp"=>sample(hero.get("hp")),"mp"=>sample(hero.get("mp")),_=>Value::Null};
-        json!({"t":time,"value":value,"reason":value.is_null().then_some("series sample is missing").map(Value::from)})
-    }).collect::<Vec<_>>();
+    let schema_31 = match_data.pointer("/meta/schema").and_then(Value::as_str) == Some("3.1");
+    let points = times
+        .into_iter()
+        .map(|time| {
+            let index = t0
+                .map(|start| (time as f64 - start).floor() as i64)
+                .filter(|value| *value >= 0);
+            let sample = |series: Option<&Value>| -> Value {
+                index
+                    .and_then(|value| usize::try_from(value).ok())
+                    .and_then(|index| series?.as_array()?.get(index).cloned())
+                    .unwrap_or(Value::Null)
+            };
+            let value = match metric {
+                "nw" => sample(hero.get("eco"))
+                    .get(1)
+                    .cloned()
+                    .unwrap_or(Value::Null),
+                "gold" => sample(hero.get("eco"))
+                    .get(0)
+                    .cloned()
+                    .unwrap_or(Value::Null),
+                "gold_earned" if schema_31 => sample(hero.get("gold_earned")),
+                "gold_earned" => Value::Null,
+                "lh" => sample(hero.get("eco"))
+                    .get(2)
+                    .cloned()
+                    .unwrap_or(Value::Null),
+                "dn" => sample(hero.get("eco"))
+                    .get(3)
+                    .cloned()
+                    .unwrap_or(Value::Null),
+                "xp" => sample(hero.pointer("/st/xp")),
+                "lvl" => sample(hero.get("lvl")),
+                "hp" => sample(hero.get("hp")),
+                "mp" => sample(hero.get("mp")),
+                _ => Value::Null,
+            };
+            let reason = if metric == "gold_earned" && !schema_31 {
+                Some(ENGINE_REPARSE_REASON)
+            } else {
+                value.is_null().then_some(if metric == "gold_earned" {
+                    "gold earned sample is missing"
+                } else {
+                    "series sample is missing"
+                })
+            };
+            let mut point = json!({"t":time,"value":value,"reason":reason.map(Value::from)});
+            if metric == "gold_earned" {
+                point["source"] = if !value.is_null() {
+                    Value::from("engine")
+                } else {
+                    Value::Null
+                };
+            }
+            point
+        })
+        .collect::<Vec<_>>();
     Ok(
         json!({"hero":id,"metric":metric,"from":from,"to":to,"step_s":step,"requested_step_s":requested_step,"points":points,"threshold_label":"เกณฑ์ชั่วคราว"}),
     )
@@ -1334,6 +1414,84 @@ mod tests {
         assert!(card["derived"]["reason"].as_str().is_some());
         assert!(card["respawn_in_s"].is_null());
         assert_eq!(card["respawn_in_s_reason"], "hero is alive at this time");
+    }
+
+    #[test]
+    fn hero_card_reads_engine_damage_and_true_gold_with_sources() {
+        let id = "npc_dota_hero_axe";
+        let digest = json!({
+            "meta":{"duration_s":720},
+            "heroes":[{"id":id,"hero":"Axe","gold_earned":1200,"gold_earned_source":"engine","rates":{"gpm":100,"gpm_source":"engine"},
+                "hero_damage":5000,"hero_damage_source":"engine",
+                "damage_out":{"total":5000,"p":2500,"m":2000,"u":500}}]
+        });
+        let match_data = json!({
+            "meta":{"schema":"3.1"},"t0":0,
+            "heroes":[{"id":id,"gold_earned":[1000,1200],"gold_earned_final":1200,
+                "dmg_out":{"total":5000,"p":2500,"m":2000,"u":500}}]
+        });
+        let roster = BTreeMap::from([(id.to_owned(), "Axe".to_owned())]);
+        let card = get_hero_card(&digest, &match_data, &json!({"hero":id,"t":1}), &roster).unwrap();
+        assert_eq!(card["hero_damage"]["value"], 5000);
+        assert_eq!(card["hero_damage"]["components"]["p"], 2500);
+        assert_eq!(card["hero_damage"]["components"]["m"], 2000);
+        assert_eq!(card["hero_damage"]["components"]["u"], 500);
+        assert_eq!(card["hero_damage"]["source"], "engine");
+        assert_eq!(card["gold_earned"]["value"], 1200);
+        assert_eq!(card["gold_earned"]["source"], "engine");
+        assert_eq!(card["gold_earned_final"]["value"], 1200);
+        assert_eq!(card["gold_earned_final"]["source"], "engine");
+        assert_eq!(card["true_gpm"]["value"], 100);
+        assert_eq!(card["true_gpm"]["source"], "engine");
+    }
+
+    #[test]
+    fn schema_30_hero_tools_keep_new_engine_fields_unknown_with_reparse_reason() {
+        let id = "npc_dota_hero_axe";
+        let reparse = ENGINE_REPARSE_REASON;
+        let digest = json!({
+            "meta":{"duration_s":720},
+            "heroes":[{"id":id,"rates":{"gpm":null,"gpm_source":null,"gpm_reason":reparse},
+                "hero_damage":null,"hero_damage_source":null,"hero_damage_reason":reparse,
+                "damage_out":null,"gold_earned":null,"gold_earned_source":null,"gold_earned_reason":reparse}]
+        });
+        let match_data =
+            json!({"meta":{"schema":"3.0","duration_s":1},"t0":0,"heroes":[{"id":id}]});
+        let roster = BTreeMap::from([(id.to_owned(), "Axe".to_owned())]);
+        let card = get_hero_card(&digest, &match_data, &json!({"hero":id,"t":1}), &roster).unwrap();
+        assert_eq!(card["hero_damage"]["value"], Value::Null);
+        assert_eq!(card["hero_damage"]["reason"], reparse);
+        assert_eq!(card["gold_earned"]["value"], Value::Null);
+        assert_eq!(card["gold_earned"]["reason"], reparse);
+        assert_eq!(card["gold_earned_final"]["reason"], reparse);
+        assert_eq!(card["true_gpm"]["reason"], reparse);
+
+        let series = get_hero_series(
+            &match_data,
+            &json!({"hero":id,"metric":"gold_earned","from":0,"to":1,"step_s":10}),
+            &roster,
+        )
+        .unwrap();
+        assert_eq!(series["points"][0]["value"], Value::Null);
+        assert_eq!(series["points"][0]["reason"], reparse);
+    }
+
+    #[test]
+    fn hero_series_reads_true_gold_earned_without_relabeling_net_worth() {
+        let id = "npc_dota_hero_axe";
+        let match_data = json!({
+            "meta":{"schema":"3.1","duration_s":1},"t0":0,
+            "heroes":[{"id":id,"eco":[[55,1000,2,0],[60,1050,3,0]],"gold_earned":[100,120]}]
+        });
+        let roster = BTreeMap::from([(id.to_owned(), "Axe".to_owned())]);
+        let series = get_hero_series(
+            &match_data,
+            &json!({"hero":id,"metric":"gold_earned","from":0,"to":1,"step_s":10}),
+            &roster,
+        )
+        .unwrap();
+        assert_eq!(series["points"][0]["value"], 100);
+        assert_eq!(series["points"][1]["value"], 120);
     }
 
     #[test]

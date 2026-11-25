@@ -5,7 +5,8 @@ use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
-pub(crate) const KNOWLEDGE_VERSION: u32 = 2;
+pub(crate) const KNOWLEDGE_VERSION: u32 = 3;
+pub(super) const ENGINE_REPARSE_REASON: &str = "re-parse with engine 0.3.0 to get this";
 
 pub(crate) struct KnowledgeInput<'a> {
     pub(crate) manifest: &'a Value,
@@ -82,6 +83,8 @@ pub(crate) fn build_with_sources(
     let _cache_hash = bundle_hash(input.manifest).ok();
     let match_data = input.match_data;
     let world = input.world;
+    let engine_schema_31 = input.manifest.pointer("/schema").and_then(Value::as_str) == Some("3.1")
+        && match_data.pointer("/meta/schema").and_then(Value::as_str) == Some("3.1");
     let t0 = number(match_data.get("t0")).unwrap_or(f64::NAN);
     let t1 = number(match_data.get("t1")).or_else(|| {
         match_data
@@ -129,6 +132,7 @@ pub(crate) fn build_with_sources(
             duration,
             death_data_available,
             fight_data_available,
+            engine_schema_31,
             &phase_names,
             &phase_bounds,
         ));
@@ -154,8 +158,10 @@ pub(crate) fn build_with_sources(
         match_key,
         local_history,
         opendota_history,
+        engine_schema_31,
     );
-    let draft = safe_draft(match_data, &hero_by_id);
+    let draft = safe_draft(match_data, engine_schema_31);
+    let draft_source = (!draft.0.is_null()).then_some("engine");
     let digest = json!({
         "knowledge_version": KNOWLEDGE_VERSION,
         "provisional_thresholds": thresholds_json(),
@@ -173,6 +179,7 @@ pub(crate) fn build_with_sources(
             "result": result,
             "draft": draft.0,
             "draft_reason": draft.1,
+            "draft_source": draft_source,
             "kills": side_kills(&deaths, &hero_by_id, death_data_available)
         },
         "heroes": profiles,
@@ -504,6 +511,7 @@ fn hero_profile<'a>(
     duration: Option<f64>,
     death_data_available: bool,
     fight_data_available: bool,
+    engine_schema_31: bool,
     phase_names: &[&str; 3],
     phase_bounds: &[(f64, f64); 3],
 ) -> Value {
@@ -531,11 +539,19 @@ fn hero_profile<'a>(
     let xpm = duration
         .filter(|value| *value > 0.0)
         .and_then(|value| final_xp.map(|xp| xp / (value / 60.0)));
-    let gold_earned = number(hero.source.get("gold_earned"))
-        .or_else(|| number(hero.source.pointer("/stats/gold_earned")));
+    let gold_earned = engine_schema_31
+        .then(|| number(hero.source.get("gold_earned_final")).filter(|value| *value >= 0.0))
+        .flatten();
     let gpm = duration
         .filter(|value| *value > 0.0)
         .and_then(|value| gold_earned.map(|gold| gold / (value / 60.0)));
+    let gpm_reason = if !engine_schema_31 {
+        ENGINE_REPARSE_REASON
+    } else if duration.is_none_or(|value| value <= 0.0) {
+        "match duration is missing"
+    } else {
+        "total gold earned is unavailable for this hero"
+    };
     let (role, role_reason) = role_for(hero, heroes, t0);
     let mut final_stats = Map::new();
     add_number(
@@ -647,12 +663,20 @@ fn hero_profile<'a>(
         "net worth or match duration is missing",
     );
     add_number(&mut rates, "xpm", xpm, "XP or match duration is missing");
-    add_number(
-        &mut rates,
-        "gpm",
-        gpm,
-        "total gold earned is not present in the bundle",
+    add_number(&mut rates, "gpm", gpm, gpm_reason);
+    rates.insert(
+        "gpm_source".into(),
+        if gpm.is_some() {
+            Value::from("engine")
+        } else {
+            Value::Null
+        },
     );
+    let gold_earned_reason = if !engine_schema_31 {
+        ENGINE_REPARSE_REASON
+    } else {
+        "total gold earned is unavailable for this hero"
+    };
     let mut lane = Map::new();
     lane.insert(
         "lane".into(),
@@ -698,7 +722,20 @@ fn hero_profile<'a>(
             .count() as f64
     });
     let dead_seconds = dead_seconds(hero.source, t0, end);
-    let engine_damage = number(hero.source.get("hero_damage"));
+    let damage_out = |key: &str| {
+        engine_schema_31
+            .then(|| {
+                number(hero.source.pointer(&format!("/dmg_out/{key}")))
+                    .filter(|value| *value >= 0.0)
+            })
+            .flatten()
+    };
+    let engine_damage = damage_out("total");
+    let damage_reason = if !engine_schema_31 {
+        ENGINE_REPARSE_REASON
+    } else {
+        "attacker-side hero damage is not present in the bundle"
+    };
     let stun = number(hero.source.get("stun_s_dealt"));
     json!({
         "hero": hero.name,
@@ -720,8 +757,20 @@ fn hero_profile<'a>(
         "dead_s_reason": dead_seconds.is_none().then_some("alive samples are missing").map(Value::from),
         "teamfights_present": if fight_data_available { Value::Array(teamfights_present) } else { Value::Null },
         "teamfights_present_reason": (!fight_data_available).then_some(if death_data_available { "death positions are incomplete; teamfight presence is unknown" } else { "death events are missing from the bundle" }).map(Value::from),
+        "gold_earned": gold_earned.map(number_json).unwrap_or(Value::Null),
+        "gold_earned_reason": gold_earned.is_none().then_some(gold_earned_reason).map(Value::from),
+        "gold_earned_source": gold_earned.is_some().then_some("engine"),
         "hero_damage": engine_damage.map(number_json).unwrap_or(Value::Null),
-        "hero_damage_reason": engine_damage.is_none().then_some("attacker-side damage is not present in the bundle").map(Value::from),
+        "hero_damage_reason": engine_damage.is_none().then_some(damage_reason).map(Value::from),
+        "hero_damage_source": engine_damage.is_some().then_some("engine"),
+        "damage_out": {
+            "total": engine_damage.map(number_json).unwrap_or(Value::Null),
+            "p": damage_out("p").map(number_json).unwrap_or(Value::Null),
+            "m": damage_out("m").map(number_json).unwrap_or(Value::Null),
+            "u": damage_out("u").map(number_json).unwrap_or(Value::Null)
+        },
+        "damage_out_reason": engine_damage.is_none().then_some(damage_reason).map(Value::from),
+        "damage_out_source": engine_damage.is_some().then_some("engine"),
         "stun_s_dealt": stun.map(number_json).unwrap_or(Value::Null),
         "stun_s_dealt_reason": stun.is_none().then_some("attacker-side control duration is not present in the bundle").map(Value::from),
         "tower_damage": Value::Null,
@@ -1267,14 +1316,19 @@ fn resolve_match_result(
     match_key: Option<&str>,
     local_history: &[MatchEntry],
     opendota_history: &[MatchEntry],
+    engine_schema_31: bool,
 ) -> Value {
     let own_side = own_hero
         .and_then(|own| heroes.iter().find(|hero| hero.id == own))
         .map(|hero| hero.side);
-    let engine = match_data
-        .pointer("/meta/winner")
-        .and_then(Value::as_str)
-        .filter(|winner| matches!(*winner, "radiant" | "dire"));
+    let engine = engine_schema_31
+        .then(|| {
+            match_data
+                .pointer("/meta/winner")
+                .and_then(Value::as_str)
+                .filter(|winner| matches!(*winner, "radiant" | "dire"))
+        })
+        .flatten();
     let mut candidates = Vec::<(&str, &'static str)>::new();
     if let Some(winner) = engine {
         candidates.push((
@@ -1312,9 +1366,14 @@ fn resolve_match_result(
         .map(|(_, winner)| *winner)
         .collect::<BTreeSet<_>>();
     if distinct.len() > 1 {
+        crate::log_warn!(
+            "analytics",
+            "match_result_conflict",
+            "replay engine and match history results disagree; hiding result"
+        );
         return json!({
             "winner":null,"source":null,"own_side":own_side,"own_result":null,
-            "conflict":true,"reason":"sources_disagree"
+            "conflict":true,"reason":"sources_disagree","warning":"sources_disagree"
         });
     }
     if mismatch {
@@ -1330,9 +1389,17 @@ fn resolve_match_result(
             "conflict":false,"reason":null
         });
     }
+    let reason = if !engine_schema_31 {
+        ENGINE_REPARSE_REASON
+    } else {
+        match_data
+            .pointer("/meta/winner_reason")
+            .and_then(Value::as_str)
+            .unwrap_or("match winner is not present in the bundle")
+    };
     json!({
         "winner":null,"source":null,"own_side":own_side,"own_result":null,
-        "conflict":false,"reason":"not_in_bundle_no_history"
+        "conflict":false,"reason":reason
     })
 }
 
@@ -1356,43 +1423,54 @@ fn history_winner(entry: &MatchEntry, heroes: &[HeroInfo<'_>]) -> Result<Option<
     }))
 }
 
-fn safe_draft(match_data: &Value, heroes: &BTreeMap<String, HeroInfo<'_>>) -> (Value, Value) {
-    let Some(draft) = match_data.pointer("/meta/draft").and_then(Value::as_object) else {
-        return (
-            Value::Null,
-            Value::from("draft is not present in the bundle"),
-        );
-    };
-    let mut output = Map::new();
-    for key in ["picks", "bans", "order"] {
-        if let Some(values) = draft.get(key).and_then(Value::as_array) {
-            let safe = values
-                .iter()
-                .map(|value| {
-                    hero_id(Some(value))
-                        .filter(|id| heroes.contains_key(id))
-                        .map(Value::String)
-                })
-                .collect::<Option<Vec<_>>>();
-            if let Some(safe) = safe {
-                output.insert(key.into(), Value::Array(safe));
-                output.insert(format!("{key}_reason"), Value::Null);
-            } else {
-                output.insert(key.into(), Value::Null);
-                output.insert(
-                    format!("{key}_reason"),
-                    Value::from("draft contains a hero outside the replay roster"),
-                );
-            }
-        } else {
-            output.insert(key.into(), Value::Null);
-            output.insert(
-                format!("{key}_reason"),
-                Value::from("draft field is not in the bundle"),
-            );
-        }
+fn safe_draft(match_data: &Value, engine_schema_31: bool) -> (Value, Value) {
+    if !engine_schema_31 {
+        return (Value::Null, Value::from(ENGINE_REPARSE_REASON));
     }
-    (Value::Object(output), Value::Null)
+    let meta = match_data.get("meta").unwrap_or(&Value::Null);
+    let Some(entries) = meta.get("draft").and_then(Value::as_array) else {
+        let reason = meta
+            .get("draft_reason")
+            .and_then(Value::as_str)
+            .unwrap_or("draft is not present in the bundle");
+        return (Value::Null, Value::from(reason));
+    };
+    let mut output = Vec::with_capacity(entries.len());
+    for entry in entries {
+        let Some(order) = entry.get("order").and_then(Value::as_u64) else {
+            return (Value::Null, Value::from("draft order is invalid"));
+        };
+        let Some(team) = entry
+            .get("team")
+            .and_then(Value::as_str)
+            .filter(|team| matches!(*team, "radiant" | "dire"))
+        else {
+            return (Value::Null, Value::from("draft team is invalid"));
+        };
+        let Some(kind) = entry
+            .get("kind")
+            .and_then(Value::as_str)
+            .filter(|kind| matches!(*kind, "pick" | "ban"))
+        else {
+            return (Value::Null, Value::from("draft action is invalid"));
+        };
+        let hero = match entry.get("hero") {
+            Some(Value::Null) => Value::Null,
+            Some(value) => match hero_id(Some(value)) {
+                Some(id) => Value::String(id),
+                None => return (Value::Null, Value::from("draft hero is invalid")),
+            },
+            None => return (Value::Null, Value::from("draft hero is missing")),
+        };
+        output.push(json!({"order":order,"team":team,"kind":kind,"hero":hero}));
+    }
+    output.sort_by_key(|entry| {
+        entry
+            .get("order")
+            .and_then(Value::as_u64)
+            .unwrap_or(u64::MAX)
+    });
+    (Value::Array(output), Value::Null)
 }
 
 fn viewer_json(viewer_id: Option<&str>, gsi: Option<&MatchEntry>) -> Value {
@@ -1651,6 +1729,7 @@ mod tests {
 
     fn fixture() -> (Value, Value, Value) {
         let manifest = json!({
+            "schema":"3.1",
             "files": {
                 "match.json":{"sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
                 "world.json":{"sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}
@@ -1658,7 +1737,7 @@ mod tests {
             "path":"F:/synthetic/private/replay"
         });
         let match_data = json!({
-            "t0":0,"t1":2,"meta":{"duration_s":2,"patch":"synthetic","game_mode":2},
+            "t0":0,"t1":2,"meta":{"schema":"3.1","duration_s":2,"patch":"synthetic","game_mode":2,"winner":null,"winner_reason":"winner not in replay","draft":null,"draft_reason":"draft not recorded"},
             "heroes":[{"id":"npc_dota_hero_axe","name":"Axe","team":2,"pid":0,"player_name":"private-name","account_id":123456}],
             "deaths":[]
         });
@@ -1676,6 +1755,30 @@ mod tests {
         .unwrap()
     }
 
+    fn schema_31_fixture() -> (Value, Value, Value) {
+        let (mut manifest, mut match_data, world) = fixture();
+        match_data["t1"] = json!(720);
+        match_data["meta"]["duration_s"] = json!(720);
+        match_data["meta"]["winner"] = json!("radiant");
+        match_data["meta"]
+            .as_object_mut()
+            .unwrap()
+            .remove("winner_reason");
+        match_data["meta"]["draft"] = json!([
+            {"order":0,"team":"radiant","kind":"pick","hero":"npc_dota_hero_axe"},
+            {"order":1,"team":"dire","kind":"ban","hero":"npc_dota_hero_tiny"}
+        ]);
+        match_data["meta"]
+            .as_object_mut()
+            .unwrap()
+            .remove("draft_reason");
+        match_data["heroes"][0]["gold_earned"] = json!([100, 1000, 1200]);
+        match_data["heroes"][0]["gold_earned_final"] = json!(1200);
+        match_data["heroes"][0]["dmg_out"] = json!({"total":5000,"p":2500,"m":2000,"u":500});
+        manifest["schema"] = json!("3.1");
+        (manifest, match_data, world)
+    }
+
     #[test]
     fn unavailable_engine_fields_are_null_with_reasons() {
         let manifest = json!({});
@@ -1688,10 +1791,7 @@ mod tests {
         })
         .unwrap();
         assert!(digest["meta"]["result"]["winner"].is_null());
-        assert_eq!(
-            digest["meta"]["result"]["reason"],
-            "not_in_bundle_no_history"
-        );
+        assert_eq!(digest["meta"]["result"]["reason"], ENGINE_REPARSE_REASON);
         assert!(digest["meta"]["draft"].is_null());
         assert!(digest["meta"]["draft_reason"].as_str().is_some());
     }
@@ -1766,6 +1866,10 @@ mod tests {
         let engine_win = {
             let mut data = match_data.clone();
             data["meta"]["winner"] = json!("radiant");
+            data["meta"]
+                .as_object_mut()
+                .unwrap()
+                .remove("winner_reason");
             build_with_sources(
                 &KnowledgeInput {
                     manifest: &manifest,
@@ -1788,12 +1892,24 @@ mod tests {
         assert_eq!(open["meta"]["result"]["source"], "opendota_history");
         assert_eq!(open["meta"]["result"]["winner"], "radiant");
         let abandoned = history_entry("key", None, "kohbor", own.unwrap());
-        let unknown = build_with_sources(&input, Some("key"), &[abandoned], &[], &[], own).unwrap();
+        let mut no_engine_winner = match_data.clone();
+        no_engine_winner["meta"]["winner"] = Value::Null;
+        no_engine_winner["meta"]["winner_reason"] = json!("winner not in replay");
+        let unknown = build_with_sources(
+            &KnowledgeInput {
+                manifest: &manifest,
+                match_data: &no_engine_winner,
+                world: &world,
+            },
+            Some("key"),
+            &[abandoned],
+            &[],
+            &[],
+            own,
+        )
+        .unwrap();
         assert!(unknown["meta"]["result"]["winner"].is_null());
-        assert_eq!(
-            unknown["meta"]["result"]["reason"],
-            "not_in_bundle_no_history"
-        );
+        assert_eq!(unknown["meta"]["result"]["reason"], "winner not in replay");
         let no_key = build_with_sources(&input, None, &[gsi_win], &[], &[], own).unwrap();
         assert!(no_key["meta"]["result"]["winner"].is_null());
     }
@@ -1802,6 +1918,10 @@ mod tests {
     fn match_result_conflicts_and_hero_mismatch_return_unknown_without_identifiers() {
         let (manifest, mut match_data, world) = fixture();
         match_data["meta"]["winner"] = json!("radiant");
+        match_data["meta"]
+            .as_object_mut()
+            .unwrap()
+            .remove("winner_reason");
         let input = KnowledgeInput {
             manifest: &manifest,
             match_data: &match_data,
@@ -1840,8 +1960,16 @@ mod tests {
         let (manifest, match_data, world) = fixture();
         let mut radiant = match_data.clone();
         radiant["meta"]["winner"] = json!("radiant");
+        radiant["meta"]
+            .as_object_mut()
+            .unwrap()
+            .remove("winner_reason");
         let mut dire = match_data.clone();
         dire["meta"]["winner"] = json!("dire");
+        dire["meta"]
+            .as_object_mut()
+            .unwrap()
+            .remove("winner_reason");
         let a = build(&KnowledgeInput {
             manifest: &manifest,
             match_data: &radiant,
@@ -1857,7 +1985,7 @@ mod tests {
         assert_eq!(a["lanes"], b["lanes"]);
         let result_null = {
             let mut data = match_data.clone();
-            data["meta"].as_object_mut().unwrap().remove("winner");
+            data["meta"]["winner"] = Value::Null;
             build(&KnowledgeInput {
                 manifest: &manifest,
                 match_data: &data,
@@ -1926,7 +2054,122 @@ mod tests {
         let hash = format!("{:x}", Sha256::digest(&bytes));
         assert_eq!(
             hash,
-            "b7412ddfb9761d21f09a2e2fcfaac5cf18480d2431f54ab83b7cc1a0e7c40ffd"
+            "2daa5d865715936dccd6c453f585f88c2f47abd3a76b064fd1a87d05de3ef987"
+        );
+    }
+
+    #[test]
+    fn schema_31_digest_uses_engine_winner_draft_gold_earned_and_damage() {
+        let (manifest, match_data, world) = schema_31_fixture();
+        let digest = build(&KnowledgeInput {
+            manifest: &manifest,
+            match_data: &match_data,
+            world: &world,
+        })
+        .unwrap();
+        assert_eq!(digest["knowledge_version"], 3);
+        assert_eq!(digest["meta"]["result"]["winner"], "radiant");
+        assert_eq!(digest["meta"]["result"]["source"], "engine");
+        assert_eq!(digest["meta"]["draft"], match_data["meta"]["draft"]);
+        assert_eq!(digest["meta"]["draft_source"], "engine");
+        assert_eq!(digest["heroes"][0]["gold_earned"], 1200);
+        assert_eq!(digest["heroes"][0]["gold_earned_source"], "engine");
+        assert_eq!(digest["heroes"][0]["rates"]["gpm"], 100);
+        assert_eq!(digest["heroes"][0]["rates"]["gpm_source"], "engine");
+        assert_eq!(digest["heroes"][0]["hero_damage"], 5000);
+        assert_eq!(digest["heroes"][0]["hero_damage_source"], "engine");
+        assert_eq!(
+            digest["heroes"][0]["damage_out"],
+            json!({"total":5000,"p":2500,"m":2000,"u":500})
+        );
+        assert_eq!(
+            format!("{:x}", Sha256::digest(canonical_bytes(&digest).unwrap())),
+            "89d086f3296a27c3048f1d3adb9397616fe7eee7d8791b0af30e42a8132a5ad6"
+        );
+    }
+
+    #[test]
+    fn schema_30_digest_keeps_new_engine_fields_unknown_with_reparse_reasons() {
+        let (mut manifest, mut match_data, world) = fixture();
+        manifest["schema"] = json!("3.0");
+        match_data["meta"]["schema"] = json!("3.0");
+        for key in ["winner", "winner_reason", "draft", "draft_reason"] {
+            match_data["meta"].as_object_mut().unwrap().remove(key);
+        }
+        let digest = build(&KnowledgeInput {
+            manifest: &manifest,
+            match_data: &match_data,
+            world: &world,
+        })
+        .unwrap();
+        let reparse = "re-parse with engine 0.3.0 to get this";
+        assert!(digest["meta"]["result"]["winner"].is_null());
+        assert_eq!(digest["meta"]["result"]["reason"], reparse);
+        assert!(digest["meta"]["draft"].is_null());
+        assert_eq!(digest["meta"]["draft_reason"], reparse);
+        assert!(digest["heroes"][0]["rates"]["gpm"].is_null());
+        assert_eq!(digest["heroes"][0]["rates"]["gpm_reason"], reparse);
+        assert!(digest["heroes"][0]["gold_earned"].is_null());
+        assert_eq!(digest["heroes"][0]["gold_earned_reason"], reparse);
+        assert!(digest["heroes"][0]["hero_damage"].is_null());
+        assert_eq!(digest["heroes"][0]["hero_damage_reason"], reparse);
+        assert_eq!(digest["heroes"][0]["damage_out_reason"], reparse);
+        assert_eq!(
+            format!("{:x}", Sha256::digest(canonical_bytes(&digest).unwrap())),
+            "dfac51bc4655c6aa5be993b31b41b47437f8222f78d8be053b370a8faec2d320"
+        );
+    }
+
+    #[test]
+    fn l0_engine_result_conflict_null_and_schema_30_fallback_are_explicit() {
+        let (manifest, mut match_data, world) = schema_31_fixture();
+        let own = Some("npc_dota_hero_axe");
+        let gsi_win = history_entry("key", Some(MatchResult::Win), "kohbor", own.unwrap());
+        let gsi_loss = history_entry("key", Some(MatchResult::Loss), "kohbor", own.unwrap());
+        let build_for = |data: &Value, match_key: Option<&str>, history: &[MatchEntry]| {
+            build_with_sources(
+                &KnowledgeInput {
+                    manifest: &manifest,
+                    match_data: data,
+                    world: &world,
+                },
+                match_key,
+                history,
+                &[],
+                &[],
+                own,
+            )
+            .unwrap()
+        };
+        let agrees = build_for(&match_data, Some("key"), &[gsi_win.clone()]);
+        assert_eq!(agrees["meta"]["result"]["winner"], "radiant");
+        assert_eq!(agrees["meta"]["result"]["source"], "engine");
+
+        let conflict = build_for(&match_data, Some("key"), &[gsi_loss]);
+        assert!(conflict["meta"]["result"]["winner"].is_null());
+        assert_eq!(conflict["meta"]["result"]["conflict"], true);
+        assert_eq!(conflict["meta"]["result"]["warning"], "sources_disagree");
+
+        match_data["meta"]["winner"] = Value::Null;
+        match_data["meta"]["winner_reason"] = json!("not in replay");
+        let engine_null = build_for(&match_data, Some("key"), &[gsi_win]);
+        assert_eq!(engine_null["meta"]["result"]["winner"], "radiant");
+        assert_eq!(engine_null["meta"]["result"]["source"], "gsi_history");
+
+        let mut old_manifest = manifest;
+        old_manifest["schema"] = json!("3.0");
+        match_data["meta"]["schema"] = json!("3.0");
+        match_data["meta"]["winner"] = json!("dire");
+        let old_input = KnowledgeInput {
+            manifest: &old_manifest,
+            match_data: &match_data,
+            world: &world,
+        };
+        let old = build_with_sources(&old_input, None, &[], &[], &[], own).unwrap();
+        assert!(old["meta"]["result"]["winner"].is_null());
+        assert_eq!(
+            old["meta"]["result"]["reason"],
+            "re-parse with engine 0.3.0 to get this"
         );
     }
 

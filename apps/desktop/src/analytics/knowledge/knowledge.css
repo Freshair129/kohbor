@@ -52,3 +52,11 @@
 .a2k-report article pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 .a2k-empty { padding: 1rem; color: #a4b0bc; border: 1px dashed #435363; border-radius: 0.5rem; }
 @media (max-width: 780px) { .a2k-lanes { grid-template-columns: 1fr; } .a2k-matchups__lane { grid-template-columns: 5rem 1fr; } }
+.a2k-result-warning { margin: 4px 0; padding: 5px 8px; border-left: 3px solid var(--warning); color: var(--warning); background: color-mix(in srgb,var(--warning) 10%,transparent); }
+.a2k-draft ol { display: grid; grid-template-columns: repeat(auto-fit,minmax(190px,1fr)); gap: 3px 10px; margin: 0; padding-left: 24px; }
+.a2k-draft li { min-width: 0; overflow-wrap: anywhere; color: var(--text-2); }
+.a2k-engine-hero-stats { display: grid; gap: 3px; }
+.a2k-engine-hero-stats__head,.a2k-engine-hero-stats__row { display: grid; grid-template-columns: minmax(0,1fr) 72px 72px; gap: 8px; align-items: baseline; }
+.a2k-engine-hero-stats__head { color: var(--text-2); font-size: 11px; }
+.a2k-engine-hero-stats__row { font-variant-numeric: tabular-nums; }
+.a2k-engine-hero-stats__row > :not(:first-child),.a2k-engine-hero-stats__head > :not(:first-child) { text-align: right; }
