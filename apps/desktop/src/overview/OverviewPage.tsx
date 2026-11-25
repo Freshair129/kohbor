@@ -1,13 +1,15 @@
 // Overview page, variant D (owner decision 2026-11-23): own stats in the main column, Kohbor
 // news in the side column. No readiness or GSI content here (OVERVIEW-001).
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import localHeroStats from "../assets/dota/6989/stats.json";
 import { dotaIcon } from "../live/dotaIconSet";
 import { overviewCopy, type OverviewLocale } from "./overviewCopy";
 import { overviewClient, type OverviewClient } from "./overviewClient";
 import {
-  bestHeroPanel, countingNotes, EMPTY_HISTORY, formatDate, formatDateTime, localMonthStart, matchRows, NEWS_FILTERS,
-  newsColumn, openDotaStatusText, parseMatchHistory, parseNewsView, parseOpenDotaView, pick, placeholderRowCount, statTiles,
-  type BestHero, type MatchHistory, type NewsFilter, type NewsPost, type NewsView, type OpenDotaView, type TileView,
+  aggregateNemesis, bestHeroPanel, buildLocalHeroStyleTags, countingNotes, EMPTY_HISTORY, formatDate, formatDateTime,
+  heroName as displayHeroName, localMonthStart, matchRows, NEWS_FILTERS, newsColumn, openDotaStatusText, parseMatchHistory, parseNemesisReply,
+  parseNewsView, parseOpenDotaView, pick, placeholderRowCount, statTiles, todayBestHero,
+  type BestHero, type MatchHistory, type NemesisMatch, type NemesisSummary, type NewsFilter, type NewsPost, type NewsView, type OpenDotaView, type TileView,
 } from "./overviewModel";
 import "./overview.css";
 
@@ -93,6 +95,98 @@ function BestHeroes({ title, heroes, minGames, locale }: { title: string; heroes
         ))}
       </div>
     </section>
+  );
+}
+
+function BestHeroToday({ history, locale }: { history: MatchHistory; locale: OverviewLocale }) {
+  const t = overviewCopy(locale).stats;
+  const today = todayBestHero(history.entries, new Date(), history.best.minGames);
+  const card = today.hero ? bestHeroPanel([today.hero], history.best.minGames, locale)[0] : null;
+  const reason = today.reason === "no_matches_today" ? t.noMatchesToday
+    : today.reason === "no_hero_today" ? t.noHeroToday : null;
+  return (
+    <section className="card ov-best ov-best-today" aria-label={t.bestToday}>
+      <div className="ov-sec-title"><h3>{t.bestToday}</h3></div>
+      <div className="ov-basis ov-today-rule">{t.bestTodayRule(history.best.minGames)}</div>
+      {card ? (
+        <div className="ov-today-card">
+          <HeroIcon hero={card.hero} className="ov-today-img" />
+          <div className="ov-today-body">
+            <strong title={card.name}>{card.name}</strong>
+            <span>{card.games} · {t.winRateShort}: {card.rate}</span>
+            <span>{t.columns.result}: {card.record}</span>
+            <span>{card.basisTitle}</span>
+          </div>
+        </div>
+      ) : <div className="ov-today-empty"><strong>—</strong><span>{reason}</span></div>}
+    </section>
+  );
+}
+
+const localHeroStyleTags = buildLocalHeroStyleTags((localHeroStats as { heroes: unknown }).heroes);
+
+function NemesisPanel({ state, locale }: { state: Loaded<{ matches: NemesisMatch[] }>; locale: OverviewLocale }) {
+  const t = overviewCopy(locale).stats;
+  const summary: NemesisSummary | null = state.status === "ready"
+    ? aggregateNemesis(state.value, localHeroStyleTags) : null;
+  return (
+    <section className="card ov-nemesis" aria-label={t.nemesisTitle}>
+      <div className="ov-sec-title"><h3>{t.nemesisTitle}</h3></div>
+      {state.status === "loading" && <p className="ov-note" role="status">{t.nemesisLoading}</p>}
+      {state.status === "unavailable" && <p className="ov-note" role="status">{t.nemesisUnavailable}</p>}
+      {summary && summary.totalSamples === 0 && <p className="ov-note">{t.nemesisNoSamples}</p>}
+      {summary && summary.totalSamples > 0 && (
+        <>
+          {summary.rows.length > 0 ? <ul className="ov-nemesis-list">
+            {summary.rows.map((row) => (
+              <li key={row.hero}>
+                <HeroIcon hero={row.hero} className="ov-nemesis-img" />
+                <span className="ov-nemesis-name">{displayHeroName(row.hero, locale)}</span>
+                <span className="ov-nemesis-count">{t.nemesisCounts(row.lost, row.faced, row.sampleSize)}</span>
+              </li>
+            ))}
+          </ul> : <p className="ov-note">{t.nemesisNoLosses}</p>}
+          {summary.styles.length > 0 && <div className="ov-nemesis-styles">
+            {summary.styles.map((style) => <p key={style.tag}>
+              <span>{t.nemesisStylesLabel(style.samples)}</span>
+              <strong>{t.nemesisStyleName(style.tag)} · {style.losses}/{style.samples}</strong>
+            </p>)}
+          </div>}
+          {summary.lowData && <p className="ov-note ov-nemesis-low">{t.nemesisLowData(summary.minLanes)}</p>}
+        </>
+      )}
+    </section>
+  );
+}
+
+function HistoryTable({ rows, fillers, locale }: { rows: ReturnType<typeof matchRows>; fillers: number; locale: OverviewLocale }) {
+  const t = overviewCopy(locale).stats;
+  return (
+    <table className="ov-mt">
+      <thead><tr>
+        <th scope="col">{t.columns.hero}</th><th scope="col">{t.columns.result}</th><th scope="col">{t.columns.kda}</th>
+        <th scope="col">{t.columns.duration}</th><th scope="col" className="opt">{t.columns.date}</th><th scope="col">{t.columns.source}</th>
+      </tr></thead>
+      <tbody>
+        {rows.map((row) => (
+          <tr key={row.key} title={row.typeTitle ?? undefined}>
+            <td className="h"><HeroIcon hero={row.hero} className="ov-mt-img" /><span>{row.heroName}</span></td>
+            <td><span className={`ov-res ${row.resultTone}`} title={row.resultTitle}>{row.result}</span></td>
+            <td className="num">{row.kda}</td>
+            <td className="num">{row.duration}</td>
+            <td className="opt muted">{row.date}</td>
+            <td><span className="ov-src" title={t.sourceTitle}>{row.source}</span></td>
+          </tr>
+        ))}
+        {Array.from({ length: fillers }, (_, i) => (
+          <tr key={`empty-${i}`} className="ov-row-empty" aria-hidden="true">
+            <td className="h"><span className="ov-mt-img ov-hero-ph" /><span>—</span></td>
+            <td><span className="ov-res unknown">—</span></td>
+            <td className="num">— / — / —</td><td className="num">—</td><td className="opt muted">—</td><td>—</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
@@ -220,6 +314,8 @@ function StatsColumn({ locale, client }: { locale: OverviewLocale; client: Overv
   const t = overviewCopy(locale).stats;
   const [history, setHistory] = useState<Loaded<MatchHistory>>({ status: "loading" });
   const [showAll, setShowAll] = useState(false);
+  const historyDialog = useRef<HTMLDialogElement>(null);
+  const [nemesis, setNemesis] = useState<Loaded<{ matches: NemesisMatch[] }>>({ status: "loading" });
   const [confirmClear, setConfirmClear] = useState(false);
   const [clearFailed, setClearFailed] = useState(false);
   const [cacheRevision, setCacheRevision] = useState(0);
@@ -233,11 +329,33 @@ function StatsColumn({ locale, client }: { locale: OverviewLocale; client: Overv
       .catch(() => setHistory({ status: "unavailable" }));
   }, [client]);
 
+  const loadNemesis = useCallback(() => {
+    client.nemesisData()
+      .then((raw) => {
+        const parsed = parseNemesisReply(raw);
+        setNemesis(parsed ? { status: "ready", value: parsed } : { status: "unavailable" });
+      })
+      .catch(() => setNemesis({ status: "unavailable" }));
+  }, [client]);
+
   useEffect(() => {
     load();
     const timer = window.setInterval(load, HISTORY_REFRESH_MS);
     return () => window.clearInterval(timer);
   }, [load]);
+
+  useEffect(() => {
+    loadNemesis();
+    const timer = window.setInterval(loadNemesis, HISTORY_REFRESH_MS);
+    return () => window.clearInterval(timer);
+  }, [loadNemesis]);
+
+  useEffect(() => {
+    const dialog = historyDialog.current;
+    if (!dialog) return;
+    if (showAll && !dialog.open) dialog.showModal();
+    else if (!showAll && dialog.open) dialog.close();
+  }, [showAll]);
 
   const historyChanged = useCallback(() => load(), [load]);
 
@@ -254,7 +372,8 @@ function StatsColumn({ locale, client }: { locale: OverviewLocale; client: Overv
   const note = history.status === "loading" ? t.loading : history.status === "unavailable" ? t.unavailable
     : h.entries.length === 0 ? t.noMatches : null;
   const tiles = statTiles(h, locale);
-  const rows = matchRows(h, locale, showAll ? null : RECENT_ROWS);
+  const rows = matchRows(h, locale, RECENT_ROWS);
+  const allRows = matchRows(h, locale, null);
   const fillers = placeholderRowCount(rows.length);
 
   return (
@@ -293,43 +412,22 @@ function StatsColumn({ locale, client }: { locale: OverviewLocale; client: Overv
       <div className="ov-best-row">
         <BestHeroes title={t.bestAllTime} heroes={h.best.allTime} minGames={h.best.minGames} locale={locale} />
         <BestHeroes title={t.bestMonth} heroes={h.best.thisMonth} minGames={h.best.minGames} locale={locale} />
+        <BestHeroToday history={h} locale={locale} />
       </div>
+
+      <NemesisPanel state={nemesis} locale={locale} />
 
       <section className="card">
         <div className="ov-sec-title">
           <h3>{t.recent}</h3>
           {h.entries.length > RECENT_ROWS && (
-            <button type="button" className="quiet" onClick={() => setShowAll((v) => !v)} aria-expanded={showAll}>
-              {showAll ? t.showLess : t.showAll(h.entries.length)}
+            <button type="button" className="quiet" onClick={() => setShowAll(true)} aria-expanded={showAll} aria-haspopup="dialog">
+              {t.showAll(h.entries.length)}
             </button>
           )}
         </div>
-        <div className="ov-table-wrap">
-          <table className="ov-mt">
-            <thead><tr>
-              <th scope="col">{t.columns.hero}</th><th scope="col">{t.columns.result}</th><th scope="col">{t.columns.kda}</th>
-              <th scope="col">{t.columns.duration}</th><th scope="col" className="opt">{t.columns.date}</th><th scope="col">{t.columns.source}</th>
-            </tr></thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.key} title={row.typeTitle ?? undefined}>
-                  <td className="h"><HeroIcon hero={row.hero} className="ov-mt-img" /><span>{row.heroName}</span></td>
-                  <td><span className={`ov-res ${row.resultTone}`} title={row.resultTitle}>{row.result}</span></td>
-                  <td className="num">{row.kda}</td>
-                  <td className="num">{row.duration}</td>
-                  <td className="opt muted">{row.date}</td>
-                  <td><span className="ov-src" title={t.sourceTitle}>{row.source}</span></td>
-                </tr>
-              ))}
-              {Array.from({ length: fillers }, (_, i) => (
-                <tr key={`empty-${i}`} className="ov-row-empty" aria-hidden="true">
-                  <td className="h"><span className="ov-mt-img ov-hero-ph" /><span>—</span></td>
-                  <td><span className="ov-res unknown">—</span></td>
-                  <td className="num">— / — / —</td><td className="num">—</td><td className="opt muted">—</td><td>—</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="ov-table-wrap" role="region" aria-label={t.recent} tabIndex={0}>
+          <HistoryTable rows={rows} fillers={fillers} locale={locale} />
         </div>
         {h.entries.length > 0 && (
           <div className="ov-clear">
@@ -344,6 +442,16 @@ function StatsColumn({ locale, client }: { locale: OverviewLocale; client: Overv
           </div>
         )}
       </section>
+
+      <dialog ref={historyDialog} className="ov-history-dialog" aria-label={t.fullHistory} onClose={() => setShowAll(false)}>
+        <div className="ov-dialog-head">
+          <h3>{t.fullHistory}</h3>
+          <button type="button" className="quiet" onClick={() => setShowAll(false)}>{t.closeHistory}</button>
+        </div>
+        <div className="ov-table-wrap ov-history-dialog-table" role="region" aria-label={t.fullHistory} tabIndex={0}>
+          <HistoryTable rows={allRows} fillers={0} locale={locale} />
+        </div>
+      </dialog>
     </div>
   );
 }

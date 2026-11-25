@@ -71,7 +71,7 @@ test("roomy centred cards use replay-sized icons and separated header rows above
   const cardCss = readFileSync(new URL("../src/live/heroCard.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
   const cardSource = readFileSync(new URL("../src/live/HeroCard.tsx", import.meta.url), "utf8");
   const roomy = cardCss.match(/\.lhc-field-card\.is-roomy-field\s*\{([^}]+)\}/)?.[1] ?? "";
-  assert.match(roomy, /grid-template-rows:\s*28px\s+14px\s+16px\s+30px\s+30px\s+minmax\(36px,\s*1fr\)/);
+  assert.match(roomy, /grid-template-rows:\s*28px\s+14px\s+25px\s+30px\s+30px\s+minmax\(36px,\s*1fr\)/);
   assert.match(cardCss, /\.lhc-field-card\.is-roomy-field \.lhc-ic\.is-ab\s*\{[^}]*width:\s*28px;\s*height:\s*28px/);
   assert.match(cardCss, /\.lhc-field-card\.is-roomy-field \.lhc-ic\.is-it\s*\{[^}]*width:\s*28px;\s*height:\s*20px/);
   assert.match(cardCss, /\.lhc-field-card\.is-roomy-field \.lhc-stats\s*\{[^}]*repeat\(5,\s*minmax\(0,\s*1fr\)\)[^}]*repeat\(3,\s*minmax\(12px,\s*1fr\)\)/);
@@ -110,13 +110,13 @@ test("centred own card keeps icons and all stat rows inside both target card siz
     && cardSource.includes('className="lhc-stat-stack"'),
     "abilities, items, and stat rows are rendered in the shared own-card section");
   assert.match(ownRow28, /grid-template-areas:\s*"pt nm top"\s+"bars bars bars"\s+"ab ab it"\s+"st st st"/);
-  assert.match(ownRow28, /grid-template-rows:\s*24px\s+14px\s+28px\s+minmax\(36px,/);
+  assert.match(ownRow28, /grid-template-rows:\s*24px\s+24px\s+28px\s+minmax\(36px,/);
   assert.match(cardCss, /\.lhc-field-card\.lhc-field-own\.is-own-one-row-28 \.lhc-ic\.is-ab\s*\{[^}]*height:\s*28px/);
   assert.match(cardCss, /\.lhc-field-card\.lhc-field-own\.is-own-one-row-28 \.lhc-ic\.is-it\s*\{[^}]*height:\s*20px/);
-  assert.match(ownRow22, /grid-template-rows:\s*18px\s+14px\s+22px\s+22px\s+minmax\(36px,/);
+  assert.match(ownRow22, /grid-template-rows:\s*16px\s+24px\s+18px\s+18px\s+minmax\(36px,/);
   assert.match(ownRow22, /grid-template-areas:\s*"pt nm top"\s+"bars bars bars"\s+"ab ab ab"\s+"it it it"\s+"st st st"/,
     "the minimum viewport keeps separate ability, item, and stat tracks inside the own card");
-  assert.match(cardCss, /\.lhc-field-card\.lhc-field-own\.is-own-two-row-22 \.lhc-ic\.is-ab\s*\{[^}]*height:\s*22px/);
+  assert.match(cardCss, /\.lhc-field-card\.lhc-field-own\.is-own-two-row-22 \.lhc-ic\.is-ab\s*\{[^}]*height:\s*16px/);
   assert.match(cardCss, /\.lhc-field-card\.lhc-field-own\.is-own-two-row-22 \.lhc-ic\.is-it\s*\{[^}]*height:\s*16px/);
   assert.match(ownStatsRule, /grid-template-columns:\s*repeat\(5,/);
   assert.match(ownStatsRule, /grid-template-rows:\s*repeat\(3,\s*minmax\(12px,/);
