@@ -688,8 +688,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/post_game_replay.rs",
-      "bytes": 10315,
-      "sha256": "1015855aaf7f33fb50fd3c481ebd0d2ce380f44de90d1f73472a4565776779e0"
+      "bytes": 10347,
+      "sha256": "1468cf262667ee6693c4151db85934eb2bc505d41174f22e2b22029879c4c415"
     },
     {
       "path": "apps/desktop/src-tauri/src/replay_library/engine.rs",
@@ -698,8 +698,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/replay_library/mod.rs",
-      "bytes": 90751,
-      "sha256": "854bd7ed393660d10bd62d19c2979f3624f98dfb2b45949824825f7ee1d8c634"
+      "bytes": 90762,
+      "sha256": "39172e8c3e33bc89aa41f93bcf0d802676e3dce86ddb47b301106c1e7bbe4bb7"
     },
     {
       "path": "apps/desktop/src-tauri/src/secrets.rs",

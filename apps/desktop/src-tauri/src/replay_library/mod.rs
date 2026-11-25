@@ -80,7 +80,7 @@ pub struct ReplayLibraryEntry {
     #[serde(default)]
     pub pinned: bool,
     #[serde(default)]
-    auto_queued: bool,
+    pub(crate) auto_queued: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

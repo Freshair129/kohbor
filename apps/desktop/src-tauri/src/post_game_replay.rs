@@ -203,6 +203,7 @@ mod tests {
             duration_s: None,
             patch: None,
             pinned: false,
+            auto_queued: false,
         }
     }
 
