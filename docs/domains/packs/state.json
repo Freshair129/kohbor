@@ -2,9 +2,9 @@
   "schema_version": "1.0.0",
   "domain": "packs",
   "tier": "A",
-  "verified_at_commit": "c010825",
-  "verified_on": "2026-11-24",
-  "verified_by": "Codex worker; reviewed listed source changes, not human or owner approval",
+  "verified_at_commit": "a8b636b",
+  "verified_on": "2026-11-25",
+  "verified_by": "Codex; reviewed source references, not human or owner approval",
   "write_areas": [
     "crates/kohbor-pack",
     "crates/kohbor-pack-author",
@@ -31,7 +31,10 @@
     "DEC-PREMIUM",
     "DEC-COMMERCE-INTENT",
     "DEC-BANNER-LAB-STYLE",
-    "DEC-VOICE-VARIANTS"
+    "DEC-VOICE-VARIANTS",
+    "DEC-MULTI-PACK",
+    "DEC-REPLAY-INTEGRATION",
+    "DEC-POSITIONING-20261125"
   ],
   "task_id_prefixes": [
     "S2-",
@@ -42,7 +45,7 @@
       "path": "docs/design/MEDIA-PACK-SPEC.md",
       "type": "spec",
       "role": "governing",
-      "reviewed_sha256": "7c92ab543cdaacf56d21e4252bae6435ac9730ba306636ead13718e024acad2d"
+      "reviewed_sha256": "0597df67486ecc9359f665b650bcf92a89118b06a184431fb6cc1324b32dd95c"
     },
     {
       "path": "docs/design/PACKAGE-FORMAT-REVIEW.md",
@@ -60,19 +63,19 @@
       "path": "docs/delivery/SPRINT-ROADMAP.md",
       "type": "registry",
       "role": "reference",
-      "reviewed_sha256": "e4115708cac6bdebca4dc64a2006e0b464b423048ee4f7a717ffe9767fabf4ed"
+      "reviewed_sha256": "03b6f98d158ef78515ac4a22b526a1408b5ca3df86d4b79ce93e98c0514d6f37"
     },
     {
       "path": "contracts/decisions.json",
       "type": "registry",
       "role": "reference",
-      "reviewed_sha256": "4637c4917074e62cc2bf035873e4121b365de8e2588dc490746860eedf4f4962"
+      "reviewed_sha256": "aeaf66e6a38931cdb4ad8ab0d50ac24f482ee3ff8eb2616e2fd4d1e89aa8db56"
     },
     {
       "path": "contracts/requirements.json",
       "type": "registry",
       "role": "reference",
-      "reviewed_sha256": "c44a3da8f30f7fa2b8f7a3eca74ac2d75ed784b75d72f9e09d04f9fd48ed4870"
+      "reviewed_sha256": "fe07f9c0ee3080793a87da68e65e41a19a0fcf721c1e6ea26f90e0d1f9f71f2e"
     },
     {
       "path": "contracts/media-manifest.schema.json",
@@ -118,7 +121,25 @@
       "path": "docs/governance/DECISION-LOG.md",
       "type": "process",
       "role": "reference",
-      "reviewed_sha256": "d3e56af406978392c9dd4b5cd6865275332b672044237d1bdb35e162d86e1b80"
+      "reviewed_sha256": "1787d269b5e147341ef84723d8bce477055816113a42d302ada7b9fed58e431a"
+    },
+    {
+      "path": "contracts/loadout.schema.json",
+      "type": "schema",
+      "role": "source-of-truth",
+      "reviewed_sha256": "c300aeec775757440cb36bee8bcd2c485af88e3a2a4907e19a523962d0ffe769"
+    },
+    {
+      "path": "crates/kohbor-pack/src/catalog.rs",
+      "type": "code",
+      "role": "source-of-truth",
+      "reviewed_sha256": "6691c62892127e6aadcc39d8ef053a812b5c08acca89c527e46bf1fbde0c87f3"
+    },
+    {
+      "path": "crates/kohbor-pack/src/store.rs",
+      "type": "code",
+      "role": "source-of-truth",
+      "reviewed_sha256": "484da0d295b7a22033c1626648ad90dbbe15fe8e09e47d24e883f273b37935a4"
     }
   ],
   "open_questions": [
@@ -134,9 +155,9 @@
     }
   ],
   "last_handoff": {
-    "task_id": "refresh-domain-cards",
-    "on": "2026-11-24",
-    "summary": "Reviewed listed governing-source changes and refreshed card pointers and hashes; no charter, requirement, or structured decision source was edited."
+    "task_id": "domain-cards-refresh-2",
+    "on": "2026-11-25",
+    "summary": "Refreshed domain maps from current source documents and assigned existing requirements and crates; source and requirement records were not edited."
   },
   "crates": [
     "kohbor-pack",

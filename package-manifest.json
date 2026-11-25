@@ -16118,53 +16118,53 @@
     },
     {
       "path": "docs/domains/README.md",
-      "bytes": 8299,
-      "sha256": "d470ad9302d9d5f641725793b77785a64de47ea5be3501e89107dc9e81b44323"
+      "bytes": 8692,
+      "sha256": "525d43de09b6ad5344ba966e1ecb3920b8ca83701ccb2745bfdc3d10bdaef565"
     },
     {
       "path": "docs/domains/account/CARD.md",
       "bytes": 5483,
-      "sha256": "8748d11e0d7c813f41517fd4d5c492b36cc4fba715208c13792faedf2197c579"
+      "sha256": "3bcc4df5a11159e1eab7c020a87d9f284aa5f39e0120b3ccae4c1aaca03acff2"
     },
     {
       "path": "docs/domains/account/state.json",
-      "bytes": 3769,
-      "sha256": "4a61b85ca5d5ce6431355781d3acc3a962fc6e3e5263359393a547db43cec425"
+      "bytes": 3759,
+      "sha256": "bc0689c646a03a7cb5b3641399fb7c0ea0a0e62908fc2ef10cb3e3f4a01c3680"
     },
     {
       "path": "docs/domains/banner-lab/CARD.md",
-      "bytes": 8716,
-      "sha256": "81b59b636cccab9ece41e71914d57ce41a9bde4bb2f2c64d208c0764807baffd"
+      "bytes": 8862,
+      "sha256": "df5709c49d42092dbfb9f1311f4bc8005afeacd56e23fad387aaced996cf54a4"
     },
     {
       "path": "docs/domains/banner-lab/state.json",
-      "bytes": 5569,
-      "sha256": "091c4fc0ce427eb67e66b1154765f177ee8ec81238c3b968cd2c1e515fc9af04"
+      "bytes": 5629,
+      "sha256": "a221a19ddb47707b1ef94b282fff6bafb334f243c49d2645fb6f2549b1db5ad2"
     },
     {
       "path": "docs/domains/commerce/CARD.md",
-      "bytes": 4784,
-      "sha256": "4f2e577709cfb176ea48b164890239428182c3e7566540a692e49d90eedc38e2"
+      "bytes": 5013,
+      "sha256": "202f789830840f65bc649bd55f1b65d5d7283f1b8cd57a43cd66f868bc638925"
     },
     {
       "path": "docs/domains/commerce/state.json",
-      "bytes": 3084,
-      "sha256": "936c3c3f511063ca49e288a0c2bd7b08cfbc959b9e7151dd6481ee98aa3fb8cb"
+      "bytes": 3234,
+      "sha256": "3399f2af7a2f907e6b37be507bac34d185109f255fc8df3c024d96664a3d475c"
     },
     {
       "path": "docs/domains/events-audio/CARD.md",
-      "bytes": 10552,
-      "sha256": "f28ba5f85e9ec47befa8af8760d7a9a24f9fb6bee70632881dd23364266d65fc"
+      "bytes": 8262,
+      "sha256": "e7132bbc6903105fdec7ea471781228db142f1488ea1299e853c0f839cabe3f3"
     },
     {
       "path": "docs/domains/events-audio/state.json",
-      "bytes": 4817,
-      "sha256": "5ba0163aecfdd60bf5678ac57408e9fff459d329934cf0a14900ebbe22b73d54"
+      "bytes": 5501,
+      "sha256": "2effffe47c32f2762d2d0ba741802f300e8e2dda244eea094190ebc9e8dd1698"
     },
     {
       "path": "docs/domains/governance/CARD.md",
-      "bytes": 5853,
-      "sha256": "93d1452a689dbae9cb9cee57d4136aa70143af2c22ca371367cb6bd4db59cd51"
+      "bytes": 6003,
+      "sha256": "65f9ec69fe76f6621346e54a03aa4d24d06971c99c55a38b4b9dda51a9f570d3"
     },
     {
       "path": "docs/domains/governance/CHARTER.json",
@@ -16173,48 +16173,48 @@
     },
     {
       "path": "docs/domains/governance/state.json",
-      "bytes": 6866,
-      "sha256": "7bb9bdf8ab53506e1e35ad709da3c2a7d88b9c5f7472505a773dc26da9644606"
+      "bytes": 7188,
+      "sha256": "e75245add167ad2a88f339d9beb8978ad62169c2685c86e74a0f9e7f1c23e69d"
     },
     {
       "path": "docs/domains/host-core/CARD.md",
-      "bytes": 5716,
-      "sha256": "9370b014386345527e8dd3cfaddc5938ac28d451d22611e542915d35e967f5db"
+      "bytes": 5525,
+      "sha256": "f9c3fa5e4cfa52b671eeb7ab8badb3aa0920e89cead4b3bd7fd3e2a56f91cf6c"
     },
     {
       "path": "docs/domains/host-core/state.json",
-      "bytes": 6736,
-      "sha256": "61de927fedac2f5bd124a1cf2900e094184efc155838998cbb8be6ab99f9c593"
+      "bytes": 7842,
+      "sha256": "ae0f1351877ef1e55ffa98cd230be690ed4f50acd80ab92a635022a9a7358357"
     },
     {
       "path": "docs/domains/packs/CARD.md",
-      "bytes": 9538,
-      "sha256": "84526058eaae19a64d2f73c8644491583559a7cbc27b966bc47c2ab4b50e7b66"
+      "bytes": 8899,
+      "sha256": "7ec7350ddcb78d44abd1735007715c372188d4204dcb30d42771dd8432d3890c"
     },
     {
       "path": "docs/domains/packs/state.json",
-      "bytes": 4203,
-      "sha256": "37b2006d7f8e9b2e7ac01c73d7f092c1da5afc4e9a309b00ccf26c001e4eadd3"
+      "bytes": 4906,
+      "sha256": "5ea3b97739f03670226797abd05e18e30258cae9e21c941c117740be90390942"
     },
     {
       "path": "docs/domains/ui-overlay/CARD.md",
-      "bytes": 7981,
-      "sha256": "855b7da7b693e94e000aa1d0fc5fab62c190a2558cae43e372519be7f0da8230"
+      "bytes": 6119,
+      "sha256": "24e22a53c0f451f9aec1144e2fde36cf1498e5ed5d1db7e5e0b9857bfb88b6ad"
     },
     {
       "path": "docs/domains/ui-overlay/state.json",
-      "bytes": 5011,
-      "sha256": "9cea1b01f207bf1b0abb8bd988b36fd99f144244721767815a6c131e3c0077a4"
+      "bytes": 6657,
+      "sha256": "9caa97d780b070964dd2b0d0a83634a3819f9b5ef74e37dbd134c9e9f4c63a0b"
     },
     {
       "path": "docs/domains/vision-risk/CARD.md",
-      "bytes": 5317,
-      "sha256": "168079d896f1037a8e11d2a49b043acdb16f0b023b01de4393e20c515527f209"
+      "bytes": 5578,
+      "sha256": "348032ba778665ac6556e4a14af3941df987bb80ab2d0ccccca8382e5b5bfc54"
     },
     {
       "path": "docs/domains/vision-risk/state.json",
-      "bytes": 3151,
-      "sha256": "97cdf64ac5bce01885446d0ec7872ca2a24a1530de837215ed22f7ce3d2d6647"
+      "bytes": 4657,
+      "sha256": "bb18435c92d6ba09c71b756ddcddba75d4a0a2a8515ecb499bf689d9737ed5c2"
     },
     {
       "path": "docs/examples/news.sample.json",

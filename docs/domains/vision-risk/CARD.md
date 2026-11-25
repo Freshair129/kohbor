@@ -1,9 +1,9 @@
 ---
 domain: vision-risk
 tier: B
-card_version: 2
-verified_at_commit: c010825
-verified_on: 2026-11-24
+card_version: 3
+verified_at_commit: a8b636b
+verified_on: 2026-11-25
 verified_by: "Codex worker; reviewed listed source changes, not human or owner approval"
 ---
 
@@ -13,7 +13,7 @@ A map, not evidence. Authority: decisions, PRD/SRS, contracts, code and tests, t
 
 ## 1. Purpose and boundary
 
-- Owns: `crates/kohbor-capture`, `kohbor-capture-native`, `kohbor-vision`, `kohbor-risk`, `kohbor-minimap-cv` and the host file `apps/desktop/src-tauri/src/capture_host.rs`; `spikes/capture` is still not created (docs/design/REMAINING-SYSTEM-DESIGN.md section 4).
+- Owns: `crates/kohbor-capture`, `kohbor-capture-native`, `kohbor-vision`, `kohbor-risk`, `kohbor-minimap-cv`, `kohbor-game-assets`, and host paths `apps/desktop/src-tauri/src/capture_host.rs` and `minimap_recorder/`. Minimap spike map: `tools/spikes/minimap-hero-id/README.md` (LAB-001; DATA-005).
 - Hard rule: an enemy field is never filled without an admitted sighting; unknown stays unknown (DATA-005; AGENTS.md; docs/design/REMAINING-SYSTEM-DESIGN.md Sprint 5 exit gate).
 - Must not touch: host-core R2 files (settings, status, containment) without a `host-core` claim; the critical warning path except the admission wiring named in design task 6.4 of REMAINING-SYSTEM-DESIGN (`events-audio`).
 - Interfaces: `host-core` (frame slot, runtime-status capture phases, settings categories); `events-audio` (critical path); `ui-overlay` (map region, markers, enemy column).
@@ -27,12 +27,13 @@ A map, not evidence. Authority: decisions, PRD/SRS, contracts, code and tests, t
 
 ## 3. Now / Next / Blocked
 
-- NOW: implementation status and evidence boundaries are tracked in [REMAINING-SYSTEM-DESIGN](../../design/REMAINING-SYSTEM-DESIGN.md) and [SPRINT-ROADMAP](../../delivery/SPRINT-ROADMAP.md); these sources do not establish live-match accuracy, FPS cost or overlay acceptance (VISION-004, ALERT-002).
-- NEXT (owner hardware): spikes V1-V3 need owner FPS pairs and stills (docs/design/REMAINING-SYSTEM-DESIGN.md section 1.8; DEC-NATIVE-EVIDENCE).
-- BLOCKED: markers and identity need a detector that passes the gate and a certified class list (docs/design/REMAINING-SYSTEM-DESIGN.md section 1.7; DEC-MODELS, DEC-GAME-DATA).
-- BLOCKED: score stays informational and audible gank unavailable until evidence admission is frozen (contracts/decisions.json DEC-RISK-DETAIL; ALERT-003).
-- BLOCKED: an audible vision warning also needs authorized warning media (docs/design/REMAINING-SYSTEM-DESIGN.md section 7; DEC-CRITICAL-MEDIA).
-- NOT VERIFIED: any capture cost, FPS loss or detector quality figure (docs/design/REMAINING-SYSTEM-DESIGN.md section 9; QUALITY-003, QUALITY-004).
+- Capture and observation boundaries map to [REMAINING-SYSTEM-DESIGN](../../design/REMAINING-SYSTEM-DESIGN.md), `apps/desktop/src-tauri/src/capture_host.rs`, `minimap_recorder/` and [SPRINT-ROADMAP](../../delivery/SPRINT-ROADMAP.md) (VISION-004; ALERT-002).
+- The opt-in minimap recorder, consent boundary and hero-ID spike map to LAB-001, [KOHBOR-LAB](../../design/KOHBOR-LAB.md) and `tools/spikes/minimap-hero-id/README.md`.
+- Detector/model readiness, certified classes and risk-detail policy remain open at their decision and design sources (DEC-MODELS; DEC-GAME-DATA; DEC-RISK-DETAIL; ALERT-003).
+- Audible vision warnings still require authorized warning media (DEC-CRITICAL-MEDIA).
+- Native/live capture acceptance and detector accuracy remain pending in [SPRINT-ROADMAP](../../delivery/SPRINT-ROADMAP.md) (DEC-NATIVE-EVIDENCE; LAB-001).
+- No capture-cost, FPS-loss or detector-quality result is established here; measurement gates map to [REMAINING-SYSTEM-DESIGN](../../design/REMAINING-SYSTEM-DESIGN.md) (QUALITY-003; QUALITY-004).
+- Public distribution rights review for bundled game art and data remains pending (DEC-POSITIONING-20261125; DEC-REPLAY-INTEGRATION).
 
 ## 4. Open questions
 
@@ -41,7 +42,7 @@ A map, not evidence. Authority: decisions, PRD/SRS, contracts, code and tests, t
 
 ## 5. Artefacts
 
-Machine list: [state.json](state.json). Primary sources: REMAINING-SYSTEM-DESIGN sections 1, 4-7 (its ADR-A part is `account`, so the file is marked governing there) and SPRINT-ROADMAP sprints 4-5. Reference: SDD component CMP-VISION (docs/design/SDD.md).
+Machine list: [state.json](state.json). Primary sources: REMAINING-SYSTEM-DESIGN sections 1, 4-7 (its ADR-A part is `account`, so the file is marked governing there), SPRINT-ROADMAP sprints 4-5, [KOHBOR-LAB](../../design/KOHBOR-LAB.md), and the [minimap hero-ID spike](../../../tools/spikes/minimap-hero-id/README.md). Reference: SDD component CMP-VISION (docs/design/SDD.md).
 
 ## 6. Traps and lessons
 

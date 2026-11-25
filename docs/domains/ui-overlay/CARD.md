@@ -1,9 +1,9 @@
 ---
 domain: ui-overlay
 tier: B
-card_version: 2
-verified_at_commit: c010825
-verified_on: 2026-11-24
+card_version: 3
+verified_at_commit: a8b636b
+verified_on: 2026-11-25
 verified_by: "Codex worker; reviewed listed source changes, not human or owner approval"
 ---
 
@@ -19,19 +19,19 @@ A map, not evidence. Authority: decisions, PRD/SRS, contracts, code and tests, t
 
 ## 2. Owner decisions
 
-- Decided: DEC-SESSION-MONITOR, DEC-LIVE-SECOND-MONITOR, DEC-OVERVIEW; adjacent: DEC-BANNER-LAB-STYLE (banner look, does not approve tokens), DEC-SHARE-LIST (design only).
+- Decided: DEC-SESSION-MONITOR, DEC-LIVE-SECOND-MONITOR, DEC-OVERVIEW, DEC-ANALYTICS-V2, DEC-LANE-EXPECTATION, DEC-UX-REVIEW-20261125, DEC-ANALYTICS-LAYOUT, DEC-AI-PROVIDERS, DEC-REPLAY-AUTO-PARSE, DEC-REPLAY-INTEGRATION, DEC-POSITIONING-20261125; stat-icon presentation is recorded in [DECISION-LOG](../../governance/DECISION-LOG.md); adjacent: DEC-BANNER-LAB-STYLE (banner look, does not approve tokens), DEC-SHARE-LIST (design only).
 - Open: DEC-VISUALS (direction approved 2026-11-11 per the proposal, record still open), DEC-INTERFACES, DEC-NATIVE-EVIDENCE, DEC-SOCIAL.
 
 ## 3. Now / Next / Blocked
 
-- NOW: Overview is specified as the own-data dashboard plus Kohbor news (UI-020); local own-match history and the news feed are interfaces MEM-006 and UPDATE-005 (docs/design/UX-SPEC.md; DEC-OVERVIEW).
-- NOW: amended UI-002/UI-016 define the ten-card Live layout and second-monitor arrangement; the replay-integration decision and replay-shaped card source are mapped in DECISION-LOG and REPLAY-PIPELINE (docs/design/UX-SPEC.md; docs/design/REPLAY-PIPELINE.md).
-- NOW: an overlay window exists in source (built in code, transparent, on top, click-through, listen-only capability, shown only while a banner or chip is up) with a 720x220 banner stage, a status chip and a feature-gated DEMO trigger; synthetic evidence only, nothing is verified on Windows or in the game (docs/design/S6-OVERLAY-SLICE.md section 9; apps/desktop/src-tauri/src/overlay.rs; owner checks in the game are listed in section 9 of the plan (TP-05, UAT-05; UI-001).
-- NOW: the map-objective card renders in the HUD strip window (`apps/desktop/src/HudStage.tsx`, `ObjectiveAlert.tsx`), default centred under the danger meter with a 4 px gap (1080p box 174x24 px, y about 73-97 px); only this widget may enter the top 24 px (at 1080, scaled with height) of the announcement region (owner 2026-11-22, DEC-EVENT-RUNE-SPAWN revision 5); the HUD keeps its fixed dark palette under any Windows theme and the host sends the app locale with each alert; the event banner overlay may cover it. Its position and scale come from the reusable layout editor in Settings (`apps/desktop/src/layoutEditor/`, host `apps/desktop/src-tauri/src/layout/mod.rs`, file `overlay-layout.json` schema_version 1); only `objective_card` is registered. Rust and TypeScript clamps share `apps/desktop/tests/fixtures/layout-clamp-cases.json`. Editor v2 (owner 2026-11-22): the preview background is the local Lab reference screenshot read through the dev-gated `lab_reference_image` command (fixed name, JPEG, 8 MiB, never bundled; release builds without Lab show the grid), free pixel drag, a full-screen 1:1 mode with Esc, 1 px / 10 px arrow nudge, a numeric readout, and the blocking region outlined when the clamp stops the card; the full-screen helper `apps/desktop/src/layoutEditor/fullscreen.ts` is shared with the Lab HUD editor. By owner decision of 2026-11-22 (DECISION-LOG) one redacted owner screenshot is bundled as the editor default background (`apps/desktop/src/assets/editor/editor-reference-1080p.jpg`; order: local Lab file, bundled image, grid); a narrow exception to the no-Valve-art rule, rights unverified, rights-team review before any public release (THIRD-PARTY-DATA). Objective names in Settings are English in every locale. Synthetic and browser-mock evidence only (ALERT-008, UI-015).
-- NOW: styles.css names IBM Plex but no font file or `@font-face` is in the source, so real Thai rendering in WebView2 is UNVERIFIED (apps/desktop/src/styles.css:26).
-- NEXT: renderer implementation follows the SDD/roadmap; undesigned screens remain Voice Packs, Insights, Account, Settings, Store "not in this build" and live-field variants (docs/design/SDD.md; docs/delivery/SPRINT-ROADMAP.md; docs/design/VISUAL-DESIGN-PROPOSAL.md section 7; DEC-VISUALS).
-- BLOCKED: safe areas, readable sizes, motion timing and FPS need Windows measurements (docs/design/VISUAL-DESIGN-PROPOSAL.md section 7; DEC-NATIVE-EVIDENCE; QUALITY-003).
-- BLOCKED: overlay content needs owner answers on the own-stat row and banner size (Q-UI-1, Q-UI-2 below; UI-001, UI-003).
+- Overview and Live/second-monitor layout map to [UX-SPEC](../../design/UX-SPEC.md) (UI-002, UI-016, UI-020; DEC-OVERVIEW; DEC-ANALYTICS-LAYOUT).
+- Analytics UI-021/UI-022 and replay entry points map to [ANALYTICS-HOST-API](../../design/ANALYTICS-HOST-API.md), [DESIGN-IMPLEMENTATION](../../design/DESIGN-IMPLEMENTATION.md) and [REPLAY-PIPELINE](../../design/REPLAY-PIPELINE.md).
+- The expert lane-expectation table remains empty pending reviewed coach rows (DEC-LANE-EXPECTATION; [LANE-EXPECTATION](../../design/LANE-EXPECTATION.md)).
+- AI provider controls stay hidden in normal mode and gated to Developer mode (DEC-AI-PROVIDERS; DEC-UX-REVIEW-20261125; DEC-POSITIONING-20261125).
+- The Store has a Developer-mode preview only; commerce remains undecided (DEC-COMMERCE-INTENT; DEC-POSITIONING-20261125; [SPRINT-ROADMAP](../../delivery/SPRINT-ROADMAP.md)).
+- Overlay, layout editor and objective-alert modules map to `apps/desktop/src-tauri/src/overlay.rs`, `apps/desktop/src/layoutEditor/`, `apps/desktop/src/HudStage.tsx` and [S6-OVERLAY-SLICE](../../design/S6-OVERLAY-SLICE.md) (UI-001, UI-015; ALERT-008).
+- Current-build owner/native acceptance and Windows measurements remain pending in [SPRINT-ROADMAP](../../delivery/SPRINT-ROADMAP.md) (DEC-NATIVE-EVIDENCE; QUALITY-003).
+- Open overlay content and banner-size questions remain Q-UI-1 and Q-UI-2 below (UI-001, UI-003).
 
 ## 4. Open questions
 

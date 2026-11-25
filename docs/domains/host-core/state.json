@@ -2,9 +2,9 @@
   "schema_version": "1.0.0",
   "domain": "host-core",
   "tier": "B",
-  "verified_at_commit": "c010825",
-  "verified_on": "2026-11-24",
-  "verified_by": "Codex worker; reviewed listed source changes, not human or owner approval",
+  "verified_at_commit": "a8b636b",
+  "verified_on": "2026-11-25",
+  "verified_by": "Codex; reviewed source references, not human or owner approval",
   "write_areas": [
     "crates/kohbor-gsi/**",
     "crates/kohbor-gsi-capture/**",
@@ -16,7 +16,9 @@
     "apps/desktop/src-tauri/src/secrets.rs",
     "apps/desktop/src-tauri/src/atomic.rs",
     "apps/desktop/src-tauri/src/lib.rs",
-    "apps/desktop/src-tauri/src/main.rs"
+    "apps/desktop/src-tauri/src/main.rs",
+    "apps/desktop/src-tauri/src/analytics/**",
+    "apps/desktop/src-tauri/src/replay_library/**"
   ],
   "requirement_ids": [
     "CORE-001",
@@ -36,7 +38,12 @@
     "DEC-NAME",
     "DEC-NATIVE-EVIDENCE",
     "DEC-OWN-SNAPSHOT-2-1",
-    "DEC-UPDATE-ENDPOINT"
+    "DEC-UPDATE-ENDPOINT",
+    "DEC-REPLAY-INTEGRATION",
+    "DEC-REPLAY-AUTO-PARSE",
+    "DEC-ANALYTICS-V2",
+    "DEC-LANE-EXPECTATION",
+    "DEC-UX-REVIEW-20261125"
   ],
   "task_id_prefixes": [
     "S0-"
@@ -46,7 +53,7 @@
       "path": "docs/design/GSI-INTAKE-SPEC.md",
       "type": "spec",
       "role": "governing",
-      "reviewed_sha256": "1c3ad482e3fb095b55dae76956983dd5d6f4da3784bb0b3013a668d676d398e1"
+      "reviewed_sha256": "18bf3bd3342c53d477f6a94c87fdd58c025419eaa582e1cb276ea38ee68d84dd"
     },
     {
       "path": "docs/delivery/M0-PLAN.md",
@@ -70,7 +77,7 @@
       "path": "docs/delivery/SPRINT-ROADMAP.md",
       "type": "registry",
       "role": "reference",
-      "reviewed_sha256": "e4115708cac6bdebca4dc64a2006e0b464b423048ee4f7a717ffe9767fabf4ed"
+      "reviewed_sha256": "03b6f98d158ef78515ac4a22b526a1408b5ca3df86d4b79ce93e98c0514d6f37"
     },
     {
       "path": "contracts/product-identity.json",
@@ -133,13 +140,13 @@
       "path": "docs/design/REPLAY-PIPELINE.md",
       "type": "spec",
       "role": "reference",
-      "reviewed_sha256": "fc49f4339076cfecbdd7b240775600f971bfe75f31ddc1538ef1e2beccf72df8"
+      "reviewed_sha256": "7719e6b605876cf6cc1854eb1e529a3846f2bed575334b6709cc15d8d3704804"
     },
     {
       "path": "docs/design/REPLAY-ENGINE-PROVENANCE.md",
       "type": "review",
       "role": "reference",
-      "reviewed_sha256": "042ed8585602341fa2e2421ec5ea26e49340bcd3038147a8f7b3e1c379ea537a"
+      "reviewed_sha256": "7126fc3fed6c323fd7bd9d9907f6cef9fdc4681236c94880751e04be8ace5ba3"
     },
     {
       "path": "docs/design/ALPHA-LAUNCH.md",
@@ -163,7 +170,35 @@
       "path": "docs/governance/DECISION-LOG.md",
       "type": "process",
       "role": "reference",
-      "reviewed_sha256": "d3e56af406978392c9dd4b5cd6865275332b672044237d1bdb35e162d86e1b80"
+      "reviewed_sha256": "1787d269b5e147341ef84723d8bce477055816113a42d302ada7b9fed58e431a"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/analytics",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/replay_library",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "docs/design/ANALYTICS-HOST-API.md",
+      "type": "spec",
+      "role": "governing",
+      "reviewed_sha256": "71e3275d85d615e836cff98919baaeeeb070d7998417dc79bb3f4790fa5297c3"
+    },
+    {
+      "path": "docs/design/LANE-EXPECTATION.md",
+      "type": "spec",
+      "role": "reference",
+      "reviewed_sha256": "6c16f609de7638ec6b4cab97f308dd953c5bc3bd9fde51b09f8cc966f485f2bd"
+    },
+    {
+      "path": "docs/design/DESIGN-IMPLEMENTATION.md",
+      "type": "design",
+      "role": "neighbour:ui-overlay",
+      "reviewed_sha256": "7061528781b84af81366d8aa18812f93f5575ee52eac5096fa23168d3de82d03"
     }
   ],
   "open_questions": [
@@ -204,9 +239,9 @@
     }
   ],
   "last_handoff": {
-    "task_id": "refresh-domain-cards",
-    "on": "2026-11-24",
-    "summary": "Reviewed listed governing-source changes and refreshed card pointers and hashes; no charter, requirement, or structured decision source was edited."
+    "task_id": "domain-cards-refresh-2",
+    "on": "2026-11-25",
+    "summary": "Refreshed domain maps from current source documents and assigned existing requirements and crates; source and requirement records were not edited."
   },
   "crates": [
     "kohbor-gsi",

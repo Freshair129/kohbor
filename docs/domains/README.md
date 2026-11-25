@@ -21,14 +21,14 @@ Tier A and B have a card. Tier C is a registry row only; the "answers for" colum
 
 | id | tier | Card | Owns (write areas, short) | Answers for / notes | Default modules |
 | --- | --- | --- | --- | --- | --- |
-| `events-audio` | A | [card](events-audio/CARD.md) | `crates/kohbor-events`, `kohbor-audio`, `kohbor-audio-native`; host critical path in `apps/desktop/src-tauri/src/{audio,media,host.rs,commands.rs,clock.rs}` | Event detection, arbitration, native audio, critical warning path | none |
+| `events-audio` | A | [card](events-audio/CARD.md) | `crates/kohbor-events`, `crates/kohbor-audio`, `crates/kohbor-audio-native`, `crates/kohbor-lab`; host critical path in `apps/desktop/src-tauri/src/{audio,media,host.rs,commands.rs,clock.rs}` | Event detection, arbitration, native audio, critical warning path, event-logic Lab | none |
 | `packs` | A | [card](packs/CARD.md) | `crates/kohbor-pack`, `kohbor-pack-author`; media-manifest and install schemas | Verified package store, authoring tool, trust domains | none |
 | `account` | A | [card](account/CARD.md) | Account and sign-in design (no crate exists yet) | Account, identity, friend code; sharing is a row below | none |
 | `banner-lab` | A | [card](banner-lab/CARD.md) | `lab:` workspace outside the repository | Banner production lab; hands a clip folder to `kohbor-pack-build` | none |
 | `governance` | A | [card](governance/CARD.md) | `docs/governance/**`, `docs/INDEX.md`, `docs/domains/**`, `docs/delivery/{AGENT-WORKFLOW,SPRINT-ROADMAP}.md`, `contracts/{requirements,decisions,product-needs}.json`, generated RTM/SRS/manifest, `tools/*.py`, `AGENTS.md` | Integration owner of every other domain | none |
 | `commerce` | B | [card](commerce/CARD.md) | Nothing yet | Store, wallet, payments, entitlement: not designed | premium |
-| `host-core` | B | [card](host-core/CARD.md) | `crates/kohbor-gsi`, `kohbor-gsi-capture`; host startup, containment, settings, runtime status | Game-state intake and host shell | none |
-| `vision-risk` | B | [card](vision-risk/CARD.md) | Future capture, vision and risk crates | M3 work; nothing built | none |
+| `host-core` | B | [card](host-core/CARD.md) | `crates/kohbor-gsi`, `kohbor-gsi-capture`; host startup, containment, settings, runtime status, `apps/desktop/src-tauri/src/{analytics,replay_library}` | Game-state intake, replay and Analytics host APIs, and host shell | none |
+| `vision-risk` | B | [card](vision-risk/CARD.md) | `crates/kohbor-capture`, `crates/kohbor-capture-native`, `crates/kohbor-vision`, `crates/kohbor-risk`, `crates/kohbor-minimap-cv`, `crates/kohbor-game-assets`; `apps/desktop/src-tauri/src/{capture_host.rs,minimap_recorder}` | Capture, observation, read-only game assets and risk; live/owner acceptance remains open | none |
 | `ui-overlay` | B | [card](ui-overlay/CARD.md) | `apps/desktop/src/**`, design tokens, `docs/design/visuals/**` | Renderer, overlay window, visual design | none |
 | `sharing` | C | answers: `account` | Peer relay runtime (future) | Split from `account` when M6 work is planned | peer |
 | `banner-studio` | C | answers: `banner-lab` | Nothing built | Promote when the owner approves the first Studio increment | none |

@@ -1,9 +1,9 @@
 ---
 domain: account
 tier: A
-card_version: 3
-verified_at_commit: c010825
-verified_on: 2026-11-24
+card_version: 4
+verified_at_commit: a8b636b
+verified_on: 2026-11-25
 verified_by: "Codex worker; reviewed listed source changes, not human or owner approval"
 ---
 

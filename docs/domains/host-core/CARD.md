@@ -1,9 +1,9 @@
 ---
 domain: host-core
 tier: B
-card_version: 2
-verified_at_commit: c010825
-verified_on: 2026-11-24
+card_version: 3
+verified_at_commit: a8b636b
+verified_on: 2026-11-25
 verified_by: "Codex worker; reviewed listed source changes, not human or owner approval"
 ---
 
@@ -13,7 +13,7 @@ A map, not evidence. Authority: decisions, PRD/SRS, contracts, code and tests, t
 
 ## 1. Purpose and boundary
 
-- Owns: `crates/kohbor-gsi`, `crates/kohbor-gsi-capture` (dev spike tool), and in `apps/desktop/src-tauri/src` the files intake, containment, settings, status, instance, secrets, atomic, clock, lib, main.
+- Owns: `crates/kohbor-gsi`, `crates/kohbor-gsi-capture` (dev spike tool), and in `apps/desktop/src-tauri/src` the files intake, containment, settings, status, instance, secrets, atomic, clock, lib, main, plus `analytics/` and `replay_library/`.
 - R2 (lead reads the full diff, read-only review first): the list in docs/delivery/AGENT-WORKFLOW.md section 6, which includes intake, secrets, containment, instance, atomic, tauri.conf.json, capability files and `kohbor-gsi` admission and ownership code.
 - Must not touch: `audio/`, `media/`, `host.rs` (`events-audio`); renderer `apps/desktop/src/**` (`ui-overlay`).
 - Interfaces: `events-audio` (intake feeds the detector, apps/desktop/src-tauri/src/intake.rs:8); `ui-overlay` (runtime-status, own-snapshot, settings-patch contracts).
@@ -23,17 +23,15 @@ A map, not evidence. Authority: decisions, PRD/SRS, contracts, code and tests, t
 
 - Decided: DEC-NAME, DEC-OWN-SNAPSHOT-2-1, DEC-UPDATE-ENDPOINT.
 - Open: DEC-GSI-INTAKE, DEC-INTERFACES, DEC-NATIVE-EVIDENCE.
+- Replay and Analytics interfaces: DEC-REPLAY-INTEGRATION, DEC-REPLAY-AUTO-PARSE, DEC-ANALYTICS-V2, DEC-LANE-EXPECTATION, DEC-UX-REVIEW-20261125.
 
 ## 3. Now / Next / Blocked
 
-- NOW: the M1 slice exists in source; the only live evidence is one owner match on the pre-hardening build, none on the hardened build (docs/delivery/M1-STATUS.md sections 3.1, 3.2).
-- NOW: `capture` is reported unavailable (CAPABILITY_UNAVAILABLE) from a constant, not a probe (apps/desktop/src-tauri/src/status.rs:82).
-- NEXT (owner machine): native proof of the containment failure exit code and of cold start with no network (docs/delivery/M1-STATUS.md section 4 item 2; DEC-NATIVE-EVIDENCE).
-- NEXT (owner machine): release build of the hardened revision, then a live match incl. A-10, a second launch and the replace action (docs/delivery/M1-STATUS.md section 4 item 1).
-- NEXT: capture the remaining assumptions A-6, A-7 (second account), A-8, A-9, A-10 (docs/design/GSI-INTAKE-SPEC.md section 10.1; DEC-GSI-INTAKE).
-- BLOCKED: closing DEC-GSI-INTAKE needs those captures plus owner acknowledgement of the mode "unverified" rule (docs/design/GSI-INTAKE-SPEC.md section 10; DEC-GSI-INTAKE).
-- BLOCKED: resource budget runs (10 min x 3, idle and live) are not started (docs/delivery/M1-STATUS.md section 3.3; QUALITY-002).
-- BLOCKED: product identity keeps the update origin null while UPDATER describes a public endpoint; see Q-HC-5 (contracts/product-identity.json; docs/design/UPDATER.md).
+- GSI intake and host trust-boundary ownership map to [GSI-INTAKE-SPEC](../../design/GSI-INTAKE-SPEC.md), `apps/desktop/src-tauri/src/intake.rs` and `apps/desktop/src-tauri/src/host.rs` (DEC-GSI-INTAKE).
+- Replay discovery, parse queue, manual re-parse, retention and host commands map to [REPLAY-PIPELINE](../../design/REPLAY-PIPELINE.md), `apps/desktop/src-tauri/src/replay_library/` and `apps/desktop/src-tauri/src/analytics/` (DEC-REPLAY-AUTO-PARSE; DEC-REPLAY-INTEGRATION).
+- Current-build owner/native acceptance and remaining host gates are pending in [SPRINT-ROADMAP](../../delivery/SPRINT-ROADMAP.md) (DEC-NATIVE-EVIDENCE).
+- GSI assumptions and resource-budget measurements remain open at their source (GSI-INTAKE-SPEC section 10.1; M1-STATUS; QUALITY-002).
+- The update origin remains unresolved; track Q-HC-5 in `contracts/product-identity.json` and [UPDATER](../../design/UPDATER.md).
 
 ## 4. Open questions
 
@@ -45,7 +43,7 @@ A map, not evidence. Authority: decisions, PRD/SRS, contracts, code and tests, t
 
 ## 5. Artefacts
 
-Machine list: [state.json](state.json). Governing: GSI-INTAKE-SPEC, M0-PLAN, M1-STATUS (docs/design, docs/delivery). Reference: DERIVED-STATS, REPLAY-PIPELINE, REPLAY-ENGINE-PROVENANCE, the replay-integration decision entry, ALPHA-LAUNCH, UPDATER, RELEASE-UPDATES, AGENT-WORKFLOW section 6, product-identity.json, DECISION-LOG.
+Machine list: [state.json](state.json). Governing: GSI-INTAKE-SPEC, M0-PLAN, M1-STATUS (docs/design, docs/delivery). Reference: DERIVED-STATS, REPLAY-PIPELINE, REPLAY-ENGINE-PROVENANCE, ANALYTICS-HOST-API, LANE-EXPECTATION, DESIGN-IMPLEMENTATION, ALPHA-LAUNCH, UPDATER, RELEASE-UPDATES, AGENT-WORKFLOW section 6, product-identity.json, DECISION-LOG.
 
 ## 6. Traps and lessons
 
