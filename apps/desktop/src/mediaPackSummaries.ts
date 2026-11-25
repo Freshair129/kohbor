@@ -38,9 +38,15 @@ export interface MediaPackSummaryV1_1 extends MediaPackSummaryV1 {
   presentation: MediaPackPresentationSummary | null;
 }
 
+export interface MediaPackSummaryV1_2 extends MediaPackSummaryV1_1 {
+  equipped_slot: number | null;
+  pack_kind: "basic" | "special" | "mixed" | "unknown";
+}
+
 export type MediaPackSummaries =
   | { schema_version: "1.0.0"; records: MediaPackSummaryV1[] }
-  | { schema_version: "1.1.0"; records: MediaPackSummaryV1_1[] };
+  | { schema_version: "1.1.0"; records: MediaPackSummaryV1_1[] }
+  | { schema_version: "1.2.0"; records: MediaPackSummaryV1_2[] };
 
 function summaryObject(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -118,18 +124,20 @@ function parsePackBindingSummary(value: unknown): MediaPackBindingSummary | null
   return { event_id: row.event_id, tier: row.tier as number | null, selection: row.selection as MediaPackBindingSummary["selection"], variant_count: row.variant_count, banner_count: row.banner_count };
 }
 
-/** Parse both the legacy 1.0.0 shape and the host-owned 1.1.0 pack summary. */
+/** Parse the legacy and current host-owned pack summary versions. */
 export function parseMediaPackSummaries(value: unknown): MediaPackSummaries | null {
   const source = summaryObject(value);
-  if (!source || (source.schema_version !== "1.0.0" && source.schema_version !== "1.1.0") || !Array.isArray(source.records)) return null;
+  if (!source || (source.schema_version !== "1.0.0" && source.schema_version !== "1.1.0" && source.schema_version !== "1.2.0") || !Array.isArray(source.records)) return null;
   const version = source.schema_version;
   const seen = new Set<string>();
   const records: Array<MediaPackSummaryV1 | MediaPackSummaryV1_1> = [];
   const legacyKeys = ["install_id", "package_id", "revision", "active", "pending", "display_name", "problem", "cover_url", "event_count", "binding_count", "variant_count", "banner_count", "bindings"];
   const currentKeys = [...legacyKeys, "authority_class", "publisher_claim", "installed_at", "size_bytes", "game_id", "presentation"];
+  const v12Keys = [...currentKeys, "equipped_slot", "pack_kind"];
   for (const item of source.records) {
     const row = summaryObject(item);
-    if (!row || Object.keys(row).some(key => !(version === "1.0.0" ? legacyKeys : currentKeys).includes(key))
+    const allowedKeys = version === "1.0.0" ? legacyKeys : version === "1.1.0" ? currentKeys : v12Keys;
+    if (!row || Object.keys(row).some(key => !allowedKeys.includes(key))
       || typeof row.install_id !== "string" || !/^ins_[0-9]{10}$/u.test(row.install_id) || seen.has(row.install_id)
       || typeof row.package_id !== "string" || !/^[a-z0-9][a-z0-9_.-]{0,79}$/u.test(row.package_id)
       || !safeSummaryCount(row.revision, 1) || typeof row.active !== "boolean" || typeof row.pending !== "boolean"
@@ -166,6 +174,8 @@ export function parseMediaPackSummaries(value: unknown): MediaPackSummaries | nu
       || (row.installed_at !== null && !safeSummaryCount(row.installed_at))
       || (row.size_bytes !== null && !safeSummaryCount(row.size_bytes))
       || row.game_id !== "dota2") return null;
+    if (version === "1.2.0" && (row.equipped_slot !== null && !safeSummaryCount(row.equipped_slot, 0, 3)
+      || (row.pack_kind !== "basic" && row.pack_kind !== "special" && row.pack_kind !== "mixed" && row.pack_kind !== "unknown"))) return null;
     let presentation: MediaPackPresentationSummary | null = null;
     if (row.presentation !== null) {
       const item = summaryObject(row.presentation);
@@ -184,17 +194,21 @@ export function parseMediaPackSummaries(value: unknown): MediaPackSummaries | nu
         cover_url: item.cover_url as string | null,
       };
     } else if (row.cover_url !== null) return null;
-    records.push({
+    const v11 = {
       install_id: row.install_id, package_id: row.package_id, revision: row.revision, active: row.active, pending: row.pending,
       display_name: row.display_name as string | null, problem: row.problem as MediaPackSummaryV1["problem"], cover_url: row.cover_url as string | null,
       event_count: row.event_count as number | null, binding_count: row.binding_count as number | null, variant_count: row.variant_count as number | null,
       banner_count: row.banner_count as number | null, bindings: validBindings,
       authority_class: row.authority_class, publisher_claim: row.publisher_claim as string | null,
       installed_at: row.installed_at as number | null, size_bytes: row.size_bytes as number | null, game_id: "dota2", presentation,
-    });
+    } satisfies MediaPackSummaryV1_1;
+    records.push(version === "1.2.0" ? {
+      ...v11, equipped_slot: row.equipped_slot as number | null,
+      pack_kind: row.pack_kind as MediaPackSummaryV1_2["pack_kind"],
+    } : v11);
   }
-  return version === "1.0.0"
-    ? { schema_version: version, records: records as MediaPackSummaryV1[] }
-    : { schema_version: version, records: records as MediaPackSummaryV1_1[] };
+  if (version === "1.0.0") return { schema_version: version, records: records as MediaPackSummaryV1[] };
+  if (version === "1.1.0") return { schema_version: version, records: records as MediaPackSummaryV1_1[] };
+  return { schema_version: version, records: records as MediaPackSummaryV1_2[] };
 }
 

@@ -1,11 +1,11 @@
-use base64::{engine::general_purpose::STANDARD, Engine as _};
-use kohbor_events::{adapter::tick_from_admitted, arbitrate, Detector, Event, EventId, Phase};
+use base64::{Engine as _, engine::general_purpose::STANDARD};
+use kohbor_events::{Detector, Event, EventId, Phase, adapter::tick_from_admitted, arbitrate};
 use kohbor_gsi::{
     admission::{Admitted, Field, Outcome, Ownership},
     admit,
     session::{SessionChange, SessionTracker},
 };
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use std::{
     env, fs,
     io::{BufRead, BufReader, ErrorKind},
@@ -406,8 +406,8 @@ struct TimelineEntry {
 }
 
 struct Report {
-    event_counts: [u64; 12],
-    winner_counts: [u64; 12],
+    event_counts: [u64; 15],
+    winner_counts: [u64; 15],
     no_winner_count: u64,
     admitted: u64,
     undecodable: u64,
@@ -420,8 +420,8 @@ struct Report {
 impl Report {
     fn new() -> Self {
         Self {
-            event_counts: [0; 12],
-            winner_counts: [0; 12],
+            event_counts: [0; 15],
+            winner_counts: [0; 15],
             no_winner_count: 0,
             admitted: 0,
             undecodable: 0,
@@ -601,7 +601,7 @@ impl GroundTruthComparison {
     }
 }
 
-const EVENT_IDS: [EventId; 12] = [
+const EVENT_IDS: [EventId; 15] = [
     EventId::MultiKill,
     EventId::Streak,
     EventId::FirstBlood,
@@ -614,6 +614,9 @@ const EVENT_IDS: [EventId; 12] = [
     EventId::MatchStarted,
     EventId::HeroRespawn,
     EventId::HealthDanger,
+    EventId::ClutchKill,
+    EventId::PosthumousKill,
+    EventId::ComebackKill,
 ];
 
 fn event_index(id: EventId) -> usize {
@@ -630,6 +633,9 @@ fn event_index(id: EventId) -> usize {
         EventId::MatchStarted => 9,
         EventId::HeroRespawn => 10,
         EventId::HealthDanger => 11,
+        EventId::ClutchKill => 12,
+        EventId::PosthumousKill => 13,
+        EventId::ComebackKill => 14,
     }
 }
 

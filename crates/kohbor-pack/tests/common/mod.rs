@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use kohbor_pack::catalog::{Catalog, CatalogEvent, TaxonomyVersion};
+use kohbor_pack::catalog::{Catalog, CatalogEvent, EventGroup, TaxonomyVersion};
 use serde_json::Value;
 use std::path::PathBuf;
 
@@ -13,34 +13,39 @@ pub fn fixture(name: &str) -> Vec<u8> {
 }
 pub fn catalog() -> Catalog {
     Catalog {
-        taxonomy: TaxonomyVersion { major: 1, minor: 1 },
+        taxonomy: TaxonomyVersion { major: 1, minor: 2 },
         events: vec![
             CatalogEvent {
                 id: "multi_kill".into(),
+                event_group: EventGroup::Basic,
                 media_mappable: true,
                 critical_media_required: false,
                 tier_range: Some((2, 5)),
             },
             CatalogEvent {
                 id: "streak".into(),
+                event_group: EventGroup::Basic,
                 media_mappable: true,
                 critical_media_required: false,
                 tier_range: Some((3, 10)),
             },
             CatalogEvent {
                 id: "first_blood".into(),
+                event_group: EventGroup::Basic,
                 media_mappable: true,
                 critical_media_required: false,
                 tier_range: None,
             },
             CatalogEvent {
                 id: "non_mappable".into(),
+                event_group: EventGroup::Basic,
                 media_mappable: false,
                 critical_media_required: false,
                 tier_range: None,
             },
             CatalogEvent {
                 id: "health_danger".into(),
+                event_group: EventGroup::Basic,
                 media_mappable: true,
                 critical_media_required: true,
                 tier_range: None,
@@ -75,7 +80,7 @@ pub fn wav(samples: usize) -> Vec<u8> {
     out
 }
 
-use flate2::{write::DeflateEncoder, Compression, Crc};
+use flate2::{Compression, Crc, write::DeflateEncoder};
 use sha2::{Digest, Sha256};
 use std::io::Write;
 use std::sync::atomic::{AtomicU64, Ordering};

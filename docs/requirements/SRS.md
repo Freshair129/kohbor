@@ -689,7 +689,7 @@ The host shall raise non-critical map-objective alerts derived only from the GSI
 
 **Product needs:** PN-004 · **Primary design:** CMP-MEDIA · **Design components:** CMP-MEDIA
 
-One versioned catalog shall own event IDs, labels, detectors, bounded tunables and ordinary ranks.
+One versioned catalog shall own event IDs, labels, detector availability, event groups, bounded tunables and ordinary ranks. Missing event_group is interpreted as basic.
 
 **Failure behavior:** Do not hand-edit generated downstream copies.
 
@@ -697,7 +697,7 @@ One versioned catalog shall own event IDs, labels, detectors, bounded tunables a
 
 **Verification:** synthetic, native; procedures TP-04, UAT-04; status NOT_RUN.
 
-**Open dependencies:** DEC-INTERFACES, DEC-EVENT-AUDIO.
+**Open dependencies:** DEC-INTERFACES.
 
 **Elaboration:** [MEDIA-PACK-SPEC.md](../design/MEDIA-PACK-SPEC.md), [ICD.md](../design/ICD.md), [EVENT-AUDIO-SPEC.md](../design/EVENT-AUDIO-SPEC.md)
 
@@ -711,19 +711,19 @@ One versioned catalog shall own event IDs, labels, detectors, bounded tunables a
 
 **Product needs:** PN-004 · **Primary design:** CMP-MEDIA · **Design components:** CMP-MEDIA
 
-Ordinary same-tick arbitration shall select the highest emitted ordinary rank before media lookup, separately from critical admission. While an ordinary clip plays, a newly admitted ordinary event of strictly higher rank preempts it: the new clip starts at once and the old clip fades out under it over 100 ms (owner decision 2026-11-23); an equal or lower rank is dropped channel_busy. A critical, correction or notice cue that preempts an ordinary clip uses the same fade and is never delayed by it.
+Ordinary same-tick arbitration shall select the highest-ranked ordinary event with a ready sound in the equipped loadout, using an in-memory prewarm lookup before arbitration and keeping critical admission separate. An unmapped or invalid event is recorded and skipped so the next-ranked mapped event can play. While an ordinary clip plays, a newly admitted ordinary event of strictly higher rank preempts it: the new clip starts at once and the old clip fades out under it over 100 ms (owner decision 2026-11-23); an equal or lower rank is dropped channel_busy. A critical, correction or notice cue that preempts an ordinary clip uses the same fade and is never delayed by it.
 
-**Failure behavior:** No mapping-driven fallback. Baseline/reconnect must not invent first blood, kills, level or match-start events.
+**Failure behavior:** Do not read from disk during admission. Unmapped or invalid events are recorded and skipped; unrelated clips are never substituted. Baseline/reconnect must not invent first blood, kills, level or match-start events.
 
-**AC-MEDIA-002:** Given one tick produces several admitted ordinary events; a multi_kill admitted while a hero_kill clip plays, an equal-rank event during a clip, and a critical cue during an ordinary clip; when the announcer chooses media; then the highest emitted ordinary rank is chosen; if its mapping is missing/invalid the slot stays silent without a lower-rank media fallback; the multi_kill starts at once while the hero_kill fades out over 100 ms and one clip_preempted {from_event, to_event, fade_ms} info line is written; the equal-rank event is dropped channel_busy; the critical cue starts without delay over the fading ordinary clip; a faded clip reports preempted, never finished.
+**AC-MEDIA-002:** Given one tick produces a higher-ranked ordinary event with no ready sound and a lower-ranked mapped event; a multi_kill admitted while a hero_kill clip plays, an equal-rank event during a clip, and a critical cue during an ordinary clip; when the announcer chooses media; then the unmapped event is recorded and skipped, and the next-ranked mapped event is admitted; the multi_kill starts at once while the hero_kill fades out over 100 ms and one clip_preempted {from_event, to_event, fade_ms} info line is written; the equal-rank event is dropped channel_busy; the critical cue starts without delay over the fading ordinary clip; a faded clip reports preempted, never finished.
 
 **Verification:** synthetic, native; procedures TP-04, UAT-04; status NOT_RUN.
 
-**Open dependencies:** DEC-INTERFACES, DEC-EVENT-AUDIO.
+**Open dependencies:** DEC-INTERFACES.
 
 **Elaboration:** [MEDIA-PACK-SPEC.md](../design/MEDIA-PACK-SPEC.md), [ICD.md](../design/ICD.md), [EVENT-AUDIO-SPEC.md](../design/EVENT-AUDIO-SPEC.md)
 
-**Contracts:** [media-manifest.schema.json](../../contracts/media-manifest.schema.json), [event-catalog.json](../../contracts/event-catalog.json), [audio-outcome.schema.json](../../contracts/audio-outcome.schema.json)
+**Contracts:** [media-manifest.schema.json](../../contracts/media-manifest.schema.json), [event-catalog.json](../../contracts/event-catalog.json), [audio-outcome.schema.json](../../contracts/audio-outcome.schema.json), [event-catalog.schema.json](../../contracts/event-catalog.schema.json)
 
 **Implementation freedom:** Choose internal implementation after freezing interfaces; do not alter the stated behavior, permissions or evidence thresholds.
 
@@ -753,7 +753,7 @@ Respawn shall remain a detectable event without an automatic audio mapping.
 
 **Product needs:** PN-004 · **Primary design:** CMP-MEDIA · **Design components:** CMP-MEDIA
 
-Event audio/visual playback shall originate from the active verified package revision.
+Event audio and its paired visual shall originate from the exact verified variant in one of at most four ordered equipped package revisions. The selected source pack remains attached to playback and preview.
 
 **Failure behavior:** No loose-file/default-pack/generated-card/event-TTS fallback.
 
@@ -761,11 +761,9 @@ Event audio/visual playback shall originate from the active verified package rev
 
 **Verification:** synthetic, native; procedures TP-04, UAT-04; status NOT_RUN.
 
-**Open dependencies:** DEC-EVENT-AUDIO.
-
 **Elaboration:** [MEDIA-PACK-SPEC.md](../design/MEDIA-PACK-SPEC.md), [ICD.md](../design/ICD.md), [EVENT-AUDIO-SPEC.md](../design/EVENT-AUDIO-SPEC.md)
 
-**Contracts:** [media-manifest.schema.json](../../contracts/media-manifest.schema.json)
+**Contracts:** [media-manifest.schema.json](../../contracts/media-manifest.schema.json), [loadout.schema.json](../../contracts/loadout.schema.json)
 
 **Diagram views:** [DGM-008](../diagrams/source/DGM-008-alert-sequence.mmd), [DGM-010](../diagrams/source/DGM-010-media-install-activation.mmd)
 
@@ -825,17 +823,17 @@ Package parsing shall enforce strict archive limits and reject traversal, duplic
 
 **Product needs:** PN-004 · **Primary design:** CMP-MEDIA · **Design components:** CMP-MEDIA
 
-Installation and activation shall be separate idempotent transactions.
+Installation remains separate from activation. An ordered loadout of up to four distinct installed package revisions, event locks and per-event match consistency shall commit atomically at the existing match and audio-lease barrier; active.json mirrors slot 1 for older builds.
 
-**Failure behavior:** A later activation error cannot misreport the successful install as active.
+**Failure behavior:** A failed or deferred loadout change cannot misreport a successful install as active. loadout.json is the commit point, its pending form is last-write-wins, and a corrupt loadout is reported rather than reset.
 
-**AC-MEDIA-007:** Given a valid installation commits while a match/media lease prevents selection; when activation is requested; then the receipt distinguishes installed from activation deferred; the old active revision remains usable.
+**AC-MEDIA-007:** Given a legacy store has active.json but no loadout.json, then a valid two-pack loadout is requested while a match or equipped audio lease blocks changes; when the store opens, migrates in memory, receives the loadout request and later resumes after the barrier; then the legacy pack is slot 1 without an eager write; the request is deferred; after the barrier loadout.json commits, active.json mirrors slot 1, reopen preserves both packs, and crashes or a mismatched mirror recover to the old or new complete loadout.
 
 **Verification:** synthetic, native; procedures TP-04, UAT-04; status NOT_RUN.
 
 **Elaboration:** [MEDIA-PACK-SPEC.md](../design/MEDIA-PACK-SPEC.md), [ICD.md](../design/ICD.md), [EVENT-AUDIO-SPEC.md](../design/EVENT-AUDIO-SPEC.md)
 
-**Contracts:** [media-manifest.schema.json](../../contracts/media-manifest.schema.json), [media-install-request.schema.json](../../contracts/media-install-request.schema.json), [media-install-result.schema.json](../../contracts/media-install-result.schema.json)
+**Contracts:** [media-manifest.schema.json](../../contracts/media-manifest.schema.json), [media-install-request.schema.json](../../contracts/media-install-request.schema.json), [media-install-result.schema.json](../../contracts/media-install-result.schema.json), [loadout.schema.json](../../contracts/loadout.schema.json)
 
 **Diagram views:** [DGM-010](../diagrams/source/DGM-010-media-install-activation.mmd)
 

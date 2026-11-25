@@ -11,6 +11,7 @@ export type EventSoundState =
   | "inherited"
   | "unmapped"
   | "invalid_media"
+  | "not_loaded"
   | "detector_unavailable"
   | "not_voiced"
   | "unknown";
@@ -25,12 +26,33 @@ export interface SoundKey {
 export type SoundSelection = "random" | "shuffle" | "sequence" | null;
 
 export interface EventSound extends SoundKey {
+  event_group: "basic" | "special";
   state: EventSoundState;
   reason: string;
   resolved_from_tier: number | null;
   selection: SoundSelection;
   variants: EventSoundVariant[];
+  sources: EventMapSource[];
+  lock: string | null;
+  lock_state: "none" | "honored" | "unsatisfied";
 }
+
+export interface EventMapSource {
+  slot: number;
+  install_id: string;
+  package_id: string;
+  variant_count: number;
+  state: "ready" | "not_loaded" | "invalid_media";
+}
+
+export interface EventMapLoadout {
+  generation: number;
+  equipped: Array<{ install_id: string; package_id: string; revision: number; container_sha256: string }>;
+  event_locks: Record<string, string>;
+  match_consistency: boolean;
+}
+
+export interface EventMapPrewarm { used_samples: number; cap_samples: number; skipped_variants: number }
 
 export interface EventMapActivePack {
   install_id: string;
@@ -43,6 +65,9 @@ export interface MediaEventMap {
   active: EventMapActivePack | null;
   match_active: boolean;
   bindings: EventSound[];
+  loadout?: EventMapLoadout;
+  pending_loadout?: EventMapLoadout | null;
+  prewarm?: EventMapPrewarm;
 }
 
 export type EventMapLoadResult =
@@ -78,7 +103,7 @@ export interface EventMapPackRef {
 }
 
 const catalogRows = catalog.events
-  .filter((event) => event.status === "active")
+  .filter((event) => event.status === "active" || event.status === "proposed_unavailable")
   .flatMap((event) => {
     const tiers = event.tier_range
       ? Array.from({ length: event.tier_range.max - event.tier_range.min + 1 }, (_, index) => event.tier_range!.min + index)
@@ -87,6 +112,7 @@ const catalogRows = catalog.events
   });
 const expectedCatalogKeys = new Set(catalogRows.map(({ event_id, tier }) => `${event_id}:${tier ?? "none"}`));
 const catalogLabels = new Map(catalog.events.map(event => [event.id, event.labels]));
+const catalogGroups = new Map(catalog.events.map(event => [event.id, event.event_group ?? "basic"]));
 const GROUPS = ["kill", "multi", "streak", "match", "warnings", "other"] as const;
 type SoundGroup = (typeof GROUPS)[number];
 export const BROWSE_EVENT_CATEGORIES = ["kill", "multi", "streak", "match", "warnings"] as const;
@@ -169,9 +195,12 @@ function parseActive(value: unknown): EventMapActivePack | null | undefined {
 
 function parseBinding(value: unknown, version: EventMapSchemaVersion): EventSound | null {
   const binding = record(value);
-  if (!binding || !hasExactKeys(binding, [
+  const required = [
     "event_id", "tier", "state", "reason", "resolved_from_tier", "selection", "variants",
-  ])) return null;
+  ];
+  const legacyKeys = required;
+  const currentKeys = [...required, "event_group", "sources", "lock", "lock_state"];
+  if (!binding || !(version === "1.2.0" ? hasExactKeys(binding, currentKeys) : hasExactKeys(binding, legacyKeys))) return null;
   if (!matches(/^[a-z][a-z0-9_]{0,79}$/, binding.event_id)) return null;
   if (binding.tier !== null && (typeof binding.tier !== "number"
     || !Number.isInteger(binding.tier) || binding.tier < 1 || binding.tier > 100)) return null;
@@ -188,30 +217,66 @@ function parseBinding(value: unknown, version: EventMapSchemaVersion): EventSoun
     && binding.state !== "inherited"
     && binding.state !== "unmapped"
     && binding.state !== "invalid_media"
+    && binding.state !== "not_loaded"
     && binding.state !== "detector_unavailable"
     && binding.state !== "not_voiced"
     && binding.state !== "unknown") return null;
-  if (!Array.isArray(binding.variants) || binding.variants.length > 16) return null;
+  if (!Array.isArray(binding.variants) || binding.variants.length > (version === "1.2.0" ? 64 : 16)) return null;
   const variants = binding.variants.map(variant => parseEventMapVariant(variant, version));
   if (variants.some((variant) => variant === null)) return null;
   const parsedVariants = variants as EventSoundVariant[];
-  if (new Set(parsedVariants.map((variant) => variant.variant_id)).size !== parsedVariants.length) return null;
+  if (new Set(parsedVariants.map((variant) => `${variant.install_id ?? ""}:${variant.variant_id}`)).size !== parsedVariants.length) return null;
   if ((binding.state === "ready" || binding.state === "inherited") && parsedVariants.length === 0) return null;
-  if (["unmapped", "invalid_media", "not_voiced", "unknown"].includes(binding.state)
+  if (["unmapped", "not_voiced", "unknown"].includes(binding.state)
     && parsedVariants.length !== 0) return null;
   if (binding.state !== "inherited" && binding.resolved_from_tier !== null) return null;
   if (binding.state === "inherited" && binding.tier !== null && binding.resolved_from_tier !== null
     && binding.resolved_from_tier > binding.tier) return null;
 
+  const eventGroup = version === "1.2.0" ? binding.event_group : catalogGroups.get(binding.event_id as string) ?? "basic";
+  if (eventGroup !== "basic" && eventGroup !== "special") return null;
+  let sources: EventMapSource[] = [];
+  let lock: string | null = null;
+  let lockState: EventSound["lock_state"] = "none";
+  if (version === "1.2.0") {
+    if (!Array.isArray(binding.sources) || binding.sources.length > 4
+      || (binding.lock !== null && (typeof binding.lock !== "string" || !/^[a-z0-9][a-z0-9_.-]{0,79}$/.test(binding.lock)))
+      || !["none", "honored", "unsatisfied"].includes(binding.lock_state as string)) return null;
+    const parsedSources = binding.sources.map(value => {
+      const source = record(value);
+      if (!source || !hasExactKeys(source, ["slot", "install_id", "package_id", "variant_count", "state"])
+        || typeof source.slot !== "number" || !Number.isInteger(source.slot) || source.slot < 0 || source.slot > 3
+        || !matches(/^ins_[0-9]{10}$/, source.install_id)
+        || !matches(/^[a-z0-9][a-z0-9_.-]{0,79}$/, source.package_id)
+        || !safeCount(source.variant_count, 1, 64)
+        || !["ready", "not_loaded", "invalid_media"].includes(source.state as string)) return null;
+      return source as unknown as EventMapSource;
+    });
+    if (parsedSources.some(source => source === null)) return null;
+    sources = parsedSources as EventMapSource[];
+    if (new Set(sources.map(source => source.install_id)).size !== sources.length) return null;
+    lock = binding.lock as string | null;
+    lockState = binding.lock_state as EventSound["lock_state"];
+    if ((lock === null) !== (lockState === "none")) return null;
+  }
+
   return {
     event_id: binding.event_id,
+    event_group: eventGroup,
     tier: binding.tier,
     state: binding.state,
     reason: binding.reason,
     resolved_from_tier: binding.resolved_from_tier,
     selection: binding.selection,
     variants: parsedVariants,
+    sources,
+    lock,
+    lock_state: lockState,
   };
+}
+
+function safeCount(value: unknown, minimum: number, maximum: number): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= minimum && value <= maximum;
 }
 
 function rowKey(value: unknown): string | null {
@@ -225,12 +290,14 @@ function rowKey(value: unknown): string | null {
 function unknownBinding(eventId: string, tier: number | null, reason: string): EventSound {
   return {
     event_id: eventId,
+    event_group: catalogGroups.get(eventId) === "special" ? "special" : "basic",
     tier,
     state: "unknown",
     reason,
     resolved_from_tier: null,
     selection: null,
     variants: [],
+    sources: [], lock: null, lock_state: "none",
   };
 }
 
@@ -239,7 +306,7 @@ function withoutActivePack(binding: EventSound): EventSound {
     return binding;
   }
   if (binding.state === "detector_unavailable") {
-    return { ...binding, variants: [], selection: null };
+  return { ...binding, variants: [], sources: [], selection: null };
   }
   return unknownBinding(binding.event_id, binding.tier, "MEDIA_STATE_UNKNOWN");
 }
@@ -247,13 +314,30 @@ function withoutActivePack(binding: EventSound): EventSound {
 /** Parse the versioned host map. A bad row only makes its own catalog row unknown. */
 export function parseMediaEventMap(value: unknown): MediaEventMap | null {
   const source = record(value);
-  if (!source || !hasOnlyKeys(source, ["schema_version", "active", "events"], ["match_active", "media_match_active"])) return null;
+  if (!source) return null;
+  const legacyTop = ["schema_version", "active", "events"];
+  const currentTop = ["schema_version", "active", "loadout", "pending_loadout", "prewarm", "events"];
+  if (!hasOnlyKeys(source, source.schema_version === "1.2.0" ? currentTop : legacyTop, ["match_active", "media_match_active"])) return null;
   const flags = [source.match_active, source.media_match_active].filter(flag => flag !== undefined);
   if (flags.length === 0 || flags.some(flag => typeof flag !== "boolean")) return null;
-  if (source.schema_version !== "1.0.0" && source.schema_version !== "1.1.0") return null;
+  if (source.schema_version !== "1.0.0" && source.schema_version !== "1.1.0" && source.schema_version !== "1.2.0") return null;
   const version = source.schema_version as EventMapSchemaVersion;
   const active = parseActive(source.active);
   if (active === undefined || !Array.isArray(source.events)) return null;
+  let loadout: EventMapLoadout | undefined;
+  let pendingLoadout: EventMapLoadout | null | undefined;
+  let prewarm: EventMapPrewarm | undefined;
+  if (version === "1.2.0") {
+    loadout = parseEventMapLoadout(source.loadout);
+    if (!loadout) return null;
+    pendingLoadout = source.pending_loadout === null ? null : parseEventMapLoadout(source.pending_loadout) ?? undefined;
+    if (pendingLoadout === undefined) return null;
+    const data = record(source.prewarm);
+    if (!data || !hasExactKeys(data, ["used_samples", "cap_samples", "skipped_variants"])
+      || !safeCount(data.used_samples, 0, 40_000_000) || data.cap_samples !== 40_000_000
+      || !safeCount(data.skipped_variants, 0, Number.MAX_SAFE_INTEGER)) return null;
+    prewarm = data as unknown as EventMapPrewarm;
+  }
 
   const rows = new Map<string, EventSound>();
   const invalidKeys = new Set<string>();
@@ -299,7 +383,28 @@ export function parseMediaEventMap(value: unknown): MediaEventMap | null {
     active,
     match_active: flags.includes(true),
     bindings,
+    ...(loadout ? { loadout, pending_loadout: pendingLoadout, prewarm } : {}),
   };
+}
+
+function parseEventMapLoadout(value: unknown): EventMapLoadout | null {
+  const data = record(value);
+  if (!data || !hasExactKeys(data, ["generation", "equipped", "event_locks", "match_consistency"])
+    || !safeCount(data.generation, 0, Number.MAX_SAFE_INTEGER) || !Array.isArray(data.equipped) || data.equipped.length > 4
+    || typeof data.match_consistency !== "boolean") return null;
+  const equipped = data.equipped.map(item => {
+    const pack = record(item);
+    if (!pack || !hasExactKeys(pack, ["install_id", "package_id", "revision", "container_sha256"])
+      || !matches(/^ins_[0-9]{10}$/, pack.install_id) || !matches(/^[a-z0-9][a-z0-9_.-]{0,79}$/, pack.package_id)
+      || !safeCount(pack.revision, 1, Number.MAX_SAFE_INTEGER) || !matches(/^[a-f0-9]{64}$/, pack.container_sha256)) return null;
+    return pack as unknown as EventMapLoadout["equipped"][number];
+  });
+  if (equipped.some(pack => pack === null) || new Set(equipped.map(pack => pack!.install_id)).size !== equipped.length
+    || new Set(equipped.map(pack => pack!.package_id)).size !== equipped.length) return null;
+  const locks = record(data.event_locks);
+  if (!locks || Object.entries(locks).some(([event, packageId]) => !/^[a-z][a-z0-9_]{0,79}$/.test(event)
+    || typeof packageId !== "string" || !/^[a-z0-9][a-z0-9_.-]{0,79}$/.test(packageId))) return null;
+  return { generation: data.generation as number, equipped: equipped as EventMapLoadout["equipped"], event_locks: locks as Record<string, string>, match_consistency: data.match_consistency };
 }
 
 export function eventMapMatchesPack(

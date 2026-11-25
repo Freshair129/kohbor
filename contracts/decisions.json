@@ -99,6 +99,34 @@
       ]
     },
     {
+      "id": "DEC-MULTI-PACK",
+      "status": "decided",
+      "milestone": "M2",
+      "blocks": "multi-pack announcer loadout, mapped-aware arbitration, and the approved first special-event set",
+      "owner_role": "product owner",
+      "safe_interim": "Use the approved loadout and arbitration rules. Keep the three new detectors proposed_unavailable until live captures confirm true positives. Store category is design only.",
+      "closure_evidence": "Owner decision relayed by the lead and recorded by an agent on 2026-11-25; native, live, acoustic and resource acceptance remain separate.",
+      "decided_on": "2026-11-25",
+      "decided_by": "product owner (relayed by the lead; recorded by an agent)",
+      "decision_source": {
+        "owner_words": "Approve D1?D7",
+        "source": "F:\\kohbor-coord\\design\\multi-pack-20261125\\README.th.md",
+        "design": "F:\\kohbor-coord\\design\\multi-pack-20261125\\DESIGN.md",
+        "relayed_by": "lead",
+        "recorded_by": "agent"
+      },
+      "approved_decisions": {
+        "D1": "Skip every event without ready sound in the equipped loadout before ordinary arbitration; try the next-ranked mapped event.",
+        "D2": "Equip at most four packs. Keep the 40,000,000-sample PCM budget and fill it in priority rounds. Report skipped clips; revisit the budget after the first real measurement.",
+        "D3": "Same voice is sticky per event for one match and disabled by default.",
+        "D4": "First special events are clutch_kill (rank 75), posthumous_kill (rank 65), and comeback_kill (rank 62), using DESIGN 6.3 rules and cited admitted GSI fields.",
+        "D5": "Derive pack kind from its bindings; do not change pack manifest or signature.",
+        "D6": "Replay-only events are outside voice packs for now.",
+        "D7": "An unsatisfied event lock falls back to the mix and is disclosed on the Packs page."
+      },
+      "additional_owner_decision": "Choose randomly from the union of variants by default, allow a per-event lock, and key selection history by (pack, variant)."
+    },
+    {
       "id": "DEC-HEALTH-DANGER",
       "status": "decided",
       "milestone": "M2",

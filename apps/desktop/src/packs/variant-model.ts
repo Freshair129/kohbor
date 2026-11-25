@@ -9,6 +9,11 @@ export interface EventVariant {
   caption?: string;
   duration_ms: number;
   has_visual: boolean;
+  install_id?: string;
+  package_id?: string;
+  equipped_slot?: number;
+  state?: "ready" | "not_loaded" | "invalid_media";
+  reason?: string;
 }
 
 export interface VariantAuditionResult {

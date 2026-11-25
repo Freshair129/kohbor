@@ -375,6 +375,9 @@ fn active_pointer_to_unknown_install_is_corrupt() {
         text.contains(&id),
         "active pointer must name its installation"
     );
+    // Simulate an older store, where active.json is the sole source of truth.
+    // A current store repairs a disagreeing compatibility mirror from loadout.json.
+    std::fs::remove_file(root.join("loadout.json")).unwrap();
     std::fs::write(active_path, text.replace(&id, "ins_9999999999")).unwrap();
     assert!(
         matches!(

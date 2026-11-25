@@ -1,9 +1,9 @@
 ---
 title: "Media Package Specification"
 doc_id: "MEDIA-PACK-SPEC"
-version: "0.3.8"
+version: "0.3.9"
 status: "draft"
-updated: "2026-11-20"
+updated: "2026-11-25"
 owner: "Product owner"
 approval_status: "not_approved"
 ---
@@ -30,7 +30,7 @@ The builder MAY choose neutral machine identifiers, but MUST freeze them in the 
 
 ## MP-02 — Detection and audio arbitration
 
-The ordinary announcer chooses at most one highest-ranked event from a tick. Multi-kill outranks streak, which outranks first blood and ordinary kill. Multi-kill counts kills within the configured 18-second default window; streak counts kills since death. The catalog MUST preserve this distinction. Default milestone levels are 6, 12, 18, and 25. Low-health and low-mana defaults are 20% and 15% respectively. Session changes, counter resets, reconnects, and regressed or late samples MUST NOT create duplicate achievements.
+The ordinary announcer chooses at most one highest-ranked event with ready sound from a tick. Events without ready sound are recorded as unmapped or invalid and removed before arbitration, so the next-ranked mapped event can play. Multi-kill outranks streak, which outranks first blood and ordinary kill; special-event ranks are in the canonical catalog. Multi-kill counts kills within the configured 18-second default window; streak counts kills since death. The catalog MUST preserve this distinction. Default milestone levels are 6, 12, 18, and 25. Low-health and low-mana defaults are 20% and 15% respectively. Session changes, counter resets, reconnects, and regressed or late samples MUST NOT create duplicate achievements.
 
 Critical safety cues use a separate priority policy and MUST preempt lower-priority playback where required. A missing-enemy cue is emitted at most once per hero per missing episode after more than five seconds of valid coverage; its global voice cooldown is at least ten seconds. It is dropped, not queued, while critical audio is active. Respawn remains a valid state transition but is unvoiced in the initial mapping policy.
 
@@ -71,11 +71,11 @@ Native audio is the single audio owner. Video is always muted. The renderer cons
 
 ### Event cabinet audition
 
-The Packs page consumes the versioned `media_event_map` host command (`schema_version: "1.1.0"`); the renderer continues to accept P2's `1.0.0` rows, which have no caption field. The legacy `media_cabinet` command remains available until P1 removes it. The map has one host-owned row for every active catalog event and declared tier, including unavailable and not-voiced events. Each row contains `event_id`, nullable `tier`, `state`, reason code, nullable `resolved_from_tier`, nullable `selection`, and `variants[]` with `variant_id`, optional `clip_id`, optional `caption`, `duration_ms`, and `has_visual`. Caption is absent for older descriptors and is plain display text only. States are `ready`, `inherited`, `unmapped`, `invalid_media`, `detector_unavailable`, `not_voiced`, or `unknown`. A malformed, missing, duplicate, or unexpected row makes only the affected row unknown in the renderer; it does not erase the remaining catalog.
+The Packs page consumes `media_event_map` schema 1.2.0 and retains P2's 1.0.0 and P1's 1.1.0 readers. The legacy `media_cabinet` command remains available until P1 removes it. The map has a host-owned row for each active or proposed-unavailable catalog event and tier. Rows add `event_group`, lock state, contributing sources, and per-variant install/package provenance; the top level adds ordered `loadout[]` and prewarm sample usage, cap, and skipped-variant count. Existing state and caption rules remain. A malformed, missing, duplicate, or unexpected row makes only the affected row unknown in the renderer; it does not erase the remaining catalog.
 
 For example, an inherited tier can be reported as `{"event_id":"multi_kill","tier":3,"state":"inherited","reason":"TIER_FALLBACK","resolved_from_tier":2,"selection":"random","variants":[{"variant_id":"v1","clip_id":"clip_01","duration_ms":2100,"has_visual":true}]}`. An unavailable first-blood row remains visible with `state: "detector_unavailable"` and `reason: "EVENT_UNAVAILABLE"`; an unvoiced `hero_respawn` row uses `state: "not_voiced"` and `reason: "NOT_VOICED"`.
 
-The drawer requests `media_installed_event_map(install_id)`. The reply uses the same 1.1.0 shape. Its `active` field identifies the requested revision, even when a different revision is active. The host reads and verifies installed bindings without changing activation or publishing media routes. An inactive revision lists exact authored tiers because its audition command takes an exact tier. An unknown install returns `UNKNOWN_INSTALL`. A match can block audition while the read-only map remains available.
+The drawer requests `media_installed_event_map(install_id)`. The reply uses the same 1.2.0 shape. Its `active` field identifies the requested revision, even when a different revision is active. The host reads and verifies installed bindings without changing activation or publishing media routes. An inactive revision lists exact authored tiers because its audition command takes an exact tier. An unknown install returns `UNKNOWN_INSTALL`. A match can block audition while the read-only map remains available.
 
 The audio engine considers one audition after game requests and admits it only when the channel and visual are idle. `media_audition_variant(event_id, tier, variant_id)` resolves that exact active-pack variant without applying random, shuffle, or sequence selection. `media_audition_installed_variant(install_id, event_id, tier, variant_id)` resolves the exact verified variant from an installed but non-active revision. A preview request is rejected with a reason code during a match, and audition requests are rate-limited. A game request cancels a pending or playing audition. Drawer previews send only audio to the audio owner; `media_variant_visual_url(install_id, event_id, tier, variant_id)` returns either `null` or an exact `kohbor-media` URL for the verified silent visual, never a filesystem path. Active-pack audition uses the overlay only when `overlay: true`; the option defaults to false. Started and ended playback lifecycle events carry the playback ID so the panel can synchronize its video with the audio and stop it at the same lifecycle boundary. Audition results continue to distinguish audio start/end from whether a visual was shown; they do not claim that audio was physically heard. The host checks the media match flag and checks the GSI phase again at admission. Draft (including strategy), pregame, live and postgame block auditions until GSI reports an unknown or idle phase and the media match flag is clear.
 
@@ -101,7 +101,7 @@ A logical install request contains request ID, profile ID, package source path, 
 
 The Windows transport MUST be local, current-user/profile-bound, reject remote clients, verify the registered server identity, and perform protocol/profile/nonce handshake. Frames are bounded to 16 KiB. Exact pipe names and framing belong to the protocol ADR. This boundary separates operating-system users and profiles; it does not attest every process within the same user account.
 
-The proposed request and result contracts are [media-install-request.schema.json](../../contracts/media-install-request.schema.json) and [media-install-result.schema.json](../../contracts/media-install-result.schema.json); the descriptor carries no authority field (EVENT-AUDIO-SPEC §7). The host-owned `media_pack_summaries` response is version 1.1.0 and retains 1.0.0 readers. Each 1.1.0 record adds `authority_class` (`system` only for packs shipped with the application, `local_import` for file installs), nullable `publisher_claim` copied from the descriptor, nullable legacy metadata where the old registry lacks it, `installed_at`, `size_bytes`, `game_id: "dota2"`, and nullable `presentation` with a protocol URL for a valid cover. Authority is assigned from the installer source, never from a package name. Cover URLs are allowlisted by the existing media protocol; summaries expose no payload paths.
+The proposed request and result contracts are [media-install-request.schema.json](../../contracts/media-install-request.schema.json) and [media-install-result.schema.json](../../contracts/media-install-result.schema.json); the descriptor carries no authority field (EVENT-AUDIO-SPEC §7). The host-owned `media_pack_summaries` response is version 1.2.0 and retains older readers. Each 1.2.0 record adds `equipped_slot` (nullable, zero-based) and derived `pack_kind` (`basic`, `special`, `mixed`, or `unknown`) alongside authority, legacy metadata, and presentation. Authority is assigned from the installer source, never from a package name. Cover URLs are allowlisted by the existing media protocol; summaries expose no payload paths.
 
 Installation and activation are separate transactions. Results distinguish `installed`, `active`, `deferred`, and `activation_error`; copying bytes MUST NOT be reported as successful activation.
 
@@ -109,9 +109,17 @@ Installation and activation are separate transactions. Results distinguish `inst
 
 Opaque installation ID is distinct from publisher/media identity and revision. Registry records MUST bind authority, media identity, revision, and digest. Local imports MUST NOT impersonate system or store authority.
 
-Playback holds an immutable revision lease until audio and declared visual tail finish. Selection changes wait until the match barrier permits activation and no relevant lease remains. Late asynchronous results MUST match profile, session, revision, and generation before taking effect.
+Playback holds an immutable revision lease until audio and declared visual tail finish. Loadout changes wait until the match barrier permits activation and no equipped install lease remains. Late asynchronous results MUST match profile, session, revision, and loadout generation before taking effect.
 
 Retain prior revisions for repair and rollback; never garbage-collect a leased revision. Cache adoption succeeds only after verified publication. Failed adoption MUST be retryable after repair even when the installation ID is unchanged.
+
+### Multi-pack loadout (DEC-MULTI-PACK, decided 2026-11-25)
+
+The ordered loadout contains zero to four verified installed revisions plus `event_locks` and `match_consistency`. It lives in `loadout.json` beside `active.json`; `active.json` always mirrors slot 0 for older builds. A valid loadout is authoritative on open and repairs a disagreeing mirror. When only `active.json` exists, open migrates it in memory without writing until the next change. Corrupt loadout data is an error, never an empty reset. Changes apply immediately while idle and defer as one last-request-wins document while a match or any equipped install lease blocks them. `media_activate` continues to mean replacement with one pack.
+
+Across the loadout, the most specific eligible tier wins. A satisfied event lock limits that event to one package; an unsatisfied lock keeps the mix and is reported. Critical events still select exactly one source. Other same-key variants form a pool; a single-pack pool preserves its authored selection, while a mixed pool uses uniform no-repeat shuffle over the union. History is keyed by `(install_id, variant_id)`. When enabled, match consistency remembers one pack per event only after audio admission; it defaults off and resets on session or loadout-generation changes.
+
+The shared PCM cap remains 40,000,000 samples. Prewarm fills it in R0 critical, R1 first source per key, R2 other sources per key, then R3 remaining variants, deduplicating identical audio payloads by SHA-256. Skipped variants remain visible as `prewarm_cap`. Reads, hashing, decoding, merging, and renderer probes happen during prewarm, never event admission. The catalog's `event_group` is `basic` or `special`; older catalogs without the field mean `basic`. Pack kind is derived from mapped, non-inert bindings and does not change the signed pack descriptor. The first three new special detectors remain unavailable until live captures confirm true positives. Replay-only events stay outside announcer packs. Store facets remain design-only.
 
 ## MP-08 — Fail-silent behavior and safety readiness
 

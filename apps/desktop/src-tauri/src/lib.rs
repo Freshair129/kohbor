@@ -241,7 +241,7 @@ fn overlay_hwnd(
 #[cfg(windows)]
 fn overlay_has_no_activate_style(window: &tauri::WebviewWindow<tauri::Wry>) -> bool {
     use windows::Win32::UI::WindowsAndMessaging::{
-        GetWindowLongPtrW, GWL_EXSTYLE, WS_EX_NOACTIVATE,
+        GWL_EXSTYLE, GetWindowLongPtrW, WS_EX_NOACTIVATE,
     };
 
     let Some(hwnd) = overlay_hwnd(window) else {
@@ -265,7 +265,7 @@ fn overlay_is_foreground(window: &tauri::WebviewWindow<tauri::Wry>) -> bool {
 /// (`activation_detected` on start-up). `SW_SHOWNOACTIVATE` shows the window and leaves the foreground alone.
 #[cfg(windows)]
 pub(crate) fn show_without_activation(window: &tauri::WebviewWindow<tauri::Wry>) -> bool {
-    use windows::Win32::UI::WindowsAndMessaging::{IsWindowVisible, ShowWindow, SW_SHOWNOACTIVATE};
+    use windows::Win32::UI::WindowsAndMessaging::{IsWindowVisible, SW_SHOWNOACTIVATE, ShowWindow};
 
     let Some(hwnd) = overlay_hwnd(window) else {
         return false;
@@ -286,7 +286,7 @@ pub(crate) fn show_without_activation(window: &tauri::WebviewWindow<tauri::Wry>)
 #[cfg(windows)]
 fn raise_overlay_without_activation(window: &tauri::WebviewWindow<tauri::Wry>) -> bool {
     use windows::Win32::UI::WindowsAndMessaging::{
-        SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+        HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SetWindowPos,
     };
 
     let Some(hwnd) = overlay_hwnd(window) else {
@@ -457,7 +457,7 @@ fn reserve_overlay_visibility_diagnostic() -> Option<usize> {
 
 #[cfg(windows)]
 fn window_is_topmost(hwnd: windows::Win32::Foundation::HWND) -> bool {
-    use windows::Win32::UI::WindowsAndMessaging::{GetWindowLongPtrW, GWL_EXSTYLE, WS_EX_TOPMOST};
+    use windows::Win32::UI::WindowsAndMessaging::{GWL_EXSTYLE, GetWindowLongPtrW, WS_EX_TOPMOST};
 
     unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32 & WS_EX_TOPMOST.0 != 0 }
 }
@@ -466,7 +466,7 @@ fn window_is_topmost(hwnd: windows::Win32::Foundation::HWND) -> bool {
 fn overlay_window_above_description(hwnd: windows::Win32::Foundation::HWND) -> String {
     use windows::Win32::Foundation::HWND;
     use windows::Win32::UI::WindowsAndMessaging::{
-        GetClassNameW, GetWindow, GetWindowThreadProcessId, GW_HWNDPREV,
+        GW_HWNDPREV, GetClassNameW, GetWindow, GetWindowThreadProcessId,
     };
 
     let above = match unsafe { GetWindow(hwnd, GW_HWNDPREV) } {
@@ -499,7 +499,7 @@ fn overlay_window_above_description(hwnd: windows::Win32::Foundation::HWND) -> S
 #[cfg(windows)]
 fn overlay_visible_topmost_rank(target: windows::Win32::Foundation::HWND) -> Option<usize> {
     use windows::Win32::UI::WindowsAndMessaging::{
-        GetTopWindow, GetWindow, IsWindowVisible, GW_HWNDNEXT,
+        GW_HWNDNEXT, GetTopWindow, GetWindow, IsWindowVisible,
     };
 
     let mut current = unsafe { GetTopWindow(None).ok() }?;
@@ -526,16 +526,18 @@ fn log_overlay_visibility_snapshot(
     sample: usize,
     at: &'static str,
 ) {
-    use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED};
+    use windows::Win32::Graphics::Dwm::{DWMWA_CLOAKED, DwmGetWindowAttribute};
     use windows::Win32::UI::WindowsAndMessaging::{
-        GetForegroundWindow, GetWindowLongPtrW, IsWindowVisible, GWL_EXSTYLE, WS_EX_NOACTIVATE,
+        GWL_EXSTYLE, GetForegroundWindow, GetWindowLongPtrW, IsWindowVisible, WS_EX_NOACTIVATE,
     };
 
     let Some(hwnd) = overlay_hwnd(window) else {
         crate::log_info!(
             "overlay",
             "visibility_snapshot",
-            format!("sample={sample} at={at} visible=unknown cloaked=unknown foreground=unknown visible_topmost_rank=unknown above=unknown no_activate=unknown")
+            format!(
+                "sample={sample} at={at} visible=unknown cloaked=unknown foreground=unknown visible_topmost_rank=unknown above=unknown no_activate=unknown"
+            )
         );
         return;
     };
@@ -554,11 +556,7 @@ fn log_overlay_visibility_snapshot(
     }
     .is_ok()
     {
-        if cloaked_value == 0 {
-            "false"
-        } else {
-            "true"
-        }
+        if cloaked_value == 0 { "false" } else { "true" }
     } else {
         "unknown"
     };
@@ -1076,11 +1074,13 @@ mod window_close_tests {
     fn the_control_window_label_matches_the_tauri_config() {
         let config: serde_json::Value =
             serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
-        assert!(config["app"]["windows"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|window| window["label"] == "control"));
+        assert!(
+            config["app"]["windows"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|window| window["label"] == "control")
+        );
     }
 }
 
@@ -1449,6 +1449,9 @@ pub fn run() {
         commands::media_install_bytes,
         commands::media_activate,
         commands::media_cancel_pending_activation,
+        commands::media_loadout_get,
+        commands::media_loadout_set,
+        commands::media_loadout_cancel,
         commands::media_list,
         commands::media_pack_summaries,
         commands::media_cabinet,
@@ -1613,6 +1616,9 @@ pub fn run() {
         commands::media_install_bytes,
         commands::media_activate,
         commands::media_cancel_pending_activation,
+        commands::media_loadout_get,
+        commands::media_loadout_set,
+        commands::media_loadout_cancel,
         commands::media_list,
         commands::media_pack_summaries,
         commands::media_cabinet,

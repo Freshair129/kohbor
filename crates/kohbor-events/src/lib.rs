@@ -17,7 +17,7 @@ use trace::{Danger, LevelEvidence, Scratch, Status, Threshold};
 
 use std::collections::VecDeque;
 
-/// Catalog events the detector can emit (taxonomy 1.1, contracts/event-catalog.json).
+/// Catalog events the detector can emit (taxonomy 1.2, contracts/event-catalog.json).
 /// Declaration order is the order in which one tick's events are returned.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum EventId {
@@ -33,6 +33,9 @@ pub enum EventId {
     MatchStarted,
     HeroRespawn,
     HealthDanger,
+    ClutchKill,
+    PosthumousKill,
+    ComebackKill,
 }
 
 impl EventId {
@@ -51,6 +54,9 @@ impl EventId {
             Self::MatchStarted => "match_started",
             Self::HeroRespawn => "hero_respawn",
             Self::HealthDanger => "health_danger",
+            Self::ClutchKill => "clutch_kill",
+            Self::PosthumousKill => "posthumous_kill",
+            Self::ComebackKill => "comeback_kill",
         }
     }
 
@@ -68,6 +74,9 @@ impl EventId {
             Self::MatchEnded => Some(15),
             Self::MatchStarted => Some(10),
             Self::HeroRespawn | Self::HealthDanger => None,
+            Self::ClutchKill => Some(75),
+            Self::PosthumousKill => Some(65),
+            Self::ComebackKill => Some(62),
         }
     }
 
@@ -104,6 +113,9 @@ impl EventId {
             Self::MatchStarted => 9,
             Self::HeroRespawn => 10,
             Self::HealthDanger => 11,
+            Self::ClutchKill => 12,
+            Self::PosthumousKill => 13,
+            Self::ComebackKill => 14,
         }
     }
 }
@@ -214,6 +226,9 @@ pub struct Detector {
     danger_armed: bool,
     danger_last_cue_ms: Option<u64>,
     danger_samples: VecDeque<HealthSample>,
+    clutch_health_samples: VecDeque<HealthSample>,
+    session_death_count: u32,
+    deaths_since_previous_kill: u32,
     scratch: Scratch,
 }
 
@@ -254,6 +269,9 @@ impl Detector {
             danger_armed: true,
             danger_last_cue_ms: None,
             danger_samples: VecDeque::new(),
+            clutch_health_samples: VecDeque::new(),
+            session_death_count: 0,
+            deaths_since_previous_kill: 0,
             scratch: Scratch::default(),
         }
     }
@@ -293,10 +311,17 @@ impl Detector {
         let death_counter_known = previous_deaths.is_some() && tick.deaths.is_some();
         let death_counter_increased = matches!((previous_deaths, tick.deaths),
             (Some(previous), Some(current)) if current > previous);
+        let deaths_regressed = matches!((previous_deaths, tick.deaths),
+            (Some(previous), Some(current)) if current < previous);
         let died = if death_counter_known {
             death_counter_increased
         } else {
             alive_death
+        };
+        let death_increment = match (previous_deaths, tick.deaths) {
+            (Some(previous), Some(current)) if current > previous => current - previous,
+            _ if !death_counter_known && alive_death => 1,
+            _ => 0,
         };
         let alive_respawn = previous_alive == Some(false) && tick.alive == Some(true);
         let respawned = alive_respawn && (self.death_since_respawn || died);
@@ -324,6 +349,22 @@ impl Detector {
         self.scratch.kill_delta = kill_delta;
         self.scratch.kills_regressed = kills_regressed;
         self.scratch.died = died;
+        self.scratch.special_kill_delta = kill_delta;
+        self.scratch.special_alive = tick.alive;
+        let prior_session_deaths = if deaths_regressed {
+            0
+        } else {
+            self.session_death_count
+        };
+        let prior_deaths_since_kill = if deaths_regressed {
+            0
+        } else {
+            self.deaths_since_previous_kill
+        };
+        self.scratch.special_session_deaths =
+            Some(prior_session_deaths.saturating_add(death_increment));
+        self.scratch.special_deaths_since_kill =
+            Some(prior_deaths_since_kill.saturating_add(death_increment));
         self.scratch.level_regressed = level_regressed;
         self.scratch.level = Some(LevelEvidence {
             previous: previous_level,
@@ -334,6 +375,22 @@ impl Detector {
             previous_phase.is_some_and(|phase| phase != Phase::Live) && tick.phase == Phase::Live;
         let match_ended = previous_phase.is_some_and(|phase| phase != Phase::PostGame)
             && tick.phase == Phase::PostGame;
+
+        let clutch_min_hp_percent = self.clutch_min_hp_percent(tick);
+        self.scratch.clutch_min_hp_percent = clutch_min_hp_percent;
+        let clutch_kill = tick.phase == Phase::Live
+            && kill_delta.is_some_and(|delta| delta > 0)
+            && tick.alive == Some(true)
+            && clutch_min_hp_percent.is_some_and(|percent| percent <= 10.0);
+        let counted_session_deaths = prior_session_deaths.saturating_add(death_increment);
+        let posthumous_kill = tick.phase == Phase::Live
+            && kill_delta.is_some_and(|delta| delta > 0)
+            && tick.alive == Some(false)
+            && counted_session_deaths > 0;
+        let comeback_deaths = prior_deaths_since_kill.saturating_add(death_increment);
+        let comeback_kill = tick.phase == Phase::Live
+            && kill_delta.is_some_and(|delta| delta > 0)
+            && comeback_deaths >= 3;
 
         let mut multi_kill_tier = None;
         let mut streak_tier = None;
@@ -492,6 +549,23 @@ impl Detector {
 
         let health_danger = self.observe_health_danger(tick);
 
+        if tick.phase != Phase::Live || died || kills_regressed {
+            self.clutch_health_samples.clear();
+        } else if tick.alive == Some(true) {
+            self.remember_clutch_health(tick);
+        }
+        if kills_regressed || deaths_regressed {
+            self.session_death_count = 0;
+            self.deaths_since_previous_kill = 0;
+        } else if tick.phase == Phase::Live {
+            self.session_death_count = counted_session_deaths;
+            self.deaths_since_previous_kill = if kill_delta.is_some_and(|delta| delta > 0) {
+                0
+            } else {
+                comeback_deaths
+            };
+        }
+
         if let Some(value) = tick.kills {
             self.kills = Some(value);
         }
@@ -510,7 +584,7 @@ impl Detector {
         self.session_epoch = Some(tick.session_epoch);
         self.last_at_ms = Some(tick.at_ms);
 
-        let mut events = Vec::with_capacity(12);
+        let mut events = Vec::with_capacity(15);
         if let Some(tier) = multi_kill_tier {
             events.push(event(EventId::MultiKill, Some(tier), tick.at_ms));
         }
@@ -547,7 +621,55 @@ impl Detector {
         if health_danger {
             events.push(event(EventId::HealthDanger, None, tick.at_ms));
         }
+        if clutch_kill {
+            events.push(event(EventId::ClutchKill, None, tick.at_ms));
+        }
+        if posthumous_kill {
+            events.push(event(EventId::PosthumousKill, None, tick.at_ms));
+        }
+        if comeback_kill {
+            events.push(event(EventId::ComebackKill, None, tick.at_ms));
+        }
         events
+    }
+
+    fn clutch_min_hp_percent(&mut self, tick: &Tick) -> Option<f64> {
+        while self.clutch_health_samples.front().is_some_and(|sample| {
+            tick.at_ms
+                .checked_sub(sample.at_ms)
+                .is_some_and(|elapsed| elapsed > 3_000)
+        }) {
+            self.clutch_health_samples.pop_front();
+        }
+        let history_min = self
+            .clutch_health_samples
+            .iter()
+            .map(|sample| f64::from(sample.hp) * 100.0 / f64::from(sample.max_hp))
+            .reduce(f64::min);
+        let current = tick
+            .hp
+            .zip(tick.max_hp)
+            .filter(|(hp, max_hp)| *max_hp > 0 && hp <= max_hp)
+            .map(|(hp, max_hp)| f64::from(hp) * 100.0 / f64::from(max_hp));
+        match (history_min, current) {
+            (Some(left), Some(right)) => Some(left.min(right)),
+            (Some(value), None) | (None, Some(value)) => Some(value),
+            (None, None) => None,
+        }
+    }
+
+    fn remember_clutch_health(&mut self, tick: &Tick) {
+        if let Some((hp, max_hp)) = tick
+            .hp
+            .zip(tick.max_hp)
+            .filter(|(hp, max_hp)| *max_hp > 0 && hp <= max_hp)
+        {
+            self.clutch_health_samples.push_back(HealthSample {
+                at_ms: tick.at_ms,
+                hp,
+                max_hp,
+            });
+        }
     }
 
     fn set_baseline(&mut self, tick: &Tick, preserve_danger_state: bool) {
@@ -582,6 +704,9 @@ impl Detector {
             None
         };
         self.danger_samples.clear();
+        self.clutch_health_samples.clear();
+        self.session_death_count = 0;
+        self.deaths_since_previous_kill = 0;
 
         if let Some((hp, max_hp)) = tick
             .hp
@@ -597,6 +722,9 @@ impl Detector {
                     hp,
                     max_hp,
                 });
+                if tick.phase == Phase::Live {
+                    self.remember_clutch_health(tick);
+                }
             }
         }
         if let Some(mana_percent) = tick.mana_percent {
@@ -747,7 +875,7 @@ pub struct Arbitration {
 /// Ordinary arbitration for one admitted tick (EVENT-AUDIO-SPEC section 2). Only
 /// voiced, non-critical events take part; others are in neither `winner` nor `dropped`.
 pub fn arbitrate(events: &[Event]) -> Arbitration {
-    let mut seen = [false; 12];
+    let mut seen = [false; 15];
     let mut eligible = Vec::new();
     for candidate in events {
         if !candidate.id.voiced() || candidate.id.is_critical() {

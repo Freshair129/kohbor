@@ -59,6 +59,7 @@ export function PackCard({ pack, locale, unavailable, busy, activationError, sel
   const [failedCover, setFailedCover] = useState<string>();
   const coverFailed = pack.coverUrl !== null && failedCover === pack.coverUrl;
   const problem = activationError ?? (pack.problem ? text.problems[pack.problem] : null) ?? (coverFailed ? text.problems.cover : null);
+  const equipped = pack.equippedSlot !== null;
   const state = problem ? "problem" : pack.active ? "active" : "installed";
   const origin = originLabel(pack, locale);
   return <article className={`packs-card${pack.active ? " is-active" : ""}${selected ? " is-open" : ""}`} aria-labelledby={id}>
@@ -71,6 +72,10 @@ export function PackCard({ pack, locale, unavailable, busy, activationError, sel
         <div className="packs-card-meta">
           <span className={origin.className}>{origin.label}</span>
           <Chip tone={state === "problem" ? "warn" : state === "active" ? "fresh" : "off"} label={text.states[state]} />
+          <Chip tone={equipped ? "fresh" : "off"} label={equipped
+            ? (locale === "th" ? `ช่อง ${pack.equippedSlot! + 1}` : `Equipped · slot ${pack.equippedSlot! + 1}`)
+            : (locale === "th" ? (pack.packKind === "special" ? "แพ็กเหตุการณ์พิเศษ" : pack.packKind === "mixed" ? "พื้นฐานและพิเศษ" : "แพ็กพื้นฐาน")
+              : (pack.packKind === "special" ? "Special" : pack.packKind === "mixed" ? "Mixed" : pack.packKind === "basic" ? "Basic" : "Kind unknown"))} />
           {state === "problem" && pack.active && <Chip tone="fresh" label={text.states.active} />}
           <small className="muted">{text.revision(pack.revision)}</small>
         </div>
@@ -89,13 +94,13 @@ export function PackCard({ pack, locale, unavailable, busy, activationError, sel
       </div>
     </button>
     <div className="packs-actions packs-card-actions">
-      {pack.active
-        ? <button type="button" disabled>{locale === "th" ? "กำลังใช้อยู่" : "In use"}</button>
-        : pack.pending
+      {pack.pending
           ? <button type="button" disabled>{text.pending}</button>
           : <button type="button" className="primary" disabled={unavailable || pack.problem === "metadata"}
-            aria-busy={busy} aria-label={text.activatePack(pack.name ?? text.unnamed)} onClick={onActivate}>
-            {busy ? text.activating : text.activate}
+            aria-busy={busy} aria-label={equipped
+              ? (locale === "th" ? `ถอดแพ็ก ${pack.name ?? text.unnamed}` : `Unequip ${pack.name ?? text.unnamed}`)
+              : (locale === "th" ? `ติดตั้งเป็นแพ็กเสียง ${pack.name ?? text.unnamed}` : `Equip ${pack.name ?? text.unnamed}`)} onClick={onActivate}>
+            {busy ? text.activating : equipped ? (locale === "th" ? "ถอดออก" : "Unequip") : (locale === "th" ? "ติดตั้งเพิ่ม" : "Equip")}
           </button>}
       <button type="button" aria-haspopup="dialog" aria-label={text.detailsFor(pack.name ?? text.unnamed)}
         onClick={event => onDetails(event.currentTarget)}>{text.details}</button>
@@ -210,9 +215,9 @@ export function PackDrawer({ pack, packs, detail, loading, locale, preview, prev
           style={{ "--preview-duration": `${Math.max(1, preview.durationMs ?? 0)}ms` } as CSSProperties} aria-hidden="true"><span /></span>
         <p className="packs-preview-status" role="status">{previewNotice ?? (loading ? text.previewLoading : "")}</p>
         <div className="packs-preview-controls">
-          <label><input type="checkbox" checked={overlayPreview} disabled={!pack.active || matchLocked}
+          <label><input type="checkbox" checked={overlayPreview} disabled={!equipped || matchLocked}
             onChange={event => onOverlayPreview(event.currentTarget.checked)} />{text.overlayOption}</label>
-          <small>{matchLocked ? text.matchLock : pack.active ? "" : text.inactiveListen}</small>
+          <small>{matchLocked ? text.matchLock : equipped ? "" : text.inactiveListen}</small>
         </div>
       </section>
 
@@ -224,7 +229,9 @@ export function PackDrawer({ pack, packs, detail, loading, locale, preview, prev
       </div>
       <div className="packs-drawer-scroll glass-solid" tabIndex={0}>
         <div className="packs-drawer-info"><span className={origin.className}>{origin.label}</span>
-          <Chip tone={pack.active ? "fresh" : "off"} label={pack.active ? text.states.active : text.states.installed} />
+          <Chip tone={equipped ? "fresh" : "off"} label={equipped
+            ? (locale === "th" ? `ติดตั้งในช่อง ${pack.equippedSlot! + 1}` : `Equipped · slot ${pack.equippedSlot! + 1}`)
+            : text.states.installed} />
           {pack.pending && <Chip tone="warn" label={text.pending} />}
           {pack.problem && <Chip tone="warn" label={text.problems[pack.problem]} />}
         </div>
@@ -309,15 +316,13 @@ export function PackDrawer({ pack, packs, detail, loading, locale, preview, prev
       </div>
 
       <footer className="packs-drawer-footer">
-        <span>{matchLocked ? text.matchLock : pack.pending ? text.pending : pack.active ? (locale === "th" ? "แพ็กนี้กำลังใช้อยู่" : "This pack is active") : (locale === "th" ? "เปลี่ยนแล้วมีผลกับเหตุการณ์ถัดไป" : "Applies to the next event")}</span>
+        <span>{matchLocked ? text.matchLock : pack.pending ? text.pending : equipped ? (locale === "th" ? `กำลังใช้ในช่อง ${pack.equippedSlot! + 1}` : `Equipped in slot ${pack.equippedSlot! + 1}`) : (locale === "th" ? "เปลี่ยนแล้วมีผลหลังจบแมตช์" : "Changes apply after the current match")}</span>
         <span className="sp" />
-        {pack.active
-          ? <button type="button" className="primary" disabled>{locale === "th" ? "กำลังใช้อยู่" : "In use"}</button>
-          : pack.pending
-            ? <button type="button" disabled>{text.pending}</button>
-            : <button type="button" className="primary packs-equip-button" disabled={actionBusy || pack.problem === "metadata"} onClick={onEquip}>
-              {actionBusy ? text.activating : text.activate}
-            </button>}
+        {pack.pending
+          ? <button type="button" disabled>{text.pending}</button>
+          : <button type="button" className="primary packs-equip-button" disabled={actionBusy || pack.problem === "metadata"} onClick={onEquip}>
+            {actionBusy ? text.activating : equipped ? (locale === "th" ? "ถอดออก" : "Unequip") : (locale === "th" ? "ติดตั้งเพิ่ม" : "Equip")}
+          </button>}
       </footer>
     </div>
   </dialog>;

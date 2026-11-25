@@ -34,8 +34,24 @@ fn canonical_decimal(text: &str) -> bool {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EventGroup {
+    Basic,
+    Special,
+}
+
+impl EventGroup {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Basic => "basic",
+            Self::Special => "special",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CatalogEvent {
     pub id: String,
+    pub event_group: EventGroup,
     /// `media_mappable` in the catalog; a binding to a non-mappable event is inert.
     pub media_mappable: bool,
     /// Critical cues are restricted to one admitted media variant.
@@ -54,7 +70,9 @@ impl Catalog {
     /// Read package admission fields from the parsed catalog document. An
     /// explicit `critical_media_required` must be boolean. Legacy events
     /// without it require critical media when their category is `critical`.
-    /// Only active events are listed. Returns `None` for a malformed catalog.
+    /// Missing `event_group` means `basic`. Active and proposed-unavailable
+    /// events stay mappable so packs may declare future coverage while the host
+    /// keeps their detector status explicit. Returns `None` for malformed data.
     pub fn from_json(doc: &Value) -> Option<Catalog> {
         let root = doc.as_object()?;
         let taxonomy = TaxonomyVersion::parse(root.get("taxonomy_version")?.as_str()?)?;
@@ -79,6 +97,11 @@ impl Catalog {
                 return None;
             }
             let media_mappable = object.get("media_mappable")?.as_bool()?;
+            let event_group = match object.get("event_group").and_then(Value::as_str) {
+                None | Some("basic") => EventGroup::Basic,
+                Some("special") => EventGroup::Special,
+                _ => return None,
+            };
             let critical_media_required = match object.get("critical_media_required") {
                 Some(value) => value.as_bool()?,
                 None => object.get("category").and_then(Value::as_str) == Some("critical"),
@@ -101,9 +124,10 @@ impl Catalog {
                 }
             };
 
-            if status == "active" {
+            if matches!(status, "active" | "proposed_unavailable") {
                 events.push(CatalogEvent {
                     id: id.to_owned(),
+                    event_group: event_group.clone(),
                     media_mappable,
                     critical_media_required,
                     tier_range,
