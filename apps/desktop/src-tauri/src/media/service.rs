@@ -14,7 +14,7 @@ use kohbor_pack::catalog::Catalog;
 use kohbor_pack::container;
 use kohbor_pack::store::{
     ActivationPolicy, ActivationState, InstallRequest, LoadoutDesired, LoadoutResult,
-    LoadoutStatus, MAX_EQUIPPED_PACKS, NoHook, Status, Store,
+    LoadoutStatus, MAX_EQUIPPED_PACKS, NoHook, Status, Store, StoreError,
 };
 use kohbor_pack::{Limits, limits::MAX_CONTAINER_BYTES};
 use serde_json::{Value, json};
@@ -93,6 +93,10 @@ impl MediaHandle {
 
     pub fn install(&self, request_json: &[u8]) -> Result<Value, String> {
         self.request(JobKind::Install(request_json.to_vec()))
+    }
+
+    pub fn uninstall(&self, install_id: &str) -> Result<Value, String> {
+        self.request(JobKind::Uninstall(install_id.to_owned()))
     }
 
     pub fn activate(
@@ -308,6 +312,7 @@ enum JobKind {
         install: Option<(String, String)>,
     },
     Install(Vec<u8>),
+    Uninstall(String),
     Activate {
         request_id: String,
         install_id: String,
@@ -517,6 +522,9 @@ impl ServiceState {
                 .summarize_package(Path::new(source_path))
                 .map_err(|_| "MEDIA_INVALID".to_owned());
         }
+        if matches!(&kind, JobKind::Uninstall(_)) && (self.config.match_active)() {
+            return Err("MATCH_ACTIVE".to_owned());
+        }
         if self.store.is_none() {
             return Err("MEDIA_INVALID".to_owned());
         }
@@ -545,6 +553,28 @@ impl ServiceState {
                     .install(&request)
                     .map_err(|_| "MEDIA_INVALID".to_owned())?;
                 Ok(result.to_json())
+            }
+            JobKind::Uninstall(install_id) => {
+                let result = self
+                    .store
+                    .as_mut()
+                    .ok_or_else(|| "MEDIA_INVALID".to_owned())?
+                    .uninstall(&install_id);
+                match result {
+                    Ok(()) => {}
+                    Err(StoreError::UninstallRefused(reason)) => {
+                        return Err(reason.as_str().to_owned());
+                    }
+                    Err(_) => return Err("MEDIA_INVALID".to_owned()),
+                }
+                let store = self
+                    .store
+                    .as_ref()
+                    .ok_or_else(|| "MEDIA_INVALID".to_owned())?;
+                let (_, covers) = pack_summaries_json(store);
+                let mut index = lock_recover(&self.config.visual_index);
+                Arc::make_mut(&mut *index).covers = Arc::new(covers);
+                Ok(json!({"install_id": install_id, "removed": true}))
             }
             JobKind::Activate {
                 request_id,
@@ -2773,6 +2803,57 @@ mod tests {
             facts.critical.first().map(|fact| fact.mapped),
             Some(false),
             "no active table publishes an unmapped critical fact"
+        );
+        finish(service);
+    }
+
+    #[test]
+    fn uninstall_command_preserves_a_pack_and_refuses_during_a_match() {
+        let temp = TempDir::new("uninstall-match-guard");
+        let match_active = Arc::new(AtomicBool::new(false));
+        let observed_match = match_active.clone();
+        let service = setup(
+            &temp.path().join("store"),
+            Arc::new(move || observed_match.load(Ordering::Acquire)),
+            passing_probe(),
+            Box::new(|_| {}),
+            0,
+            0,
+        );
+        let package = wav_fixture(&temp, "uninstall-match", "first_blood");
+        let install_id = install_via_service(&service.handle, &package, "uninstall-match-001");
+        match_active.store(true, Ordering::Release);
+
+        assert_eq!(
+            service.handle.uninstall(&install_id),
+            Err("MATCH_ACTIVE".to_owned())
+        );
+        let listing = service.handle.list().expect("library remains readable");
+        assert!(listing["records"].as_array().unwrap().iter().any(|record| {
+            record["install_id"].as_str() == Some(install_id.as_str())
+        }));
+        finish(service);
+    }
+
+    #[test]
+    fn uninstall_command_returns_typed_store_refusal_codes() {
+        let temp = TempDir::new("uninstall-typed-refusal");
+        let service = default_service(&temp.path().join("store"));
+        let package = wav_fixture(&temp, "uninstall-active", "first_blood");
+        let install_id = install_via_service(&service.handle, &package, "uninstall-active-001");
+        let activation = service
+            .handle
+            .activate(
+                "uninstall-activate-001",
+                &install_id,
+                ActivationPolicy::NowIfIdle,
+            )
+            .expect("activate fixture pack");
+        assert_eq!(activation["status"], "active");
+
+        assert_eq!(
+            service.handle.uninstall(&install_id),
+            Err("UNINSTALL_ACTIVE".to_owned())
         );
         finish(service);
     }
