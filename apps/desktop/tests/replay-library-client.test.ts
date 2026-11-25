@@ -19,6 +19,7 @@ test("replay library client invokes each host command with typed arguments", asy
   await client.pickDemFile();
   await client.open("123456");
   await client.parse("C:\\replays\\picked.dem");
+  await client.reparse("123456");
   await client.remove("123456");
   await client.clear();
 
@@ -30,6 +31,7 @@ test("replay library client invokes each host command with typed arguments", asy
       command: "replay_library_parse",
       args: { idOrPath: "C:\\replays\\picked.dem" },
     },
+    { command: "replay_library_reparse", args: { matchId: "123456" } },
     { command: "replay_library_remove", args: { matchId: "123456" } },
     { command: "replay_library_clear", args: undefined },
   ]);

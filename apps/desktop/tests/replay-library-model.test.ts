@@ -24,6 +24,7 @@ function entry(match_id: string, status: ReplayStatus): ReplayLibraryEntry {
     engine_version: null, engine_sha256: null, parse_time_unix_ms: null, status,
     bundle_bytes: 0, storage_bytes: 0, created_at_unix_ms: Date.UTC(2026, 0, 3),
     match_date_utc: null, own_hero: null, duration_s: null, patch: "7.42",
+    source_exists: true, bundle_schema: status.state === "ready" ? "3.0" : null,
   };
 }
 
@@ -59,6 +60,28 @@ test("unsupported patch discovered while opening overrides the row chip to needs
 
 test("state chip text includes the stable failure reason", () => {
   assert.equal(replayStatusLabel({ state: "failed", reason: "bad_output" }, states), "Failed (bad_output)");
+});
+
+test("ready rows show their bundle schema and enable re-parse only when the source exists", () => {
+  const ready = entry("ready", { state: "ready" });
+  const missing = { ...entry("missing", { state: "ready" }), source_exists: false, bundle_schema: "3.1" as const };
+  const rows = replayListViewModel([ready, missing], {}, copy, "en");
+  assert.equal(rows[0]?.showReparse, true);
+  assert.equal(rows[0]?.bundleSchema, "3.0");
+  assert.equal(rows[0]?.canReparse, true);
+  assert.equal(rows[1]?.showReparse, true);
+  assert.equal(rows[1]?.bundleSchema, "3.1");
+  assert.equal(rows[1]?.canReparse, false);
+});
+
+test("queued re-parse shows its job state and disables another re-parse while the old bundle stays openable", () => {
+  const row = replayListViewModel(
+    [entry("1", { state: "ready" })], {}, copy, "en", { "1": { state: "parsing" } },
+  )[0]!;
+  assert.equal(row.status.state, "parsing");
+  assert.equal(row.canOpen, true);
+  assert.equal(row.showReparse, true);
+  assert.equal(row.canReparse, false);
 });
 
 test("bundle metadata can be displayed without pretending an unsupported patch has a hero pack", () => {

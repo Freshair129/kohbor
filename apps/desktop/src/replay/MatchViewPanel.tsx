@@ -176,6 +176,17 @@ export function MatchViewPanel({ locale, initialBundle = null, initialMatchId = 
     return unmount;
   }, [detailOnly, loaded, locale, text]);
 
+  const jobStatusOverrides = useMemo(() => {
+    const overrides: Record<string, ReplayStatus> = {};
+    for (const job of library?.jobs ?? []) {
+      if (job.operation === "reparse" && job.match_id
+          && library?.matches.some(entry => entry.match_id === job.match_id && entry.status.state === "ready")) {
+        overrides[job.match_id] = job.status;
+      }
+    }
+    return overrides;
+  }, [library]);
+  const rowStatusOverrides = useMemo(() => ({ ...statusOverrides, ...jobStatusOverrides }), [jobStatusOverrides, statusOverrides]);
   const viewRows = useMemo(() => library ? replayListViewModel(library.matches, metadata, {
     states: text.states,
     source: text.source,
@@ -184,7 +195,7 @@ export function MatchViewPanel({ locale, initialBundle = null, initialMatchId = 
     dateAdded: text.dateAdded,
     duration: text.duration,
     heroes: text.heroList,
-  }, locale, statusOverrides) : [], [library, metadata, locale, statusOverrides, text]);
+  }, locale, rowStatusOverrides) : [], [library, metadata, locale, rowStatusOverrides, text]);
 
   async function openMatch(matchId: string) {
     setBusy(`open:${matchId}`);
@@ -266,6 +277,19 @@ export function MatchViewPanel({ locale, initialBundle = null, initialMatchId = 
       await refresh();
     } catch {
       setError(text.parseError);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function reparseEntry(matchId: string) {
+    setBusy(`reparse:${matchId}`);
+    setError(null);
+    try {
+      await replayLibrary.reparse(matchId);
+      await refresh();
+    } catch {
+      setError(text.reparseError);
     } finally {
       setBusy(null);
     }
@@ -388,6 +412,7 @@ export function MatchViewPanel({ locale, initialBundle = null, initialMatchId = 
               <div className="replay-library__row-actions">
                 {row.canOpen && <button type="button" onClick={() => void openMatch(row.matchId)} disabled={busy !== null}>{text.open}</button>}
                 {row.canParse && <button type="button" onClick={() => void parseEntry(row.matchId)} disabled={busy !== null}>{text.parse}</button>}
+                {row.showReparse && <button type="button" onClick={() => void reparseEntry(row.matchId)} disabled={busy !== null || !row.canReparse}>{text.reparse} ({row.bundleSchema ?? text.unknown})</button>}
                 <button type="button" onClick={() => void removeEntry(row.matchId)} disabled={busy !== null}>{text.remove}</button>
               </div>
             </li>

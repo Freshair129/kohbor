@@ -26,6 +26,7 @@ export interface MatchViewerCopy {
   clearConfirm: string;
   remove: string;
   parse: string;
+  reparse: string;
   open: string;
   back: string;
   libraryPrivacy: string;
@@ -49,6 +50,7 @@ export interface MatchViewerCopy {
   heroList: (names: string[]) => string;
   openError: string;
   parseError: string;
+  reparseError: string;
   removeError: string;
   clearError: string;
   needsPack: (patch: string | null) => string;

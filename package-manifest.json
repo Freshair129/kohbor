@@ -418,8 +418,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/commands.rs",
-      "bytes": 74969,
-      "sha256": "d989bbc123801d9fd5acd73b179d357f32ab3cfabf64275e823c20c3c0df462d"
+      "bytes": 75290,
+      "sha256": "41688a056ac48971193a3eb04ca913b73c7b4bad83c8884d5cbd68f62bc685fc"
     },
     {
       "path": "apps/desktop/src-tauri/src/containment.rs",
@@ -558,8 +558,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 71815,
-      "sha256": "f8b4aec7d8f31e79b191e35f57d2cd0fe3732ffb1554c09cd62ab7c6b6100178"
+      "bytes": 71899,
+      "sha256": "c6cebcf04741e019ef477322e18775cc54e2be60c32a2fb036ccb3e0236b509a"
     },
     {
       "path": "apps/desktop/src-tauri/src/logging.rs",
@@ -693,13 +693,13 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/replay_library/engine.rs",
-      "bytes": 52220,
-      "sha256": "8fe8feddbbe79ca378cd8aa04e3d71e5047cb6c408b2f678da05d309f6be08f7"
+      "bytes": 52292,
+      "sha256": "9f874c5bd1f0615175c553ee84ef74f570c725e2e5aca11ed574cfebc2b7049c"
     },
     {
       "path": "apps/desktop/src-tauri/src/replay_library/mod.rs",
-      "bytes": 90762,
-      "sha256": "39172e8c3e33bc89aa41f93bcf0d802676e3dce86ddb47b301106c1e7bbe4bb7"
+      "bytes": 116863,
+      "sha256": "ac1f509f45d12b7fcff5980ada18801163adb30d37a69d9316b5b0c0e8110447"
     },
     {
       "path": "apps/desktop/src-tauri/src/secrets.rs",
@@ -13448,8 +13448,8 @@
     },
     {
       "path": "apps/desktop/src/replay/MatchViewPanel.tsx",
-      "bytes": 23043,
-      "sha256": "23456dfce60a004d73c3aaac04d38b4d975de0f1314501bed3635128dc96574d"
+      "bytes": 24083,
+      "sha256": "5df43bd3b33af04501c5c7e0ae3c396d21dc92764c2effff8af5e6bf2de17c70"
     },
     {
       "path": "apps/desktop/src/replay/ReplayPanel.tsx",
@@ -13508,23 +13508,23 @@
     },
     {
       "path": "apps/desktop/src/replay/matchViewerCopy.d.mts",
-      "bytes": 1863,
-      "sha256": "729f5fa8defb8e24a212925ec70ea2ff71e9775b4a5fa99d05430c9697acaed2"
+      "bytes": 1906,
+      "sha256": "0342739888d3f11a42c645ebed86d503f186b8f6872ca1d741daa7357be82ca4"
     },
     {
       "path": "apps/desktop/src/replay/matchViewerCopy.mjs",
-      "bytes": 35694,
-      "sha256": "1b69d9d5bc920fa4b4b4727c781c2791f0f54e7e9d6bdb0fb1c5d3710f440994"
+      "bytes": 35910,
+      "sha256": "2c51ad36230d9a24a7caae3a371d1a54877a49c82c60a0568c063dd5f1f66b1f"
     },
     {
       "path": "apps/desktop/src/replay/replayLibraryClient.ts",
-      "bytes": 2871,
-      "sha256": "e2609c80824d65a2ce68fe87ab56d13eaa5a296d9801627b280d75b46b17c67b"
+      "bytes": 3129,
+      "sha256": "b53ecff5664c611c2dfe720959c7892be49e4e2b860bbb5c9ccac034e3dc9e27"
     },
     {
       "path": "apps/desktop/src/replay/replayLibraryModel.ts",
-      "bytes": 5531,
-      "sha256": "93fd78f11219091b2b2dde9153161fa96348957035e92ab28ee56d7b72795279"
+      "bytes": 5980,
+      "sha256": "f3cfc64344b3840963ca53c35458829e3e641fad5a03fbba4f6fbb589f71df48"
     },
     {
       "path": "apps/desktop/src/replay/replayPack.d.mts",
@@ -14288,13 +14288,13 @@
     },
     {
       "path": "apps/desktop/tests/replay-library-client.test.ts",
-      "bytes": 2015,
-      "sha256": "ee0c5537c3bffd13ceb7b8715ad963aa2f81db311d75787ee32344f65bbd7d65"
+      "bytes": 2121,
+      "sha256": "7acc4663f0a3a119f077b05a677e5e51616990a3cf62059e38118038b2e29e1c"
     },
     {
       "path": "apps/desktop/tests/replay-library-model.test.ts",
-      "bytes": 3861,
-      "sha256": "6d94ee85ccb2438b249c075a400c5aa2e43db6918e2cd6afebab87523a7523a6"
+      "bytes": 4962,
+      "sha256": "155b90659d50770c287ea6b53222fd20aef0cd48e2a4a433cf59e0d15f901888"
     },
     {
       "path": "apps/desktop/tests/replay-packs.test.ts",
@@ -14508,8 +14508,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 154473,
-      "sha256": "aa13015f80340331267d76672c95b86a80bcd1529fe5a9a0abce970951d22554"
+      "bytes": 155223,
+      "sha256": "ff693e72821999b45e469b070f048c5db927f5b51c6d7ade8b81b1b1236ef474"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -15568,8 +15568,8 @@
     },
     {
       "path": "docs/design/REPLAY-PIPELINE.md",
-      "bytes": 12912,
-      "sha256": "fa9fe1dfffe4f839d1a38d44d2a3179019b7e3de5678aa7e6e97877b63ce1963"
+      "bytes": 14271,
+      "sha256": "c21416b9a6a30fefb517c64a6c12823d560ae705593cb96e637493ef37369c4b"
     },
     {
       "path": "docs/design/RISK-ADMISSION-SPEC.md",
@@ -16063,8 +16063,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 113067,
-      "sha256": "bb2f98d8f8d5db4f27841e1994909a7766c473ebfe4f404d790f0587c99ef3a7"
+      "bytes": 113859,
+      "sha256": "43dbf1ed300af981ce69a5b9284e1ef7a177a76f308ba4e4dea5126fb4892b32"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",

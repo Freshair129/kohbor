@@ -33,6 +33,8 @@ export interface ReplayLibraryEntry {
   duration_s: number | null;
   patch: string | null;
   pinned?: boolean;
+  source_exists?: boolean;
+  bundle_schema?: "3.0" | "3.1" | null;
   local_history?: ReplayLocalHistory | null;
   /** Install-keyed history hash of this match, used to open it from the post-game panel. */
   match_key?: string | null;
@@ -40,6 +42,8 @@ export interface ReplayLibraryEntry {
 
 export interface ReplayJob {
   job_id: string;
+  match_id?: string | null;
+  operation: "parse" | "reparse";
   status: ReplayStatus;
 }
 
@@ -85,6 +89,10 @@ export function createReplayLibraryClient(transport: ReplayLibraryTransport) {
 
     parse(idOrPath: string): Promise<ReplayJob> {
       return transport.invoke("replay_library_parse", { idOrPath });
+    },
+
+    reparse(matchId: string): Promise<ReplayJob> {
+      return transport.invoke("replay_library_reparse", { matchId });
     },
 
     remove(matchId: string): Promise<void> {
