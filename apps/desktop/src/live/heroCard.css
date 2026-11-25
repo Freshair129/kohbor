@@ -443,6 +443,10 @@
 .rc .dv { overflow: hidden; cursor: help; text-overflow: ellipsis; white-space: nowrap; }
 .rc .dv b { color: var(--ink); font-weight: 600; }
 .rc .dv.z b { color: var(--muted); font-weight: 400; }
+.rc.has-hd { grid-template-areas: "pt top" "pt bars" "ab ab" "it it" "st st" "dv dv" "hd hd"; }
+.rc .row.hd { display: flex; grid-area: hd; align-items: center; gap: 4px; color: var(--muted); font: 10px var(--f-mono); }
+.rc .row.hd .hd-cell b { color: var(--warn); font-weight: 600; }
+.rc .row.hd .hd-cell.is-unknown b { color: var(--muted); font-weight: 400; }
 
 /* Live's React renderer uses the same six rows and dimensions, with Live theme tokens and icon labels. */
 .rc.lhc-live { --ink: var(--text); --ink-2: var(--text-2); --warn: var(--warning); --good: var(--ally); --bad: var(--critical); --bg: var(--ground); --hp: var(--accent); --mp: var(--ally); --f-display: Arial, sans-serif; --f-mono: Consolas, monospace; }

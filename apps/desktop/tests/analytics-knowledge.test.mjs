@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import * as model from "../src/analytics/knowledge/presentationModel.mjs";
+import { heroCardView } from "../src/analytics/heroCardView.mjs";
 
 function exported(name) {
   assert.equal(typeof model[name], "function", `${name} should be exported`);
@@ -15,6 +16,60 @@ test("line chart geometry preserves unknown values as gaps", () => {
     [{ x: 0, y: 0 }],
     [{ x: 100, y: 60 }],
   ]);
+});
+
+test("match summary resolves winner provenance and warns when sources conflict", () => {
+  const present = exported("matchResultPresentation");
+  assert.deepEqual(present({ winner: "radiant", source: "engine", conflict: false }), {
+    text: "Radiant", source: "Replay engine", conflict: false, warning: null,
+  });
+  assert.deepEqual(present({ winner: null, source: null, conflict: true, reason: "sources_disagree" }), {
+    text: "—", source: null, conflict: true, warning: "ผลแมตช์จากแหล่งข้อมูลขัดแย้งกัน จึงแสดงเป็น —",
+  });
+  assert.equal(present({ winner: null, conflict: false }).text, "—");
+});
+
+test("draft summary keeps pick and ban order, team and unknown heroes explicit", () => {
+  const ordered = exported("orderedDraftEntries");
+  assert.deepEqual(ordered([
+    { order: 1, team: "dire", kind: "ban", hero: "npc_dota_hero_tiny" },
+    { order: 0, team: "radiant", kind: "pick", hero: "npc_dota_hero_axe" },
+    { order: 2, team: "dire", kind: "pick", hero: null },
+  ]), [
+    { order: 1, team: "Radiant", kind: "Pick", hero: "Axe" },
+    { order: 2, team: "Dire", kind: "Ban", hero: "Tiny" },
+    { order: 3, team: "Dire", kind: "Pick", hero: "—" },
+  ]);
+  assert.equal(ordered(null), null);
+});
+
+test("shared hero-card HD cell formats available damage and keeps missing damage unknown", () => {
+  const known = heroCardView({ dv: { hd: 37754 } });
+  assert.deepEqual(known.hd, { label: "HD", value: "37,754", unknown: false });
+  const unknown = heroCardView({ dv: { hd: null } });
+  assert.deepEqual(unknown.hd, { label: "HD", value: "—", unknown: true });
+  assert.equal(heroCardView({ dv: { armor: 2 } }).hd, null);
+});
+
+test("new replay metrics render an em dash for null or invalid values", () => {
+  const metric = exported("heroMetricValue");
+  const comparisonMetric = exported("heroComparisonEngineMetric");
+  assert.equal(metric(1200), "1,200");
+  assert.equal(metric(null), "—");
+  assert.equal(metric(Number.NaN), "—");
+  assert.equal(comparisonMetric({ hero_damage: 5000 }, "hd"), "5,000");
+  assert.equal(comparisonMetric({ rates: { gpm: 100 } }, "gpm"), "100");
+  assert.equal(comparisonMetric({ hero_damage: null }, "hd"), "—");
+  assert.equal(comparisonMetric({ rates: { gpm: null } }, "gpm"), "—");
+});
+
+test("hero comparison tab reads engine HD and true GPM with their provenance", async () => {
+  const source = await readFile(new URL("../src/analytics/knowledge/index.tsx", import.meta.url), "utf8");
+  assert.match(source, /\["ฮีโร่ดาเมจ \(HD\)", "hero_damage"\]/);
+  assert.match(source, /\["ทองที่หาได้\/นาที \(GPM\)", "rates\.gpm"\]/);
+  assert.match(source, /hero\.hero_damage_source/);
+  assert.match(source, /hero\.rates\.gpm_source/);
+  assert.doesNotMatch(source, /attacker-side damage ไม่มีใน bundle/);
 });
 
 test("matchup rows keep unknown lanes in a neutral group", () => {

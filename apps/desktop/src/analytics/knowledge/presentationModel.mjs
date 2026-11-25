@@ -1,6 +1,55 @@
 // Pure presentation helpers for Analytics knowledge panels.
 const laneOrder = ["top", "mid", "bot", "unknown"];
 
+/** Present the resolved match result without guessing when its sources conflict or are absent. */
+export function matchResultPresentation(result) {
+  const sources = {
+    engine: "Replay engine",
+    gsi_history: "Local GSI history",
+    opendota_history: "OpenDota history",
+  };
+  const winner = result?.winner === "radiant" ? "Radiant" : result?.winner === "dire" ? "Dire" : null;
+  const conflict = result?.conflict === true;
+  return {
+    text: winner ?? "—",
+    source: winner ? sources[result?.source] ?? null : null,
+    conflict,
+    warning: conflict ? "ผลแมตช์จากแหล่งข้อมูลขัดแย้งกัน จึงแสดงเป็น —" : null,
+  };
+}
+
+/** Convert engine draft entries to display rows while preserving their recorded order. */
+export function orderedDraftEntries(draft) {
+  if (!Array.isArray(draft)) return null;
+  return draft.map((entry, index) => {
+    const heroId = typeof entry?.hero === "string" ? entry.hero : null;
+    const heroToken = heroId?.replace(/^npc_dota_hero_/, "") ?? null;
+    const hero = heroToken
+      ? heroToken.split("_").map((part) => part ? part[0].toUpperCase() + part.slice(1) : "").join(" ")
+      : "—";
+    return {
+      order: Number.isInteger(entry?.order) && entry.order >= 0 ? entry.order + 1 : index + 1,
+      team: entry?.team === "radiant" ? "Radiant" : entry?.team === "dire" ? "Dire" : "—",
+      kind: entry?.kind === "pick" ? "Pick" : entry?.kind === "ban" ? "Ban" : "—",
+      hero,
+    };
+  }).sort((left, right) => left.order - right.order);
+}
+
+/** Render a known non-negative replay statistic, or the required em dash. */
+export function heroMetricValue(value) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0
+    ? Math.round(value).toLocaleString("en-US")
+    : "—";
+}
+
+/** Show engine-provided comparison metrics without turning unknown values into zero. */
+export function heroComparisonEngineMetric(hero, metric) {
+  if (metric === "hd") return heroMetricValue(hero?.hero_damage);
+  if (metric === "gpm") return heroMetricValue(hero?.rates?.gpm);
+  return "—";
+}
+
 /** Convert finite samples into independent SVG line segments; nulls break the line. */
 export function buildLineSegments(values, width, height, domain) {
   const finite = values.filter((value) => Number.isFinite(value));

@@ -20,6 +20,8 @@ Supported expectation shapes are restricted to the implemented lane assignment a
 
 Match result is separate from lane analysis. Sources resolve in this order: replay engine, local GSI history joined by the keyed match hash, the user's own OpenDota history only when enabled, then unknown. A disagreement returns unknown and logs one warning. Abandoned or unjoined history stays unknown. Lane output is independent of match result.
 
+The host accepts the replay-engine winner only from bundle schema 3.1; schema 3.0 stays eligible for the existing local-history fallback and otherwise reports `re-parse with engine 0.3.0 to get this`. A 3.1 null winner keeps the engine's `winner_reason` when no history source resolves it. The K0-K2 digest records each result source and the engine source for draft, true GPM and attacker-side hero damage; schema 3.0 keeps draft, true GPM and hero damage unknown with the same re-parse reason.
+
 The digest sent to Analytics AI includes the raw result, score and available components, expectation and uncertainty when known, verdict, source, and match-result source/state. Consent names these added fields and has text version 3. The assistant cites the expectation source, never invents an expectation, and never states a match result when the digest marks it unknown.
 
 ## Persistence and tools
