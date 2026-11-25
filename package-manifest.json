@@ -13074,7 +13074,7 @@
     {
       "path": "apps/desktop/src/live/secondMonitor.css",
       "bytes": 18920,
-      "sha256": "5420c85607d8bf1917bc8b5d52bea5c99d74af127c0346e0223ff5fb94de4568"
+      "sha256": "07daee52aa38556bb26b112a034b5622e996d5328c4fecede46f214572d273dc"
     },
     {
       "path": "apps/desktop/src/live/secondMonitorCards.ts",
