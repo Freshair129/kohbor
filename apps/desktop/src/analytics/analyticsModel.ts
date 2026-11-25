@@ -106,7 +106,8 @@ export function analyticsBundleSelectionKey(entry: Pick<ReplayLibraryEntry,
 
 export function analyticsReplayAction(status: { state: string }) {
   if (status.state === "available") return "parse" as const;
-  if (status.state === "failed") return "retry" as const;
+  // needs_pack: a newer pinned engine may carry the missing patch pack, so a manual retry stays offered.
+  if (status.state === "failed" || status.state === "needs_pack") return "retry" as const;
   if (status.state === "ready") return "reparse" as const;
   return null;
 }

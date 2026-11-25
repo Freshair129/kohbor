@@ -132,8 +132,9 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, stat
       info.className = "status-info"; info.textContent = "ⓘ";
       info.title = missingStatusNote; info.setAttribute("role", "note"); info.setAttribute("aria-label", missingStatusNote);
     }
-    heading.append(name, score); if (winnerLabel) heading.append(winnerLabel); if (info) heading.append(info); column.append(heading, cards);
-    stage.insertBefore(column, cards);
+    heading.append(name, score); if (winnerLabel) heading.append(winnerLabel); if (info) heading.append(info);
+    // Insert the column while `cards` is still a child of the stage, then move the cards into it.
+    stage.insertBefore(column, cards); column.append(heading, cards);
     teamScores[team] = score;
   };
   wrapTeam("rv-cards-r", "radiant", locale === "en" ? "Radiant" : "Radiant");

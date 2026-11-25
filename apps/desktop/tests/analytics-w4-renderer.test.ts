@@ -48,6 +48,7 @@ test("selecting a library entry never requests parsing and leaves parsing to an 
   }
   assert.equal(analytics.analyticsReplayAction({ state: "available" }), "parse");
   assert.equal(analytics.analyticsReplayAction({ state: "failed", reason: "ENGINE_EXIT" }), "retry");
+  assert.equal(analytics.analyticsReplayAction({ state: "needs_pack" }), "retry");
   assert.equal(analytics.analyticsReplayAction({ state: "queued" }), null);
   assert.equal(analytics.analyticsReplayAction({ state: "parsing" }), null);
 });

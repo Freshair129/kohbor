@@ -67,3 +67,14 @@ test("new modifier names resolve only to matching local ability icons", () => {
     assert.equal(result.icon, expected, `${modifier} uses the existing ${expected} asset`);
   }
 });
+
+test("team columns are inserted before the cards move into them (2026-11-25 blank Analytics page)", () => {
+  // Moving `cards` into the column first left `stage.insertBefore(column, cards)` with a reference node that was
+  // no longer a child of the stage; the DOM threw NotFoundError and React unmounted the whole app.
+  const source = readFileSync(new URL("../src/replay/matchViewer.mjs", import.meta.url), "utf8");
+  const body = source.slice(source.indexOf("const wrapTeam"), source.indexOf("wrapTeam(\"rv-cards-r\""));
+  const insert = body.indexOf("stage.insertBefore(column, cards)");
+  const move = body.indexOf("column.append(heading, cards)");
+  assert.ok(insert > 0 && move > 0, "wrapTeam keeps both steps");
+  assert.ok(insert < move, "insert the column while cards is still a child of the stage");
+});
