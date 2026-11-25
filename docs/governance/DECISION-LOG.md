@@ -428,3 +428,9 @@ Recorded by an agent; **owner 2026-11-24, relayed by the lead, recorded by an ag
 11. **Per-match deletion.** Allow deleting chat, notes and reports for a match even if its replay is gone.
 
 The requirement changes are recorded in UI-002, UI-018, UI-021, UI-022 and MEM-007. Missing watcher-status support stays unknown; no native, visual or live acceptance is implied.
+
+### Owner amendment: replay engine 0.4.1 and Roshan pit-switch countdown (2026-11-25)
+
+**Owner 2026-11-25, relayed by the lead, recorded by an agent.** The owner approved the buff-data engine request and requested the Roshan pit-switch countdown. Pin replay-engine-rs 0.4.1 and admit Match Bundle schemas 3.0, 3.1 and 3.2. Schema 3.2 exposes long modifier intervals, modifier stacks and a match day/night series; Analytics consumes the modifier series under its separate workstream.
+
+For the second-monitor minimap, use the measured 7.41f replay rule: Roshan stays at pit X through the early phase changes, first moves at 15:00, then uses X by day and Y by night. Show the compact pit mark and switch countdown only with fresh, phase-consistent GSI `map.daytime` and `clock_time`. During the measured median walk, show “กำลังย้าย” with seconds remaining. The tooltip records “วัดจากรีเพลย์ 7.41f · n=8”; stale or contradictory daytime stays unknown. The replay bundles do not identify a Dota build, and the GSI read model does not expose the live game patch, so a differing ALERT-008 patch label is named as a rule-label mismatch, not as proof of a live game-patch mismatch. See [MINIMAP-RUNE-ROSHAN-OVERLAY.md](../design/MINIMAP-RUNE-ROSHAN-OVERLAY.md) for the source, method, outlier and observed ranges.

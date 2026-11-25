@@ -2,8 +2,8 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://kohbor.invalid/contracts/replay-bundle.schema.json",
   "title": "Kohbor Replay Match Bundle",
-  "description": "Three-file Match Bundle emitted by replay-engine-rs 0.3.0; schemas 3.0 and 3.1 are admitted.",
-  "x-kohbor-contract-version": "1.1.0",
+  "description": "Three-file Match Bundle emitted by replay-engine-rs 0.4.1; schemas 3.0, 3.1 and 3.2 are admitted.",
+  "x-kohbor-contract-version": "1.2.0",
   "type": "object",
   "required": ["manifest", "match", "world"],
   "properties": {
@@ -27,6 +27,53 @@
       "additionalProperties": false
     },
     "teamName": { "enum": ["radiant", "dire"] },
+    "daynightRow": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "prefixItems": [{ "type": "number" }, { "enum": ["day", "night"] }],
+      "items": false
+    },
+    "modifierSource": {
+      "description": "Caster hero id, a unit and team object, or null when absent or unknown.",
+      "anyOf": [
+        { "type": "null" },
+        { "type": "string", "pattern": "^npc_dota_hero_[a-z0-9_]+$" },
+        {
+          "type": "object",
+          "required": ["unit", "team"],
+          "properties": {
+            "unit": { "type": "string", "minLength": 1 },
+            "team": { "enum": ["radiant", "dire", "neutral", null] }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "modifierLong": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "prefixItems": [
+        { "type": "number" },
+        { "type": ["number", "null"] },
+        { "type": "string", "minLength": 1 },
+        { "$ref": "#/$defs/modifierSource" },
+        { "type": "array", "items": { "enum": ["aura", "permanent", "stacking", "subtle"] } }
+      ],
+      "items": false
+    },
+    "modifierStack": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "prefixItems": [
+        { "type": "number" },
+        { "type": "string", "minLength": 1 },
+        { "type": "integer", "minimum": 0 }
+      ],
+      "items": false
+    },
     "draftEntry": {
       "type": "object",
       "required": ["order", "team", "kind", "hero"],
@@ -53,7 +100,7 @@
         "run"
       ],
       "properties": {
-        "schema": { "enum": ["3.0", "3.1"] },
+        "schema": { "enum": ["3.0", "3.1", "3.2"] },
         "engine_version": { "type": "string", "minLength": 1 },
         "match_id": { "type": "integer", "minimum": 1 },
         "patch": { "type": "string", "minLength": 1 },
@@ -145,7 +192,7 @@
         "parse_error"
       ],
       "properties": {
-        "schema": { "enum": ["3.0", "3.1"] },
+        "schema": { "enum": ["3.0", "3.1", "3.2"] },
         "engine_version": { "type": "string" },
         "patch": { "type": "string" },
         "pack": { "type": "string" },
@@ -171,7 +218,14 @@
         "winner": { "enum": ["radiant", "dire", null] },
         "winner_reason": { "type": "string", "minLength": 1 },
         "draft": { "type": ["array", "null"], "items": { "$ref": "#/$defs/draftEntry" } },
-        "draft_reason": { "type": "string", "minLength": 1 }
+        "draft_reason": { "type": "string", "minLength": 1 },
+        "daynight": {
+          "description": "Schema 3.2 day/night step series, or null when absent from the replay.",
+          "type": ["array", "null"],
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/daynightRow" }
+        },
+        "daynight_reason": { "type": "string", "minLength": 1 }
       },
       "additionalProperties": true,
       "allOf": [
@@ -184,6 +238,15 @@
           "if": { "properties": { "draft": { "type": "null" } }, "required": ["draft"] },
           "then": { "required": ["draft_reason"] },
           "else": { "not": { "required": ["draft_reason"] } }
+        },
+        {
+          "if": { "properties": { "daynight": { "type": "null" } }, "required": ["daynight"] },
+          "then": { "required": ["daynight_reason"] },
+          "else": { "not": { "required": ["daynight_reason"] } }
+        },
+        {
+          "if": { "properties": { "schema": { "const": "3.2" } }, "required": ["schema"] },
+          "then": { "required": ["daynight"] }
         }
       ]
     },
@@ -234,7 +297,9 @@
             "u": { "type": "integer", "minimum": 0 }
           },
           "additionalProperties": false
-        }
+        },
+        "mods_long": { "type": "array", "items": { "$ref": "#/$defs/modifierLong" } },
+        "mod_stacks": { "type": "array", "items": { "$ref": "#/$defs/modifierStack" } }
       },
       "additionalProperties": true
     },
@@ -269,7 +334,18 @@
         "sampleT": { "type": "array", "items": { "type": "number" } },
         "dtick": { "type": "number" }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": { "meta": { "properties": { "schema": { "const": "3.2" } }, "required": ["schema"] } },
+            "required": ["meta"]
+          },
+          "then": {
+            "properties": { "heroes": { "items": { "required": ["mods_long", "mod_stacks"] } } }
+          }
+        }
+      ]
     },
     "worldHero": {
       "type": "object",

@@ -123,8 +123,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/binaries/replay-engine-rs-x86_64-pc-windows-msvc.exe",
-      "bytes": 3258368,
-      "sha256": "9d7aa88bbd8d1b31cd35489dcbecd88058c6ba68a118f88042e2cc262ff5d05d"
+      "bytes": 3368448,
+      "sha256": "9ecf53d7555a3288d386fa93e4dd9bafa2fe2e060660aef9dcb52f972165cfd8"
     },
     {
       "path": "apps/desktop/src-tauri/build.rs",
@@ -723,8 +723,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/replay_library/engine.rs",
-      "bytes": 52292,
-      "sha256": "9f874c5bd1f0615175c553ee84ef74f570c725e2e5aca11ed574cfebc2b7049c"
+      "bytes": 57215,
+      "sha256": "cd3a7b7ac05759aa4ad94a9dacf62f12ab56dcb605d0c99dfe2e556c39999f62"
     },
     {
       "path": "apps/desktop/src-tauri/src/replay_library/mod.rs",
@@ -12843,13 +12843,13 @@
     },
     {
       "path": "apps/desktop/src/live/MapCountdowns.tsx",
-      "bytes": 5055,
-      "sha256": "55333d88aa8411aa613a668e76760b753db20afd10364c515180db7702085a88"
+      "bytes": 5967,
+      "sha256": "f4f811507a8f147e687fc1220f0e33bf80d3d6aaaf5248bd7ba91fc8ae1a38da"
     },
     {
       "path": "apps/desktop/src/live/MapRoshanStatus.tsx",
-      "bytes": 791,
-      "sha256": "43012a5d0ce253f73b2019bc37db1eea1cc96ae7f1e9a471365bf7a2495b1905"
+      "bytes": 2811,
+      "sha256": "9cb085ee2a279ef8a10d8f961957c87c4d827d388049b034822d5f009ac050ae"
     },
     {
       "path": "apps/desktop/src/live/MinimapPanel.tsx",
@@ -12933,8 +12933,8 @@
     },
     {
       "path": "apps/desktop/src/live/copy.ts",
-      "bytes": 19533,
-      "sha256": "77ffac3a716f6ef7c1f4d486bbaecde92d73008ecf70dd484bb203e18b1e8779"
+      "bytes": 20625,
+      "sha256": "a64632f8a89d3b17341ef7fab3626ce2f1fb978ff8bd011e22d73a69ac9f2bac"
     },
     {
       "path": "apps/desktop/src/live/dotaIconSet.ts",
@@ -13023,13 +13023,13 @@
     },
     {
       "path": "apps/desktop/src/live/objectiveCountdownModel.ts",
-      "bytes": 13339,
-      "sha256": "55666c048e7ed935e0657f9fe1aabb64bb0129b820914c1a6a7f635849ddd5c9"
+      "bytes": 23447,
+      "sha256": "a34d92a0552381e5cb99bd2b0b6cc54ce6943ae55a28b42a4a1ee51442b1b3e1"
     },
     {
       "path": "apps/desktop/src/live/pinnedPanelsModel.ts",
-      "bytes": 16364,
-      "sha256": "511f457ebc6add22f6b712d446d5eb69b614961622b6e6a716754df9d5f7f670"
+      "bytes": 14932,
+      "sha256": "a7ae32acc3625e41ae7c141985e29e2a6a3f6a50b5f3da3461c541cb66fdf623"
     },
     {
       "path": "apps/desktop/src/live/postGameSummaryModel.ts",
@@ -13073,8 +13073,8 @@
     },
     {
       "path": "apps/desktop/src/live/secondMonitor.css",
-      "bytes": 18920,
-      "sha256": "07daee52aa38556bb26b112a034b5622e996d5328c4fecede46f214572d273dc"
+      "bytes": 19849,
+      "sha256": "adf017fb14cdccc2a7f27553fb0517a980ebd3651bea322f8e35adf9b1204466"
     },
     {
       "path": "apps/desktop/src/live/secondMonitorCards.ts",
@@ -13558,8 +13558,8 @@
     },
     {
       "path": "apps/desktop/src/replay/matchBundle.ts",
-      "bytes": 21940,
-      "sha256": "65cb91a289b597151cb78a3ee4669a99d47a9e6343066479008141adfea5b59c"
+      "bytes": 24865,
+      "sha256": "be505014b134183c506490f8c929c9cdca5532de494af68287415a10e65d35c9"
     },
     {
       "path": "apps/desktop/src/replay/matchLibrary.css",
@@ -14243,8 +14243,8 @@
     },
     {
       "path": "apps/desktop/tests/match-bundle.test.ts",
-      "bytes": 13159,
-      "sha256": "4dfb5eafd1b432474b5c4afc4bb6e943e0ebecb2a62de063d8ec8dfde8dcb9c6"
+      "bytes": 16251,
+      "sha256": "33b3b8ccb961411261ef86796da1be87768cc70b90ccab7b77c493696f9f6beb"
     },
     {
       "path": "apps/desktop/tests/match-copy.test.ts",
@@ -14348,8 +14348,8 @@
     },
     {
       "path": "apps/desktop/tests/pinned-panels-model.test.ts",
-      "bytes": 13550,
-      "sha256": "e3ced5cd6ad6eb41d0307b56dd1d4b93814fa1c568db0077b46c6e0114c5b2fd"
+      "bytes": 17229,
+      "sha256": "ec63da3b824fccbd937cb9d9ab37235c4e3c3fea8bda5bc0f367d37bbd0af3ea"
     },
     {
       "path": "apps/desktop/tests/playback.test.ts",
@@ -14603,8 +14603,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 166534,
-      "sha256": "03a8c8bc390ff9c2e00d2333d2693d6fee408512ce2d800098ae6dec0dfc0e0c"
+      "bytes": 168559,
+      "sha256": "f724465cae2601148aaacbb84c62bca5483297c4cdbf6441564e092f21b15abf"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -14698,8 +14698,8 @@
     },
     {
       "path": "contracts/replay-bundle.schema.json",
-      "bytes": 11996,
-      "sha256": "10d3025f8de60936d644bf22832c14d22adaaa176ccccb7fa723847781089488"
+      "bytes": 14658,
+      "sha256": "fdeab848435af02d981d606f10b11b62c2f320f5f6d9aaaad781953858d7e031"
     },
     {
       "path": "contracts/replay-engine.schema.json",
@@ -15663,8 +15663,8 @@
     },
     {
       "path": "docs/design/MINIMAP-RUNE-ROSHAN-OVERLAY.md",
-      "bytes": 4581,
-      "sha256": "f441fdd28d6dc80424b8a5ee15ad49613c651b7c64a13dd7b4fd40ae0b2f23a9"
+      "bytes": 5028,
+      "sha256": "8e020ed5179037ce58d383eb5edf2ec5dccf3abb36e80e7652f112eec778820f"
     },
     {
       "path": "docs/design/PACKAGE-FORMAT-REVIEW.md",
@@ -15688,13 +15688,13 @@
     },
     {
       "path": "docs/design/REPLAY-ENGINE-PROVENANCE.md",
-      "bytes": 3824,
-      "sha256": "d88388fc4d9da213d83ea06b2dfe0e7d373328fbb225d901e169bc304c0c60cf"
+      "bytes": 3246,
+      "sha256": "7126fc3fed6c323fd7bd9d9907f6cef9fdc4681236c94880751e04be8ace5ba3"
     },
     {
       "path": "docs/design/REPLAY-PIPELINE.md",
-      "bytes": 15943,
-      "sha256": "fef255d348c1493ee056606bb40ca7c0ed0732f12c1f572746978d09b60af8d6"
+      "bytes": 17039,
+      "sha256": "7719e6b605876cf6cc1854eb1e529a3846f2bed575334b6709cc15d8d3704804"
     },
     {
       "path": "docs/design/RISK-ADMISSION-SPEC.md",
@@ -16188,8 +16188,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 120766,
-      "sha256": "066b91cb764470cf2fd2a3b8c9e4ea664cbbf1db16a3ee7804b0bf4d771c92f0"
+      "bytes": 122127,
+      "sha256": "d26cd68934378f3dc868497c7690e17eaa66ba9433c3e8aa6765eaa217781ff2"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",

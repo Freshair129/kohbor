@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { COUNTDOWN_OBJECTIVES, countdownLabels, objectiveShortName, runeIconKey, RUNE_SPOT_PROVENANCE, spotLabels, type CountdownLabel, type CountdownObjective, type ObjectiveSchedule } from "./objectiveCountdownModel";
+import { COUNTDOWN_OBJECTIVES, countdownLabels, deriveRoshanPitStatus, objectiveShortName, runeIconKey, ROSHAN_PIT_RULE, ROSHAN_PIT_SPOTS, RUNE_SPOT_PROVENANCE, spotLabels, type CountdownLabel, type CountdownObjective, type ObjectiveSchedule } from "./objectiveCountdownModel";
+import { useObjectiveReadModel } from "./useObjectiveReadModel";
+import { MapRoshanStatus } from "./MapRoshanStatus";
 
 const runeIconFiles = import.meta.glob<string>("../assets/dota/6993/runes/*.png", {
   eager: true,
@@ -65,11 +67,19 @@ function labelDescription(label: CountdownLabel, locale: "th" | "en"): string {
 export function MapCountdowns({ schedule, receivedAtMs, locale, gameClockSeconds = null }: {
   schedule: ObjectiveSchedule | null; receivedAtMs: number | null; locale: "th" | "en"; gameClockSeconds?: number | null;
 }) {
-  const now = useNow(schedule !== null);
+  const roshanRead = useObjectiveReadModel(true);
+  const now = useNow(schedule !== null || roshanRead !== null);
   const clockSchedule = schedule && Number.isSafeInteger(gameClockSeconds) && gameClockSeconds !== null
     ? { ...schedule, observed_clock_seconds: gameClockSeconds } : schedule;
   const labels = countdownLabels(clockSchedule, receivedAtMs, now);
   const spots = spotLabels(labels);
+  const roshanFresh = roshanRead !== null && roshanRead.model.availability === "fresh"
+    && now >= roshanRead.receivedAtMs && now - roshanRead.receivedAtMs <= 5_000
+    && roshanRead.model.map.clock_time.availability === "fresh"
+    && roshanRead.model.map.daytime.availability === "fresh";
+  const roshanStatus = roshanFresh
+    ? deriveRoshanPitStatus(roshanRead.model.map.clock_time.value, roshanRead.model.map.daytime.value, ROSHAN_PIT_RULE)
+    : null;
   return (
     <div className="sm-countdown-layer">
       {spots.length > 0 && <ul className="sm-countdowns" aria-label={locale === "th" ? "ตัวนับเวลารูน" : "Rune timers"}>
@@ -90,6 +100,8 @@ export function MapCountdowns({ schedule, receivedAtMs, locale, gameClockSeconds
           </li>;
         })}
       </ul>}
+      {roshanStatus && <MapRoshanStatus status={roshanStatus} spots={ROSHAN_PIT_SPOTS} locale={locale}
+        comparisonPatch={schedule?.rule_source === "ALERT-008" ? schedule.patch_version : null} />}
     </div>
   );
 }

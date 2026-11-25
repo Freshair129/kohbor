@@ -1,11 +1,11 @@
-// Admission of a local Match Bundle (replay engine schema 3.0 or 3.1) for the Lab "Match view".
-// New parses produce 3.1; existing 3.0 library entries remain readable.
+// Admission of a local Match Bundle (replay engine schemas 3.0, 3.1 and 3.2) for the Lab "Match view".
+// New parses produce 3.2; existing 3.0 and 3.1 library entries remain readable.
 // Manual file admission remains only for the legacy report route; the Match view uses the host library.
 
-export const BUNDLE_SCHEMA = "3.1" as const;
+export const BUNDLE_SCHEMA = "3.2" as const;
 export const BUNDLE_FILES = ["manifest.json", "match.json", "world.json"] as const;
 export type BundleFileName = (typeof BUNDLE_FILES)[number];
-export type BundleSchema = "3.0" | "3.1";
+export type BundleSchema = "3.0" | "3.1" | "3.2";
 
 /** Per-file read limits. A 37-minute match is about 5.2 MB (match) and 1.5 MB (world). */
 export const MAX_BUNDLE_BYTES: Record<BundleFileName, number> = {
@@ -57,6 +57,8 @@ export interface BundleMeta extends Obj {
   winner_reason?: string;
   draft?: DraftEntry[] | null;
   draft_reason?: string;
+  daynight?: Array<[number, "day" | "night"]> | null;
+  daynight_reason?: string;
 }
 
 export interface BundleHero extends Obj {
@@ -64,6 +66,8 @@ export interface BundleHero extends Obj {
   gold_earned?: Array<number | null>;
   gold_earned_final?: number | null;
   dmg_out?: DamageOut;
+  mods_long?: Array<[number, number | null, string, string | null | { unit: string; team: "radiant" | "dire" | "neutral" | null }, Array<"aura" | "permanent" | "stacking" | "subtle">]>;
+  mod_stacks?: Array<[number, string, number]>;
 }
 
 export interface BundleMatch extends Obj {
@@ -71,7 +75,7 @@ export interface BundleMatch extends Obj {
   heroes: BundleHero[];
 }
 
-const SUPPORTED_BUNDLE_SCHEMAS: ReadonlySet<unknown> = new Set(["3.0", "3.1"]);
+const SUPPORTED_BUNDLE_SCHEMAS: ReadonlySet<unknown> = new Set(["3.0", "3.1", "3.2"]);
 const isBundleSchema = (value: Json): value is BundleSchema => SUPPORTED_BUNDLE_SCHEMAS.has(value);
 
 export interface MatchBundle {
@@ -140,8 +144,8 @@ const text = (x: Json) => typeof x === "string" && SAFE_TEXT.test(x);
 
 function checkReasonedNullableField(
   meta: Obj,
-  field: "winner" | "draft",
-  reason: "winner_reason" | "draft_reason",
+  field: "winner" | "draft" | "daynight",
+  reason: "winner_reason" | "draft_reason" | "daynight_reason",
   validKnown: (value: Json) => boolean,
 ): void {
   const valuePresent = Object.prototype.hasOwnProperty.call(meta, field);
@@ -171,15 +175,27 @@ function checkDraftEntry(value: Json, path: string): void {
   need(entry.hero === null || (typeof entry.hero === "string" && HERO_ID.test(entry.hero)), "match.json", `${path}.hero`);
 }
 
-function checkNewMetaFields(meta: Obj): void {
+function checkNewMetaFields(meta: Obj, schema: BundleSchema): void {
   checkReasonedNullableField(meta, "winner", "winner_reason", value => value === "radiant" || value === "dire");
   checkReasonedNullableField(meta, "draft", "draft_reason", value => Array.isArray(value));
   if (Array.isArray(meta.draft)) {
     meta.draft.forEach((entry, index) => checkDraftEntry(entry, `meta.draft[${index}]`));
   }
+  checkReasonedNullableField(meta, "daynight", "daynight_reason", value => Array.isArray(value)
+    && value.length >= 1 && value.every(row => Array.isArray(row) && row.length === 2 && isNum(row[0]) && (row[1] === "day" || row[1] === "night")));
+  if (schema === "3.2") need(Object.prototype.hasOwnProperty.call(meta, "daynight"), "match.json", "meta.daynight");
 }
 
-function checkNewHeroFields(hero: Obj, path: string): void {
+function checkModifierSource(value: Json): boolean {
+  if (value === null) return true;
+  if (typeof value === "string") return HERO_ID.test(value);
+  if (!isObj(value)) return false;
+  return Object.keys(value).length === 2
+    && typeof value.unit === "string" && value.unit.length > 0
+    && (value.team === "radiant" || value.team === "dire" || value.team === "neutral" || value.team === null);
+}
+
+function checkNewHeroFields(hero: Obj, path: string, schema: BundleSchema): void {
   if (hero.gold_earned !== undefined) {
     need(Array.isArray(hero.gold_earned)
       && hero.gold_earned.every(value => value === null || (Number.isInteger(value) && (value as number) >= 0)),
@@ -200,6 +216,34 @@ function checkNewHeroFields(hero: Obj, path: string): void {
       need(Number.isInteger(damage[key]) && (damage[key] as number) >= 0, "match.json", `${path}.dmg_out.${key}`);
     }
   }
+  if (hero.mods_long !== undefined) {
+    need(Array.isArray(hero.mods_long), "match.json", `${path}.mods_long`);
+    (hero.mods_long as Json[]).forEach((row, index) => {
+      const rowPath = `${path}.mods_long[${index}]`;
+      need(Array.isArray(row) && row.length === 5, "match.json", rowPath);
+      const parts = row as Json[];
+      need(isNum(parts[0]), "match.json", `${rowPath}[0]`);
+      need(parts[1] === null || isNum(parts[1]), "match.json", `${rowPath}[1]`);
+      need(typeof parts[2] === "string" && parts[2].length > 0, "match.json", `${rowPath}[2]`);
+      need(checkModifierSource(parts[3]), "match.json", `${rowPath}[3]`);
+      need(Array.isArray(parts[4]) && parts[4].every(flag => ["aura", "permanent", "stacking", "subtle"].includes(flag as string)), "match.json", `${rowPath}[4]`);
+    });
+  }
+  if (hero.mod_stacks !== undefined) {
+    need(Array.isArray(hero.mod_stacks), "match.json", `${path}.mod_stacks`);
+    (hero.mod_stacks as Json[]).forEach((row, index) => {
+      const rowPath = `${path}.mod_stacks[${index}]`;
+      need(Array.isArray(row) && row.length === 3, "match.json", rowPath);
+      const parts = row as Json[];
+      need(isNum(parts[0]), "match.json", `${rowPath}[0]`);
+      need(typeof parts[1] === "string" && parts[1].length > 0, "match.json", `${rowPath}[1]`);
+      need(Number.isInteger(parts[2]) && (parts[2] as number) >= 0, "match.json", `${rowPath}[2]`);
+    });
+  }
+  if (schema === "3.2") {
+    need(Object.prototype.hasOwnProperty.call(hero, "mods_long"), "match.json", `${path}.mods_long`);
+    need(Object.prototype.hasOwnProperty.call(hero, "mod_stacks"), "match.json", `${path}.mod_stacks`);
+  }
 }
 
 /** Checks the fields the viewer reads. Fields it guards itself (st, din, hin, finds, sampleT) stay optional. */
@@ -209,7 +253,8 @@ export function checkMatch(match: Json): asserts match is BundleMatch {
   const m = match as Obj;
   need(isObj(m.meta), F, "meta");
   need(isBundleSchema((m.meta as Obj).schema), F, "meta.schema");
-  checkNewMetaFields(m.meta as Obj);
+  const schema = (m.meta as Obj).schema as BundleSchema;
+  checkNewMetaFields(m.meta as Obj, schema);
   need(isNum(m.t0) && isNum(m.t1) && Number.isInteger(m.t0) && Number.isInteger(m.t1) && (m.t1 as number) > (m.t0 as number), F, "t0/t1");
   const length = (m.t1 as number) - (m.t0 as number) + 1;
   need(Array.isArray(m.heroes) && m.heroes.length >= 1 && m.heroes.length <= 10, F, "heroes");
@@ -218,7 +263,7 @@ export function checkMatch(match: Json): asserts match is BundleMatch {
     const p = `heroes[${k}]`;
     need(isObj(raw), F, p);
     const h = raw as Obj;
-    checkNewHeroFields(h, p);
+    checkNewHeroFields(h, p, schema);
     need(typeof h.id === "string" && HERO_ID.test(h.id) && !ids.has(h.id), F, `${p}.id`);
     ids.add(h.id as string);
     need(text(h.name), F, `${p}.name`);
