@@ -2,8 +2,8 @@
 title: "Sprint Roadmap"
 doc_id: "SPRINT-ROADMAP"
 status: draft
-version: "0.3.6"
-updated: "2026-11-13"
+version: "0.3.7"
+updated: "2026-11-25"
 authority: "SDP milestones; planning metadata only. Scope, priority and acceptance stay in PRD/SRS and the registry"
 owner_role: "Engineering lead"
 approval_status: "not_approved"
@@ -17,26 +17,30 @@ This page orders the work of the SDP milestones into sprints and names the model
 - Requirement IDs come from `contracts/requirements.json` (`target_milestone`). This page changes none of them.
 - Sprints 0–3 are planned to task level. Later sprints are planned to slice level and are broken into tasks when their entry dependencies are met.
 - "Owner input" lists what only the owner can supply. A missing input blocks only the tasks that name it; other tasks continue.
-- Decision IDs below are the entries that are `open` or `proposed` in `contracts/decisions.json` on 2026-11-11. The lead confirms the exact dependency of each task at sprint planning.
+- Decision IDs in this plan are dependency references, not a current decision-status snapshot. Check `contracts/decisions.json` and `docs/governance/DECISION-LOG.md` for their present state.
 
 Model column: **Luna** = `gpt-6-luna`, effort `max` (general worker). **Terra** = `gpt-6.1-terra`, effort `high` (test worker). **Lead** = Claude. **Owner** = product owner.
 
 ## Phase overview
 
-| Phase | Sprint | Milestone | Outcome | Main model mix |
-| --- | --- | --- | --- | --- |
-| A. Foundation | 0 | M1 close-out | The workflow is proven on real tasks; M1 gaps closed in source | Luna tooling, Terra tests |
-| B. Events and audio | 1 | M2 | Deterministic event detector and arbitration | Terra first, then Luna |
-| B. Events and audio | 2 | M2 | Verified package cache: bounded, hostile-input safe, atomic | Terra first, then Luna, Lead reads R2 |
-| B. Events and audio | 3 | M2 | Native audio owner and the independent critical warning path | Luna, Terra harness, Owner measures |
-| C. Vision and overlay | 4 | M3 | Calibrated capture admission and observation boundary | Luna spike, then Terra first |
-| C. Vision and overlay | 5 | M3 | Risk heuristic and alert policy | Terra first, then Luna |
-| C. Vision and overlay | 6 | M3 | Overlay window, banner stage, Session Monitor | Luna, Terra state tests |
-| D. Demonstration | 7 | M4a | One recorded live evidence match | Owner, Luna fixes |
-| D. Demonstration | 8 | M4b | Local OBS highlights | Terra first, then Luna |
-| E. Later | 9+ | M5–M8 | Voice, memory and advice; optional cloud and peer; premium; release | Replanned after the model feasibility spike |
+| Phase | Sprint | Milestone | Outcome | Main model mix | Status (2026-11-25) and evidence boundary |
+| --- | --- | --- | --- | --- | --- |
+| A. Foundation | 0 | M1 close-out | The workflow is proven on real tasks; M1 gaps closed in source | Luna tooling, Terra tests | **partial** — source/synthetic work is recorded; M1 native hardening, resource and live re-test remain open in `M1-STATUS.md` |
+| B. Events and audio | 1 | M2 | Deterministic event detector and arbitration | Terra first, then Luna | **partial** — source/synthetic detector work; event-catalog owner capture and `first_blood` remain unresolved (`9c8faf1`, DEC-EVENT-AUDIO) |
+| B. Events and audio | 2 | M2 | Verified package cache: bounded, hostile-input safe, atomic | Terra first, then Luna, Lead reads R2 | **partial** — source/synthetic package-gate results; the original task record has no owner WebM clip, and RTM has no requirement-level acceptance receipt (`d69b3ce`, `3a907ad`) |
+| B. Events and audio | 3 | M2 | Native audio owner and the independent critical warning path | Luna, Terra harness, Owner measures | **partial** — source/synthetic plus native digital-silence observations; acoustic QUALITY-001 and authorized critical-media readiness remain NOT_RUN (`5501472`, `6333241`) |
+| C. Vision and overlay | 4 | M3 | Calibrated capture admission and observation boundary | Luna spike, then Terra first | **partial** — source/synthetic plus a native capture observation; calibration and acceptance measurements are not established (`22a7510`, `7df30bc`) |
+| C. Vision and overlay | 5 | M3 | Risk heuristic and alert policy | Terra first, then Luna | **partial** — source/synthetic heuristic work; the roadmap records thresholds as proposed and ALERT-002/003 formulas as unimplemented (`411476c`) |
+| C. Vision and overlay | 6 | M3 | Overlay window, banner stage, Session Monitor | Luna, Terra state tests | **partial** — source/synthetic UI work and one narrow live ALERT-008/UI-015 receipt; that receipt does not accept the rest of M3 (`a4ff0bc`, `8d9f8c3`, `owner-live-9c96013.receipt.json`) |
+| D. Demonstration | 7 | M4a | One recorded live evidence match | Owner, Luna fixes | **partial** — alpha.1 was published, but the reports do not identify an M4a recorded-match acceptance receipt; alpha.2's owner match is still pending (`e704af2`, `2026-11-24-alpha2-release-checklist.md`) |
+| D. Demonstration | 8 | M4b | Local OBS highlights | Terra first, then Luna | **not started** — RTM rows OBS-001..005 have no implementation or evidence references |
+| E. Later | 9+ | M5–M8 | Voice, memory and advice; optional cloud and peer; premium; release | Replanned after the model feasibility spike | **partial** — Analytics and replay work has advanced; M5/M6 remain partial, M7 has not started, and M8 release acceptance is incomplete (see milestone status below) |
+
+The status values are `done`, `partial`, `not started` and `superseded`. A worker/task gate or merged commit is not sprint acceptance by itself. Evidence classes stay separate: source, synthetic, native and live describe only the evidence actually recorded for that scope. An empty RTM `evidence_refs` cell means no requirement receipt is registered there; it does not mean no source work exists.
 
 ## Sprint 0 — Pilot and M1 close-out
+
+**Status (2026-11-25): partial.** Source and synthetic intake/settings work is recorded, but the M1 status report still lists hardened-build WebView2/native, resource, containment and live re-test items as open. Evidence: `e37bd2b`, `144ed49`, `docs/delivery/M1-STATUS.md`.
 
 **Goal.** Run the workflow end to end on small real tasks, and close the M1 gaps that source work can close.
 
@@ -56,6 +60,8 @@ Model column: **Luna** = `gpt-6-luna`, effort `max` (general worker). **Terra** 
 
 ## Sprint 1 — Event detector (M2)
 
+**Status (2026-11-25): partial.** Detector and host-feed source/synthetic work is present; the owner capture and event-catalog closure remain unresolved, and `first_blood` is still reported unavailable. Evidence: `ace21a0`, `2a42645`, `9c8faf1`; DEC-EVENT-AUDIO remains proposed.
+
 **Goal.** A pure crate turns admitted game snapshots into catalog events, with tiers and arbitration, under injected monotonic time. Requirements: MEDIA-001, MEDIA-002, MEDIA-003.
 
 | Task | Work | Model | Pattern | Risk | Evidence |
@@ -72,6 +78,8 @@ Model column: **Luna** = `gpt-6-luna`, effort `max` (general worker). **Terra** 
 
 ## Sprint 2 — Verified package cache (M2)
 
+**Status (2026-11-25): partial.** The package store and authoring-tool task gates are recorded at source/synthetic level. The original task record says no owner WebM clip exists; RTM has no requirement-level acceptance receipt for this sprint. Evidence: `d69b3ce`, `3a907ad`; see the S2 rows below.
+
 **Goal.** A media package is parsed, bounded, verified and installed atomically; activation is a separate step. Requirements: MEDIA-004, MEDIA-006, MEDIA-007, MEDIA-008.
 
 | Task | Work | Model | Pattern | Risk | Evidence |
@@ -87,6 +95,8 @@ Model column: **Luna** = `gpt-6-luna`, effort `max` (general worker). **Terra** 
 - **Exit gate.** Every hostile fixture is rejected with its specific reason. A corrupt or interrupted install never becomes active.
 
 ## Sprint 3 — Native audio and the critical warning path (M2)
+
+**Status (2026-11-25): partial.** Source/synthetic audio and host work exists, with native digital-silence observations; these do not establish audible latency or critical-media readiness. QUALITY-001 remains NOT_RUN and readiness remains `not_ready/MEDIA_UNMAPPED`. Evidence: `5501472`, `6333241`, S3-5 status rows below.
 
 **Goal.** One native audio owner plays package audio with deterministic preemption, and the critical warning path works without the web view. Requirements: MEDIA-005, ALERT-001, ALERT-007, QUALITY-001.
 
@@ -105,6 +115,8 @@ Model column: **Luna** = `gpt-6-luna`, effort `max` (general worker). **Terra** 
 
 ## Sprint 4 — Capture and observation boundary (M3)
 
+**Status (2026-11-25): partial.** The capture path has a development-machine native observation and boundary tests are synthetic. The recorded minimap CV work has no labelled real frames, and these results are not a calibrated/native acceptance measurement. Evidence: `22a7510`, `7df30bc`, `76c5917`; `tools/spikes/minimap-hero-id/results.json`.
+
 Requirements: VISION-001, VISION-002, VISION-003, VISION-004, DATA-005, DATA-006.
 
 | Slice | Work | Model |
@@ -118,6 +130,8 @@ Requirements: VISION-001, VISION-002, VISION-003, VISION-004, DATA-005, DATA-006
 
 ## Sprint 5 — Risk and alert policy (M3)
 
+**Status (2026-11-25): partial.** Source/synthetic risk-rule work exists, but the roadmap says the thresholds are proposed and ALERT-002/003 formulas are not implemented by that slice. Labeled live warning-quality evidence is not recorded. Evidence: `411476c`; see the MVP-1 W5 row below.
+
 Requirements: ALERT-002, ALERT-003, ALERT-004, ALERT-005, ALERT-006, QUALITY-005.
 
 | Slice | Work | Model |
@@ -129,6 +143,8 @@ Requirements: ALERT-002, ALERT-003, ALERT-004, ALERT-005, ALERT-006, QUALITY-005
 - **Owner input.** DEC-RISK-DETAIL; recorded sessions with labeled outcomes.
 
 ## Sprint 6 — Overlay, banner stage and Session Monitor (M3)
+
+**Status (2026-11-25): partial.** Overlay and Live surfaces have source/synthetic coverage. The live receipt for build `9c96013` covers a subset of ALERT-008/UI-015 only; the second-monitor/pinned panels and other M3 acceptance remain unqualified. Evidence: `a4ff0bc`, `8d9f8c3`, `c9e3d85`, `docs/delivery/evidence/objective-timers-live/owner-live-9c96013.receipt.json`.
 
 Requirements: UI-001, UI-002, UI-003, UI-004, UI-005, UI-006, UI-008, QUALITY-003, QUALITY-004.
 
@@ -145,6 +161,8 @@ Requirements: UI-001, UI-002, UI-003, UI-004, UI-005, UI-006, UI-008, QUALITY-00
 
 ## Sprint 7 — First demonstration (M4a)
 
+**Status (2026-11-25): partial; M4a acceptance is unknown.** Alpha.1 was published at `e704af2`, but the overnight and alpha.2 reports do not identify the required recorded live evidence-match receipt. Do not treat a published installer as that receipt.
+
 | Slice | Work | Model |
 | --- | --- | --- |
 | Prepare | Evidence-recording method; demo checklist; defect fixes found in rehearsal | Luna |
@@ -154,6 +172,8 @@ Requirements: UI-001, UI-002, UI-003, UI-004, UI-005, UI-006, UI-008, QUALITY-00
 - **Exit gate (SDP M4a).** The recorded match meets demo acceptance. It certifies the demonstration only.
 
 ## Sprint 8 — Local OBS highlights (M4b)
+
+**Status (2026-11-25): not started.** RTM rows OBS-001..005 have no implementation/evidence references, and the supplied release reports do not record a native OBS run.
 
 Requirements: OBS-001, OBS-002, OBS-003, OBS-004, OBS-005.
 
@@ -167,18 +187,62 @@ Requirements: OBS-001, OBS-002, OBS-003, OBS-004, OBS-005.
 
 ## Phase E — Later milestones
 
-| Milestone | Scope | Planning note |
-| --- | --- | --- |
-| M5 | VOICE-001..007, MEM-001..005, ADVICE-001, QUALITY-006, QUALITY-007 | Starts with a local-model feasibility spike (Luna) and per-language benchmarks (Terra harness). Needs DEC-MODELS, DEC-VOICE-BUFFER, DEC-RETENTION |
-| M6 | CORE-003, ADVICE-002..004, PEER-001..010, SOCIAL-001..003 | Optional services; separate consent and service designs first. Needs DEC-SOCIAL, DEC-SESSION |
-| M7 | UI-007, PREMIUM-001..003 | Only if scheduled; DEC-PREMIUM is deferred |
-| M8 | UPDATE-001..004, QUALITY-008 | Release candidate; signing and promotion need explicit owner authorization |
+| Milestone | Scope | Planning note | Status (2026-11-25) |
+| --- | --- | --- | --- |
+| M5 | VOICE-001..007, MEM-001..005, ADVICE-001, QUALITY-006, QUALITY-007 | Starts with a local-model feasibility spike (Luna) and per-language benchmarks (Terra harness). Needs DEC-MODELS, DEC-VOICE-BUFFER, DEC-RETENTION | **partial** — Analytics/replay work is present (`1255cad`, `feb62f1`), while local voice and the remaining required advice/memory evidence are not established |
+| M6 | CORE-003, ADVICE-002..004, PEER-001..010, SOCIAL-001..003 | Optional services; separate consent and service designs first. Needs DEC-SOCIAL, DEC-SESSION | **partial** — Analytics provider source/synthetic work exists (`565db40`); real-key provider verification is pending owner, and the peer/social scope has no acceptance evidence |
+| M7 | UI-007, PREMIUM-001..003 | Only if scheduled; DEC-PREMIUM is deferred | **not started** — premium remains deferred; the Developer-mode Store preview does not implement commerce or entitlement |
+| M8 | UPDATE-001..004, QUALITY-008 | Release candidate; signing and promotion need explicit owner authorization | **partial** — alpha.1 is published; alpha.2 and the supported-matrix/release acceptance steps remain open |
 
 The routing rule does not change in later phases: tests, harnesses and reviews go to Terra; everything else goes to Luna.
 
+## Delivered outside the original sprints (2026-11-15 → 2026-11-25)
+
+These are integration/source facts, not acceptance claims. `source` means the change is present on `integ/combined-evening`; synthetic/native/live classes are named only where the cited record supports them.
+
+| Domain | Work | Decision reference | Integration merge commit(s) | Evidence class |
+| --- | --- | --- | --- | --- |
+| ui-overlay / events-audio | Live centre, second monitor, pinned panels | DEC-SESSION-MONITOR; DEC-LIVE-SECOND-MONITOR; DEC-EDGE-ORB; DEC-EVENT-RUNE-SPAWN | 7e49720; 8d9f8c3; c9e3d85; 87d89d6 | Source and synthetic; separate live receipt covers only the earlier objective-card scenario |
+| ui-overlay | Hero cards and stat icons | DEC-LIVE-SECOND-MONITOR; DEC-OWN-HERO-CARD-DENSITY; DEC-STAT-ICONS | c372f77; dd57a28; fdd5361; 6a881be | Source and synthetic; own-card height values are layout estimates, not native measurements |
+| host-core / ui-overlay | Replay library and engine pin | DEC-REPLAY-INTEGRATION | feb62f1; 373be2b | Source, synthetic, and native local replay-file smoke; engine a609ecc / SHA-256 prefix a05f9176; no app session or live match |
+| host-core / ui-overlay | Automatic replay parsing | DEC-REPLAY-AUTO-PARSE | 08ae9b2 | Source; native app acceptance not established |
+| host-core / ui-overlay | Analytics v1 and v2 (knowledge digest, tools, AI report) | DEC-ANALYTICS; DEC-ANALYTICS-V2 | 7cf478c; c4c9345; 2390e4d; 116ab95; 1255cad | Source and synthetic; no owner implementation review or native acceptance recorded |
+| host-core / ui-overlay | Multi-provider AI | DEC-AI-PROVIDERS | 565db40 | Source and synthetic; real-key provider verification remains pending owner |
+| ui-overlay | Post-game replay link | DEC-ANALYTICS; DEC-ANALYTICS-V2 | af6770c; 4afb58e; fe7c92c | Source; native post-game route not verified |
+| ui-overlay | Settings redesign | DEC-EDGE-ORB; DEC-PICK-STATS; DEC-EVENT-RUNE-SPAWN; DEC-REPLAY-AUTO-PARSE | b050930 | Source and synthetic; controls do not close underlying feature acceptance |
+| commerce / ui-overlay | Store skeleton, Developer mode only | DEC-COMMERCE-INTENT amendment | 98cacd0 | Source and synthetic; no backend, payment, price, sale, wallet authority or commerce decision |
+| vision-risk | Minimap recorder and minimap hero-ID spike (NO-GO) | LAB-001 recorder instruction; DEC-DRAFT-BAR local identification boundary | f9cb10c (recorder); spike result 54cb65b (not merged) | Source and synthetic; NO-GO for accuracy work until labelled real frames exist; receipt records zero persisted frames |
+| account / static website | Website prototype and hero-colour fix | DEC-FRONTEND-HOSTING | 6a419f8 (website #81/#82); c18e297 | Source; separate claims record an owner-authorized prototype deployment, but its current live state was not checked here |
+
+## Next
+
+### In progress
+
+- **Approved, in progress — DEC-LANE-EXPECTATION (slices L0–L5).** The owner answered "Approve all 12" on 2026-11-25 (relayed by the lead; the decision record is written by the implementing worker on branch feat/lane-expectation). L0–L5 are being implemented; nothing is merged yet. The expert lane table ships with no rows until the coach supplies reviewed data, so most lanes show "ยังไม่มีค่าคาดหมาย". L6 (public data) stays owner-only.
+- **Approved, engine side done; Kohbor re-pin in progress — replay-engine change request.** Under DEC-ANALYTICS-V2 decision 8 the engine owner session delivered schema 3.1 / engine 0.3.0 in `replay-engine-rs` commit 9c314e0 (5db8002 adds only WASM rebuilds): winner, draft, gold earned and hero damage dealt, with existing fields byte-identical. The lead built the pinned candidate from 5db8002 (3,258,368 bytes, SHA-256 9d7aa88b…). The Kohbor re-pin and schema 3.1 admission (branch feat/engine-0.3.0-repin) and a manual re-parse action are in progress; using the new fields in the Analytics digest follows the lane-expectation merge.
+
+### Release
+
+- **Pending owner — alpha.2.** Follow `F:\kohbor-coord\reports\2026-11-24-alpha2-release-checklist.md`. The owner must choose the frozen content, play the full match, sign in the owner's shell, and publish the update artifacts to `kohbor-updates` and the installer to `kohbor-releases`. The checklist has not recorded those steps as complete.
+
+### Owner-blocked
+
+- **Pending owner —** verify Analytics providers with real keys; collect and label about 25 minimap recordings; obtain the coach's reviewed expert lane table; make the Store commerce decisions; complete the rights review for bundled game art/data before public release (DEC-REPLAY-INTEGRATION item 3).
+
+### Follow-ups
+
+- **Proposal —** add Wisdom/Lotus map markers only after verified local coordinates and provenance exist; current replay bundles have power/bounty coordinates only, so the others stay omitted (DEC-LIVE-SECOND-MONITOR).
+- **Proposal —** identify a Roshan pit only from a verified patch rule or admitted GSI field that names it; current `roshan_state`/respawn fields do not establish pit coordinates, so the display remains unknown (DEC-EVENT-RUNE-SPAWN, DEC-LIVE-SECOND-MONITOR).
+- **Pending owner —** re-check stale domain cards with their stewards. The 2026-11-24 checklist reported two stale cards before merge `b33aff8`; the current count is unknown because later integration may have made cards stale again.
+- **Pending owner —** publish `news.json` to `kohbor-updates` if the optional news column is wanted; 404 remains permitted for the closed alpha (DEC-ALPHA-SUPERUSER).
+
+## Integration gap
+
+`integ/combined-evening` is at `a8deee0`; `main` is at `a1e50ae`. `main..integ/combined-evening` contains 252 commits and `integ/combined-evening..main` contains 0. The integration branch is far ahead of `main`. **The merge to `main` is an owner action and has not been done.**
+
 ## Backlog status
 
-The lead updates this table as tasks pass the gate. `Commit` is filled for work committed on the sprint branch. The branch `s3/native-audio-critical-path` is pushed and PR #10 is open; merging it needs a separate instruction from the owner.
+The rows below preserve task-level gate history. A row marked passed does not mean its sprint, requirement or native/live acceptance gate passed. `Commit` records the source commits; current integration status and remaining owner gates are summarized above.
 
 | Task | Status | Report disposition | Commit |
 | --- | --- | --- | --- |
