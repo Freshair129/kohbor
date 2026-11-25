@@ -119,6 +119,7 @@ export const BROWSE_EVENT_CATEGORIES = ["kill", "multi", "streak", "match", "war
 export type BrowseEventCategory = (typeof BROWSE_EVENT_CATEGORIES)[number];
 const groupByEvent = new Map<string, SoundGroup>([
   ["hero_kill", "kill"], ["first_blood", "kill"], ["hero_death", "kill"], ["hero_respawn", "kill"],
+  ["ultimate_fired", "kill"], ["ultimate_kill", "kill"],
   ["multi_kill", "multi"], ["streak", "streak"],
   ["match_started", "match"], ["match_ended", "match"], ["level_milestone", "match"],
   ["health_low", "warnings"], ["mana_low", "warnings"], ["health_danger", "warnings"],
@@ -127,6 +128,13 @@ const groupByEvent = new Map<string, SoundGroup>([
 
 export function soundKey(row: SoundKey) {
   return `${row.event_id}:${row.tier ?? "none"}`;
+}
+
+export function heroScopeLabel(hero: string | null | undefined, locale: Locale): string | null {
+  if (!hero) return null;
+  const rawName = hero.replace(/^npc_dota_hero_/, "").replaceAll("_", " ");
+  const name = rawName.replace(/\b[a-z]/g, letter => letter.toUpperCase());
+  return locale === "th" ? `เฉพาะ ${name}` : `${name} only`;
 }
 
 export function groupSoundRows<T extends SoundKey>(rows: readonly T[]) {
@@ -199,8 +207,9 @@ function parseBinding(value: unknown, version: EventMapSchemaVersion): EventSoun
     "event_id", "tier", "state", "reason", "resolved_from_tier", "selection", "variants",
   ];
   const legacyKeys = required;
+  const currentSchema = version === "1.2.0" || version === "1.3.0";
   const currentKeys = [...required, "event_group", "sources", "lock", "lock_state"];
-  if (!binding || !(version === "1.2.0" ? hasExactKeys(binding, currentKeys) : hasExactKeys(binding, legacyKeys))) return null;
+  if (!binding || !(currentSchema ? hasExactKeys(binding, currentKeys) : hasExactKeys(binding, legacyKeys))) return null;
   if (!matches(/^[a-z][a-z0-9_]{0,79}$/, binding.event_id)) return null;
   if (binding.tier !== null && (typeof binding.tier !== "number"
     || !Number.isInteger(binding.tier) || binding.tier < 1 || binding.tier > 100)) return null;
@@ -221,7 +230,7 @@ function parseBinding(value: unknown, version: EventMapSchemaVersion): EventSoun
     && binding.state !== "detector_unavailable"
     && binding.state !== "not_voiced"
     && binding.state !== "unknown") return null;
-  if (!Array.isArray(binding.variants) || binding.variants.length > (version === "1.2.0" ? 64 : 16)) return null;
+  if (!Array.isArray(binding.variants) || binding.variants.length > (currentSchema ? 64 : 16)) return null;
   const variants = binding.variants.map(variant => parseEventMapVariant(variant, version));
   if (variants.some((variant) => variant === null)) return null;
   const parsedVariants = variants as EventSoundVariant[];
@@ -233,12 +242,12 @@ function parseBinding(value: unknown, version: EventMapSchemaVersion): EventSoun
   if (binding.state === "inherited" && binding.tier !== null && binding.resolved_from_tier !== null
     && binding.resolved_from_tier > binding.tier) return null;
 
-  const eventGroup = version === "1.2.0" ? binding.event_group : catalogGroups.get(binding.event_id as string) ?? "basic";
+  const eventGroup = currentSchema ? binding.event_group : catalogGroups.get(binding.event_id as string) ?? "basic";
   if (eventGroup !== "basic" && eventGroup !== "special") return null;
   let sources: EventMapSource[] = [];
   let lock: string | null = null;
   let lockState: EventSound["lock_state"] = "none";
-  if (version === "1.2.0") {
+  if (currentSchema) {
     if (!Array.isArray(binding.sources) || binding.sources.length > 4
       || (binding.lock !== null && (typeof binding.lock !== "string" || !/^[a-z0-9][a-z0-9_.-]{0,79}$/.test(binding.lock)))
       || !["none", "honored", "unsatisfied"].includes(binding.lock_state as string)) return null;
@@ -317,17 +326,18 @@ export function parseMediaEventMap(value: unknown): MediaEventMap | null {
   if (!source) return null;
   const legacyTop = ["schema_version", "active", "events"];
   const currentTop = ["schema_version", "active", "loadout", "pending_loadout", "prewarm", "events"];
-  if (!hasOnlyKeys(source, source.schema_version === "1.2.0" ? currentTop : legacyTop, ["match_active", "media_match_active"])) return null;
+  const currentSchema = source.schema_version === "1.2.0" || source.schema_version === "1.3.0";
+  if (!hasOnlyKeys(source, currentSchema ? currentTop : legacyTop, ["match_active", "media_match_active"])) return null;
   const flags = [source.match_active, source.media_match_active].filter(flag => flag !== undefined);
   if (flags.length === 0 || flags.some(flag => typeof flag !== "boolean")) return null;
-  if (source.schema_version !== "1.0.0" && source.schema_version !== "1.1.0" && source.schema_version !== "1.2.0") return null;
+  if (source.schema_version !== "1.0.0" && source.schema_version !== "1.1.0" && source.schema_version !== "1.2.0" && source.schema_version !== "1.3.0") return null;
   const version = source.schema_version as EventMapSchemaVersion;
   const active = parseActive(source.active);
   if (active === undefined || !Array.isArray(source.events)) return null;
   let loadout: EventMapLoadout | undefined;
   let pendingLoadout: EventMapLoadout | null | undefined;
   let prewarm: EventMapPrewarm | undefined;
-  if (version === "1.2.0") {
+  if (currentSchema) {
     loadout = parseEventMapLoadout(source.loadout) ?? undefined;
     if (!loadout) return null;
     pendingLoadout = source.pending_loadout === null ? null : parseEventMapLoadout(source.pending_loadout) ?? undefined;

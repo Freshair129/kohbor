@@ -66,6 +66,8 @@ pub struct Variant {
 pub struct Binding {
     pub event_id: String,
     pub tier: Option<u32>,
+    /// Optional own-hero condition for this event binding.
+    pub hero: Option<String>,
     pub selection: Option<Selection>,
     pub variants: Vec<Variant>,
 }
@@ -105,7 +107,7 @@ pub struct ParsedDescriptor {
 /// Order of checks (the first failure is the reported reason):
 /// 1. size > `limits.descriptor_bytes` -> `EntryTooLarge`; not UTF-8 JSON ->
 ///    `DescriptorSyntax`; duplicate object key anywhere -> `DuplicateJsonKey`.
-/// 2. Shape per media-manifest 1.3.0, 1.4.0, or proposed 1.4.1 with
+/// 2. Shape per media-manifest 1.3.0, 1.4.0, 1.4.1, 1.4.2, or 1.4.3 with
 ///    `additionalProperties: false`: an unknown key -> `UnknownField(key)` (this
 ///    is how a self-declared `trusted_public_key` or authority claim is rejected);
 ///    a 1.4.x variant carrying reserved `when` -> `ConditionsReserved`; invalid
@@ -160,7 +162,7 @@ pub fn parse_descriptor(
     let root = value.as_object().ok_or_else(|| schema_error(""))?;
     let schema_version = required_string(root, "schema_version", "/schema_version")?;
     let legacy_v13 = schema_version == "1.3.0";
-    let captions_supported = matches!(schema_version, "1.4.1" | "1.4.2");
+    let captions_supported = matches!(schema_version, "1.4.1" | "1.4.2" | "1.4.3");
     let taxonomy_text = required_string(root, "taxonomy_version", "/taxonomy_version")?;
     let taxonomy = TaxonomyVersion::parse(taxonomy_text).ok_or(RejectReason::TaxonomyMalformed)?;
     if taxonomy.major != catalog.taxonomy.major {
@@ -298,6 +300,18 @@ pub fn parse_descriptor(
             event_id: required_string(object, "event_id", &format!("{pointer}/event_id"))?
                 .to_owned(),
             tier,
+            hero: object
+                .get("hero")
+                .map(|value| {
+                    let hero = value
+                        .as_str()
+                        .ok_or_else(|| schema_error(&format!("{pointer}/hero")))?;
+                    if !valid_hero_id(hero) {
+                        return Err(schema_error(&format!("{pointer}/hero")));
+                    }
+                    Ok(hero.to_owned())
+                })
+                .transpose()?,
             selection,
             variants,
         });
@@ -450,7 +464,7 @@ fn validate_schema(value: &Value, limits: Limits) -> Result<(), RejectReason> {
         .get("schema_version")
         .and_then(Value::as_str)
         .ok_or_else(|| schema_error("/schema_version"))?;
-    if !matches!(schema_version, "1.3.0" | "1.4.0" | "1.4.1" | "1.4.2") {
+    if !matches!(schema_version, "1.3.0" | "1.4.0" | "1.4.1" | "1.4.2" | "1.4.3") {
         return Err(schema_error("/schema_version"));
     }
     let mut root_keys = vec![
@@ -463,7 +477,7 @@ fn validate_schema(value: &Value, limits: Limits) -> Result<(), RejectReason> {
         "files",
         "bindings",
     ];
-    if schema_version == "1.4.2" {
+    if matches!(schema_version, "1.4.2" | "1.4.3") {
         root_keys.push("presentation");
     }
     reject_unknown_keys(root, &root_keys)?;
@@ -492,14 +506,19 @@ fn validate_schema(value: &Value, limits: Limits) -> Result<(), RejectReason> {
                         ],
                     )?;
                 } else {
-                    reject_unknown_keys(object, &["event_id", "tier", "selection", "variants"])?;
+                    let binding_keys = if schema_version == "1.4.3" {
+                        &["event_id", "tier", "hero", "selection", "variants"][..]
+                    } else {
+                        &["event_id", "tier", "selection", "variants"][..]
+                    };
+                    reject_unknown_keys(object, binding_keys)?;
                     if let Some(variants) = object.get("variants").and_then(Value::as_array) {
                         for variant in variants {
                             if let Some(variant_object) = variant.as_object() {
                                 if variant_object.contains_key("when") {
                                     return Err(RejectReason::ConditionsReserved);
                                 }
-                                let allowed = if matches!(schema_version, "1.4.1" | "1.4.2") {
+                                let allowed = if matches!(schema_version, "1.4.1" | "1.4.2" | "1.4.3") {
                                     &[
                                         "variant_id",
                                         "clip_id",
@@ -616,6 +635,14 @@ fn validate_schema(value: &Value, limits: Limits) -> Result<(), RejectReason> {
         let event_id = required_string(object, "event_id", &format!("{pointer}/event_id"))?;
         if !valid_event_id(event_id) {
             return Err(schema_error(&format!("{pointer}/event_id")));
+        }
+        if let Some(hero) = object.get("hero") {
+            let hero = hero
+                .as_str()
+                .ok_or_else(|| schema_error(&format!("{pointer}/hero")))?;
+            if schema_version != "1.4.3" || !valid_hero_id(hero) {
+                return Err(schema_error(&format!("{pointer}/hero")));
+            }
         }
         if let Some(tier) = object.get("tier") {
             let tier = tier
@@ -792,7 +819,7 @@ fn parse_presentation(
     let Some(value) = root.get("presentation") else {
         return Ok(None);
     };
-    if schema_version != "1.4.2" {
+    if !matches!(schema_version, "1.4.2" | "1.4.3") {
         return Err(RejectReason::unknown_field("presentation"));
     }
     validate_presentation(value)?;
@@ -1132,6 +1159,17 @@ fn valid_event_id(text: &str) -> bool {
     matches!(bytes.next(), Some(b'a'..=b'z'))
         && text.len() <= 80
         && bytes.all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+}
+
+fn valid_hero_id(text: &str) -> bool {
+    let Some(name) = text.strip_prefix("npc_dota_hero_") else {
+        return false;
+    };
+    !name.is_empty()
+        && text.len() <= 64
+        && name
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
 }
 
 fn valid_variant_id(text: &str) -> bool {

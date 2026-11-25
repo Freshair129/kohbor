@@ -1,7 +1,7 @@
 //! Conversion from admitted GSI fields to the event detector's tick shape.
 
-use crate::{Phase, Tick};
-use kohbor_gsi::admission::{Admitted, Field, Phase as GsiPhase};
+use crate::{Phase, Tick, UltimateContext};
+use kohbor_gsi::admission::{Admitted, Field, OwnLoadout, Phase as GsiPhase};
 
 /// Build an event-detector tick from source-admitted values.
 ///
@@ -32,6 +32,19 @@ pub fn tick_from_admitted(
         max_hp: to_u32(&admitted.hero.max_hp),
         mana_percent: to_u32(&admitted.hero.mana_percent),
         alive: to_bool(&admitted.hero.alive),
+    }
+}
+
+/// Keep the GSI ultimate fields beside, rather than inside, the stable `Tick` contract.
+pub fn ultimate_context_from_admitted(
+    admitted: &Admitted,
+    loadout: &OwnLoadout,
+    generation: u64,
+) -> UltimateContext {
+    UltimateContext {
+        generation,
+        hero_id: admitted.hero.hero_id.value().cloned(),
+        abilities: loadout.abilities.clone(),
     }
 }
 

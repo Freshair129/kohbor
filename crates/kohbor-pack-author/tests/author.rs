@@ -144,6 +144,22 @@ fn mapping_presentation_fields_and_cover_are_written_as_manifest_142() {
 }
 
 #[test]
+fn hero_mapping_is_written_to_a_143_descriptor() {
+    let fixture = Fixture::new();
+    let mut hero_binding = binding("hero_kill", None, None, None, None, None);
+    hero_binding["hero"] = json!("npc_dota_hero_sniper");
+    fs::write(&fixture.map, mapping_bytes(&[hero_binding])).expect("write hero mapping");
+
+    let report = build_package(&fixture.options()).expect("build hero-scoped package");
+    assert_eq!(report.descriptor_schema_version, "1.4.3");
+    let staged = stage_reported_package(&report.package_path, &fixture.temp.0);
+    assert_eq!(
+        staged.parsed.descriptor.bindings[0].hero.as_deref(),
+        Some("npc_dota_hero_sniper")
+    );
+}
+
+#[test]
 fn cli_presentation_options_build_the_same_verified_contract() {
     let fixture = Fixture::new();
     fs::write(fixture.clips.join("cover.png"), png_cover()).expect("write still cover");

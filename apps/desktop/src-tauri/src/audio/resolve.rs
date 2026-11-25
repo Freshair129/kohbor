@@ -67,6 +67,8 @@ pub struct VariantMedia {
     pub variant_id: String,
     pub clip_id: Option<String>,
     pub caption: Option<String>,
+    /// Own-hero requirement copied from the descriptor binding.
+    pub hero: Option<String>,
     pub weight: u8,
     /// Source identity is populated by the off-thread merged prewarm pass.
     pub source: Option<VariantSource>,
@@ -91,6 +93,31 @@ pub const PREWARM_CAP_REASON: &str = "prewarm_cap";
 pub struct VariantSet {
     pub selection: Option<VariantSelection>,
     pub variants: Vec<VariantMedia>,
+}
+
+impl VariantSet {
+    /// Return hero-eligible variant indices. A matching hero-specific binding
+    /// takes precedence over general variants; unknown or different heroes only
+    /// see general variants.
+    pub fn eligible_indices(&self, own_hero: Option<&str>) -> Vec<usize> {
+        let has_matching_specific = own_hero.is_some_and(|hero| {
+            self.variants
+                .iter()
+                .any(|variant| variant.hero.as_deref() == Some(hero))
+        });
+        self.variants
+            .iter()
+            .enumerate()
+            .filter_map(|(index, variant)| {
+                let eligible = if has_matching_specific {
+                    own_hero.is_some_and(|hero| variant.hero.as_deref() == Some(hero))
+                } else {
+                    variant.hero.is_none()
+                };
+                eligible.then_some(index)
+            })
+            .collect()
+    }
 }
 
 /// The chosen clip and its binding provenance for playback and diagnostics.
@@ -315,6 +342,7 @@ impl PrewarmTable {
                                 variant_id: variant.variant_id.clone(),
                                 clip_id: variant.clip_id.clone(),
                                 caption: variant.caption.clone(),
+                                hero: variant.hero.clone(),
                                 weight: variant.weight,
                                 source: variant.source.clone(),
                                 authored_selection: variant.authored_selection,

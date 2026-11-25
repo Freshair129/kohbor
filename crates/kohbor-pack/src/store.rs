@@ -473,6 +473,7 @@ pub struct ResolvedMedia {
     pub install_id: String,
     pub event_id: String,
     pub tier: Option<u32>,
+    pub hero: Option<String>,
     pub variant_id: String,
     pub clip_id: Option<String>,
     pub selection: Option<Selection>,
@@ -496,6 +497,7 @@ pub struct ResolvedVariant {
 pub struct ResolvedBinding {
     pub event_id: String,
     pub tier: Option<u32>,
+    pub hero: Option<String>,
     pub selection: Option<Selection>,
     pub variants: Vec<ResolvedVariant>,
 }
@@ -1817,7 +1819,18 @@ impl<H: Hook> Store<H> {
         event_id: &str,
         tier: Option<u32>,
     ) -> Result<ResolvedMedia, ResolveError> {
-        self.resolve_inner(event_id, tier, false)?
+        self.resolve_for_hero(event_id, tier, None)
+    }
+
+    /// Resolve one variant using a matching hero-scoped binding before the
+    /// tier-less general binding. An unknown or different hero skips scoped rows.
+    pub fn resolve_for_hero(
+        &self,
+        event_id: &str,
+        tier: Option<u32>,
+        own_hero: Option<&str>,
+    ) -> Result<ResolvedMedia, ResolveError> {
+        self.resolve_inner(event_id, tier, false, own_hero)?
             .into_iter()
             .next()
             .ok_or(ResolveError::Unmapped)?
@@ -1835,7 +1848,18 @@ impl<H: Hook> Store<H> {
         event_id: &str,
         tier: Option<u32>,
     ) -> Result<Vec<ResolvedVariant>, ResolveError> {
-        let variants = self.resolve_inner(event_id, tier, true)?;
+        self.resolve_variants_for_hero(event_id, tier, None)
+    }
+
+    /// Resolve every variant from the most specific binding eligible for the
+    /// observed own hero. `None` never matches a hero-scoped binding.
+    pub fn resolve_variants_for_hero(
+        &self,
+        event_id: &str,
+        tier: Option<u32>,
+        own_hero: Option<&str>,
+    ) -> Result<Vec<ResolvedVariant>, ResolveError> {
+        let variants = self.resolve_inner(event_id, tier, true, own_hero)?;
         if variants.iter().any(|variant| variant.media.is_ok()) {
             Ok(variants)
         } else {
@@ -1853,7 +1877,49 @@ impl<H: Hook> Store<H> {
         tier: Option<u32>,
         variant_id: &str,
     ) -> Result<ResolvedMedia, ResolveError> {
-        let variants = self.resolve_inner_for_install(install_id, event_id, tier, true)?;
+        self.resolve_installed_variant_any_hero(install_id, event_id, tier, variant_id)
+    }
+
+    /// Resolve an exact installed variant for a pack-library audition. This path
+    /// intentionally previews the selected binding regardless of its hero gate;
+    /// live event playback still requires a matching observed own hero.
+    pub fn resolve_installed_variant_any_hero(
+        &self,
+        install_id: &str,
+        event_id: &str,
+        tier: Option<u32>,
+        variant_id: &str,
+    ) -> Result<ResolvedMedia, ResolveError> {
+        let parsed = self.verified_installed_descriptor(install_id)?;
+        let binding = parsed
+            .descriptor
+            .bindings
+            .iter()
+            .find(|binding| {
+                binding.event_id == event_id
+                    && binding.tier == tier
+                    && binding.variants.iter().any(|variant| variant.variant_id == variant_id)
+            })
+            .ok_or(ResolveError::Unmapped)?;
+        self.verify_binding_variants(install_id, &parsed.descriptor, binding, true)
+            .into_iter()
+            .find(|variant| variant.variant_id == variant_id)
+            .ok_or(ResolveError::Unmapped)?
+            .media
+            .map_err(ResolveError::Invalid)
+    }
+
+    /// Resolve an installed variant while applying the observed own-hero condition.
+    pub fn resolve_installed_variant_for_hero(
+        &self,
+        install_id: &str,
+        event_id: &str,
+        tier: Option<u32>,
+        variant_id: &str,
+        own_hero: Option<&str>,
+    ) -> Result<ResolvedMedia, ResolveError> {
+        let variants =
+            self.resolve_inner_for_install(install_id, event_id, tier, true, own_hero)?;
         variants
             .into_iter()
             .find(|variant| variant.variant_id == variant_id)
@@ -1877,6 +1943,7 @@ impl<H: Hook> Store<H> {
             .map(|binding| ResolvedBinding {
                 event_id: binding.event_id.clone(),
                 tier: binding.tier,
+                hero: binding.hero.clone(),
                 selection: binding.selection,
                 variants: self.verify_binding_variants(
                     install_id,
@@ -1893,9 +1960,10 @@ impl<H: Hook> Store<H> {
         event_id: &str,
         tier: Option<u32>,
         all_variants: bool,
+        own_hero: Option<&str>,
     ) -> Result<Vec<ResolvedVariant>, ResolveError> {
         let active = self.active.as_ref().ok_or(ResolveError::Unmapped)?;
-        self.resolve_inner_for_install(&active.install_id, event_id, tier, all_variants)
+        self.resolve_inner_for_install(&active.install_id, event_id, tier, all_variants, own_hero)
     }
 
     fn resolve_inner_for_install(
@@ -1904,16 +1972,24 @@ impl<H: Hook> Store<H> {
         event_id: &str,
         tier: Option<u32>,
         all_variants: bool,
+        own_hero: Option<&str>,
     ) -> Result<Vec<ResolvedVariant>, ResolveError> {
         let parsed = self.verified_installed_descriptor(install_id)?;
         if parsed.inert_event_ids.iter().any(|inert| inert == event_id) {
             return Err(ResolveError::Inert);
         }
-        let binding = parsed
+        let bindings = parsed
             .descriptor
             .bindings
             .iter()
-            .find(|binding| binding.event_id == event_id && binding.tier == tier)
+            .filter(|binding| binding.event_id == event_id && binding.tier == tier);
+        let binding = own_hero
+            .and_then(|hero| {
+                bindings
+                    .clone()
+                    .find(|binding| binding.hero.as_deref() == Some(hero))
+            })
+            .or_else(|| bindings.clone().find(|binding| binding.hero.is_none()))
             .ok_or(ResolveError::Unmapped)?;
         Ok(self.verify_binding_variants(install_id, &parsed.descriptor, binding, all_variants))
     }
@@ -1999,6 +2075,7 @@ impl<H: Hook> Store<H> {
                     install_id: install_id.to_owned(),
                     event_id: binding.event_id.clone(),
                     tier: binding.tier,
+                    hero: binding.hero.clone(),
                     variant_id: variant.variant_id.clone(),
                     clip_id: variant.clip_id.clone(),
                     selection: binding.selection,

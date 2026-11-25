@@ -3,7 +3,12 @@ use serde_json::Value;
 use std::{fs, path::PathBuf};
 
 fn event(id: EventId, tier: Option<u8>, at_ms: u64) -> Event {
-    Event { id, tier, at_ms }
+    Event {
+        id,
+        tier,
+        at_ms,
+        payload: None,
+    }
 }
 
 #[test]
@@ -41,12 +46,17 @@ fn unvoiced_and_critical_events_are_excluded() {
     let respawn = event(EventId::HeroRespawn, None, 1);
     let danger = event(EventId::HealthDanger, None, 1);
     let kill = event(EventId::HeroKill, None, 1);
-    for input in [vec![], vec![respawn], vec![danger], vec![respawn, danger]] {
+    for input in [
+        vec![],
+        vec![respawn.clone()],
+        vec![danger.clone()],
+        vec![respawn.clone(), danger.clone()],
+    ] {
         let result = arbitrate(&input);
         assert_eq!(result.winner, None);
         assert!(result.dropped.is_empty());
     }
-    let result = arbitrate(&[danger, kill, respawn]);
+    let result = arbitrate(&[danger, kill.clone(), respawn]);
     assert_eq!(result.winner, Some(kill));
     assert!(result.dropped.is_empty());
 }
@@ -55,7 +65,7 @@ fn unvoiced_and_critical_events_are_excluded() {
 fn duplicate_id_keeps_first_and_drops_second() {
     let first = event(EventId::HeroKill, None, 1);
     let second = event(EventId::HeroKill, None, 2);
-    let result = arbitrate(&[first, second]);
+    let result = arbitrate(&[first.clone(), second.clone()]);
     assert_eq!(result.winner, Some(first));
     assert_eq!(result.dropped.len(), 1);
     assert_eq!(result.dropped[0].event, second);
@@ -84,11 +94,25 @@ fn multi_kill_outranks_streak_at_every_tier() {
         for streak in streak_min..=streak_max {
             let m = event(EventId::MultiKill, Some(multi), 1);
             let s = event(EventId::Streak, Some(streak), 1);
-            let result = arbitrate(&[s, m]);
+            let result = arbitrate(&[s.clone(), m.clone()]);
             assert_eq!(result.winner, Some(m));
             assert_eq!(result.dropped.len(), 1);
             assert_eq!(result.dropped[0].event, s);
             assert_eq!(result.dropped[0].reason, DropReason::LowerRankSameTick);
         }
     }
+}
+
+#[test]
+fn ultimate_kill_is_additional_and_outranks_the_same_tick_hero_kill() {
+    let ultimate_kill = event(EventId::UltimateKill, None, 4_100);
+    let hero_kill = event(EventId::HeroKill, None, 4_100);
+    let result = arbitrate(&[hero_kill.clone(), ultimate_kill.clone()]);
+    assert_eq!(result.winner, Some(ultimate_kill));
+    assert_eq!(result.dropped.len(), 1);
+    assert_eq!(result.dropped[0].event, hero_kill);
+
+    let fired = event(EventId::UltimateFired, None, 100);
+    let ordinary_kill = event(EventId::HeroKill, None, 100);
+    assert_eq!(arbitrate(&[ordinary_kill, fired.clone()]).winner, Some(fired));
 }

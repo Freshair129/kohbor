@@ -4,7 +4,7 @@ use kohbor_events::EventId;
 use serde_json::Value;
 use std::{collections::HashSet, sync::Arc};
 
-const IDS: [EventId; 15] = [
+const IDS: [EventId; 17] = [
     EventId::MultiKill,
     EventId::Streak,
     EventId::FirstBlood,
@@ -20,6 +20,8 @@ const IDS: [EventId; 15] = [
     EventId::ClutchKill,
     EventId::PosthumousKill,
     EventId::ComebackKill,
+    EventId::UltimateFired,
+    EventId::UltimateKill,
 ];
 // An exhaustive match forces additions to EventId to be reviewed here.
 fn known(id: EventId) {
@@ -38,7 +40,9 @@ fn known(id: EventId) {
         | EventId::HealthDanger
         | EventId::ClutchKill
         | EventId::PosthumousKill
-        | EventId::ComebackKill => {}
+        | EventId::ComebackKill
+        | EventId::UltimateFired
+        | EventId::UltimateKill => {}
     }
 }
 fn clip(tier: Option<u8>, marker: i16) -> Clip {
@@ -249,7 +253,7 @@ fn catalog_key_space_is_resolved() {
             }
         }
     }
-    assert_eq!(entries.len(), 26, "catalog key count changed");
+    assert_eq!(entries.len(), 28, "catalog key count changed");
     let keys: Vec<_> = entries.iter().map(|(id, tier, _)| (*id, *tier)).collect();
     let t = table(entries);
     for (id, tier) in keys {

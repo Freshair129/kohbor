@@ -7,6 +7,8 @@
 pub mod adapter;
 pub mod objectives;
 pub mod trace;
+mod ultimate;
+pub use ultimate::UltimateContext;
 
 pub use objectives::{
     ObjectiveAlert, ObjectiveAlertBatch, ObjectiveId, ObjectivePhase, ObjectiveScheduler,
@@ -17,7 +19,7 @@ use trace::{Danger, LevelEvidence, Scratch, Status, Threshold};
 
 use std::collections::VecDeque;
 
-/// Catalog events the detector can emit (taxonomy 1.2, contracts/event-catalog.json).
+/// Catalog events the detector can emit (taxonomy 1.3, contracts/event-catalog.json).
 /// Declaration order is the order in which one tick's events are returned.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum EventId {
@@ -36,6 +38,8 @@ pub enum EventId {
     ClutchKill,
     PosthumousKill,
     ComebackKill,
+    UltimateFired,
+    UltimateKill,
 }
 
 impl EventId {
@@ -57,6 +61,8 @@ impl EventId {
             Self::ClutchKill => "clutch_kill",
             Self::PosthumousKill => "posthumous_kill",
             Self::ComebackKill => "comeback_kill",
+            Self::UltimateFired => "ultimate_fired",
+            Self::UltimateKill => "ultimate_kill",
         }
     }
 
@@ -77,6 +83,8 @@ impl EventId {
             Self::ClutchKill => Some(75),
             Self::PosthumousKill => Some(65),
             Self::ComebackKill => Some(62),
+            Self::UltimateFired => Some(61),
+            Self::UltimateKill => Some(63),
         }
     }
 
@@ -116,6 +124,8 @@ impl EventId {
             Self::ClutchKill => 12,
             Self::PosthumousKill => 13,
             Self::ComebackKill => 14,
+            Self::UltimateFired => 15,
+            Self::UltimateKill => 16,
         }
     }
 }
@@ -193,19 +203,28 @@ impl Default for Config {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EventPayload {
+    pub hero: String,
+    pub ability: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Event {
     pub id: EventId,
     /// `payload.count` for `MultiKill` and `Streak`, capped at the top of the tier
     /// range; `None` for every other event.
     pub tier: Option<u8>,
     pub at_ms: u64,
+    /// Present for `ultimate_fired` and its correlated `ultimate_kill` event.
+    pub payload: Option<EventPayload>,
 }
 
 pub struct Detector {
     _private: (),
     config: Config,
     session_epoch: Option<u64>,
+    generation: Option<u64>,
     last_at_ms: Option<u64>,
     phase: Option<Phase>,
     kills: Option<u32>,
@@ -229,6 +248,7 @@ pub struct Detector {
     clutch_health_samples: VecDeque<HealthSample>,
     session_death_count: u32,
     deaths_since_previous_kill: u32,
+    ultimate: ultimate::UltimateTracker,
     scratch: Scratch,
 }
 
@@ -249,6 +269,7 @@ impl Detector {
             _private: (),
             config,
             session_epoch: None,
+            generation: None,
             last_at_ms: None,
             phase: None,
             kills: None,
@@ -272,6 +293,7 @@ impl Detector {
             clutch_health_samples: VecDeque::new(),
             session_death_count: 0,
             deaths_since_previous_kill: 0,
+            ultimate: ultimate::UltimateTracker::default(),
             scratch: Scratch::default(),
         }
     }
@@ -279,15 +301,27 @@ impl Detector {
     /// Feed one admitted tick. Returns the events it produced, in [`EventId`]
     /// declaration order, at most one event per id.
     pub fn observe(&mut self, tick: &Tick) -> Vec<Event> {
+        self.observe_with_ultimate(tick, &UltimateContext::default())
+    }
+
+    /// Feed an admitted tick with the own hero's GSI generation and abilities.
+    /// Other callers can keep using [`Detector::observe`] with the stable tick shape.
+    pub fn observe_with_ultimate(
+        &mut self,
+        tick: &Tick,
+        context: &UltimateContext,
+    ) -> Vec<Event> {
         self.scratch = Scratch::default();
         if !tick.trusted {
             self.scratch.status = Status::Untrusted;
             return Vec::new();
         }
 
-        if self.session_epoch != Some(tick.session_epoch) {
+        if self.session_epoch != Some(tick.session_epoch)
+            || self.generation != Some(context.generation)
+        {
             self.scratch.status = Status::Baseline;
-            self.set_baseline(tick, false);
+            self.set_baseline(tick, context, false);
             return Vec::new();
         }
         if self
@@ -295,7 +329,7 @@ impl Detector {
             .is_some_and(|last_at_ms| tick.at_ms < last_at_ms)
         {
             self.scratch.status = Status::Baseline;
-            self.set_baseline(tick, true);
+            self.set_baseline(tick, context, true);
             return Vec::new();
         }
 
@@ -582,9 +616,12 @@ impl Detector {
         }
         self.phase = Some(tick.phase);
         self.session_epoch = Some(tick.session_epoch);
+        self.generation = Some(context.generation);
         self.last_at_ms = Some(tick.at_ms);
 
-        let mut events = Vec::with_capacity(15);
+        let (ultimate_fired_payload, ultimate_kill_payload) =
+            self.ultimate.observe(tick, context, hero_kill);
+        let mut events = Vec::with_capacity(17);
         if let Some(tier) = multi_kill_tier {
             events.push(event(EventId::MultiKill, Some(tier), tick.at_ms));
         }
@@ -630,6 +667,20 @@ impl Detector {
         if comeback_kill {
             events.push(event(EventId::ComebackKill, None, tick.at_ms));
         }
+        if let Some(payload) = ultimate_fired_payload {
+            events.push(event_with_payload(
+                EventId::UltimateFired,
+                tick.at_ms,
+                payload,
+            ));
+        }
+        if let Some(payload) = ultimate_kill_payload {
+            events.push(event_with_payload(
+                EventId::UltimateKill,
+                tick.at_ms,
+                payload,
+            ));
+        }
         events
     }
 
@@ -672,10 +723,17 @@ impl Detector {
         }
     }
 
-    fn set_baseline(&mut self, tick: &Tick, preserve_danger_state: bool) {
+    fn set_baseline(
+        &mut self,
+        tick: &Tick,
+        context: &UltimateContext,
+        preserve_danger_state: bool,
+    ) {
         let danger_armed = self.danger_armed;
         let danger_last_cue_ms = self.danger_last_cue_ms;
         self.session_epoch = Some(tick.session_epoch);
+        self.generation = Some(context.generation);
+        self.ultimate.reset_to_baseline(tick, context);
         self.last_at_ms = Some(tick.at_ms);
         self.phase = Some(tick.phase);
         self.kills = tick.kills;
@@ -819,7 +877,21 @@ impl Default for Detector {
 }
 
 fn event(id: EventId, tier: Option<u8>, at_ms: u64) -> Event {
-    Event { id, tier, at_ms }
+    Event {
+        id,
+        tier,
+        at_ms,
+        payload: None,
+    }
+}
+
+fn event_with_payload(id: EventId, at_ms: u64, payload: EventPayload) -> Event {
+    Event {
+        id,
+        tier: None,
+        at_ms,
+        payload: Some(payload),
+    }
 }
 
 fn tier_bounds(id: EventId) -> Option<(u32, u32)> {
@@ -860,7 +932,7 @@ pub enum DropReason {
     LowerRankSameTick,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Dropped {
     pub event: Event,
     pub reason: DropReason,
@@ -875,7 +947,7 @@ pub struct Arbitration {
 /// Ordinary arbitration for one admitted tick (EVENT-AUDIO-SPEC section 2). Only
 /// voiced, non-critical events take part; others are in neither `winner` nor `dropped`.
 pub fn arbitrate(events: &[Event]) -> Arbitration {
-    let mut seen = [false; 15];
+    let mut seen = [false; 17];
     let mut eligible = Vec::new();
     for candidate in events {
         if !candidate.id.voiced() || candidate.id.is_critical() {
@@ -884,7 +956,7 @@ pub fn arbitrate(events: &[Event]) -> Arbitration {
         let index = candidate.id.index();
         let first_for_id = !seen[index];
         seen[index] = true;
-        eligible.push((*candidate, first_for_id));
+        eligible.push((candidate.clone(), first_for_id));
     }
 
     let mut winner_index = None;
@@ -900,7 +972,7 @@ pub fn arbitrate(events: &[Event]) -> Arbitration {
         }
     }
 
-    let winner = winner_index.and_then(|index| eligible.get(index).map(|(event, _)| *event));
+    let winner = winner_index.and_then(|index| eligible.get(index).map(|(event, _)| event.clone()));
     let dropped = eligible
         .into_iter()
         .enumerate()

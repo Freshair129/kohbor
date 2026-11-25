@@ -1,6 +1,7 @@
 use kohbor_events::{adapter::tick_from_admitted, Detector, Event, EventId, Phase, Tick};
 use kohbor_gsi::admission::{
-    Admitted, Field, HeroFields, MapFields, OwnCounters, Ownership, Phase as GsiPhase,
+    Admitted, Field, HeroFields, MapFields, OwnCounters, Ownership,
+    Phase as GsiPhase,
 };
 
 fn tick(at_ms: u64) -> Tick {
@@ -186,12 +187,7 @@ fn adapter_maps_deaths_and_streak_with_checked_narrowing() {
     assert_eq!(mapped.kill_streak, Some(3));
 
     let too_large = i64::from(u32::MAX) + 1;
-    let unknown = tick_from_admitted(
-        &admitted(Field::Value(too_large), Field::Value(-1)),
-        1,
-        1,
-        true,
-    );
+    let unknown = tick_from_admitted(&admitted(Field::Value(too_large), Field::Value(-1)), 1, 1, true);
     assert_eq!(unknown.deaths, None);
     assert_eq!(unknown.kill_streak, None);
 }

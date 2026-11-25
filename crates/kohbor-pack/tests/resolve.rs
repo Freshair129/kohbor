@@ -5,6 +5,62 @@ use kohbor_pack::{
     limits::Limits,
     store::{ActivationPolicy, ActivationState, ResolveError, Store},
 };
+use serde_json::json;
+
+fn hero_binding_package(dir: &std::path::Path) -> (std::path::PathBuf, Vec<u8>) {
+    let mut entries = package_entries();
+    let mut descriptor: serde_json::Value = serde_json::from_slice(&entries[0].bytes).unwrap();
+    descriptor["schema_version"] = json!("1.4.3");
+    descriptor["bindings"] = json!([
+        {
+            "event_id": "first_blood",
+            "hero": "npc_dota_hero_sniper",
+            "variants": [{
+                "variant_id": "sniper_voice",
+                "mixed_audio_path": "audio/cue.wav",
+                "silent_visual_path": "video/cue.webm",
+                "duration_ms": 1000,
+                "visual_tail_ms": 0
+            }]
+        }
+    ]);
+    entries[0].bytes = serde_json::to_vec(&descriptor).unwrap();
+    let bytes = zip(&entries, &[], &[], &[]);
+    let path = dir.join("hero-bindings.zip");
+    std::fs::write(&path, &bytes).unwrap();
+    (path, bytes)
+}
+
+#[test]
+fn hero_binding_requires_known_matching_hero_and_outranks_general() {
+    let temp = TempDir::new();
+    let root = temp.0.join("store");
+    let (path, bytes) = hero_binding_package(&temp.0);
+    let mut store = Store::open(&root, catalog(), Limits::default()).unwrap();
+    let record = store
+        .install(&request(path, &bytes, "hero_bindings"))
+        .unwrap()
+        .record
+        .unwrap();
+    store
+        .activate(
+            "hero_bindings",
+            &record.install_id,
+            ActivationPolicy::NowIfIdle,
+            &ActivationState::default(),
+        )
+        .unwrap();
+
+    assert_eq!(store.resolve_variants("first_blood", None), Err(ResolveError::Unmapped));
+    let sniper = store
+        .resolve_variants_for_hero("first_blood", None, Some("npc_dota_hero_sniper"))
+        .unwrap();
+    assert_eq!(sniper[0].variant_id, "sniper_voice");
+    assert_eq!(
+        store.resolve_variants_for_hero("first_blood", None, Some("npc_dota_hero_lina")),
+        Err(ResolveError::Unmapped)
+    );
+}
 
 #[test]
 fn only_active_revision_resolves_and_switch_retains_old() {

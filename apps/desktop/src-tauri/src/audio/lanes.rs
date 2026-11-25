@@ -87,6 +87,8 @@ pub struct TickMsg {
     pub at_ms: u64,
     pub session_epoch: u64,
     pub game_clock_seconds: Option<u64>,
+    /// Verified own-hero identity from the admitted GSI payload, when available.
+    pub own_hero: Option<String>,
     pub generation: u64,
     pub sequence: u64,
     pub events: Vec<Event>,
@@ -348,6 +350,7 @@ mod tests {
             id,
             tier: None,
             at_ms,
+            payload: None,
         }
     }
 
@@ -359,6 +362,7 @@ mod tests {
             at_ms: sequence,
             session_epoch: 1,
             game_clock_seconds: None,
+            own_hero: None,
             generation: 1,
             sequence,
             events,

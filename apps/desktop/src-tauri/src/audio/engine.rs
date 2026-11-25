@@ -440,7 +440,7 @@ impl Engine {
         let mut critical = Vec::new();
         let mut ordinary = Vec::new();
 
-        for (position, event) in message.events.iter().copied().enumerate() {
+        for (position, event) in message.events.iter().cloned().enumerate() {
             let key = instance_id(message.generation, message.sequence, position);
             if crate::intake::EVENT_UNAVAILABLE.contains(&event.id)
                 || crate::media::inventory::EVENTS_PENDING_LIVE_CAPTURE.contains(&event.id)
@@ -472,7 +472,9 @@ impl Engine {
             let ready = match table.lookup_binding(event.id, event.tier) {
                 crate::audio::resolve::BindingLookup::Ready { .. } => true,
                 crate::audio::resolve::BindingLookup::Variants { binding, .. } => {
-                    binding.variants.iter().any(|variant| variant.media.is_ok())
+                    binding.eligible_indices(message.own_hero.as_deref()).iter().any(|index| {
+                        binding.variants.get(*index).is_some_and(|variant| variant.media.is_ok())
+                    })
                 }
                 crate::audio::resolve::BindingLookup::Unmapped => false,
                 crate::audio::resolve::BindingLookup::Invalid => false,
@@ -482,15 +484,20 @@ impl Engine {
             } else {
                 let outcome = match table.lookup_binding(event.id, event.tier) {
                     crate::audio::resolve::BindingLookup::Unmapped => Outcome::Unmapped,
+                    crate::audio::resolve::BindingLookup::Variants { binding, .. }
+                        if binding.eligible_indices(message.own_hero.as_deref()).is_empty() =>
+                    {
+                        Outcome::Unmapped
+                    }
                     _ => Outcome::InvalidMedia,
                 };
-                self.record_pre_owner(&message, event, &key, outcome, None, now_ms);
-                self.report_invalid_variants(event);
+                self.record_pre_owner(&message, event.clone(), &key, outcome, None, now_ms);
+                self.report_invalid_variants(event, message.own_hero.as_deref());
             }
         }
 
         let arbitration_inputs: Vec<Event> =
-            mapped_ordinary.iter().map(|(event, _)| *event).collect();
+            mapped_ordinary.iter().map(|(event, _)| event.clone()).collect();
         let arbitration = arbitrate(&arbitration_inputs);
         let mut used = vec![false; mapped_ordinary.len()];
         let winner_position = arbitration
@@ -512,7 +519,7 @@ impl Engine {
                 if let Some((event, key)) = mapped_ordinary.get(position) {
                     self.record_pre_owner(
                         &message,
-                        *event,
+                        event.clone(),
                         key,
                         Outcome::LowerRankSameTick,
                         None,
@@ -524,7 +531,7 @@ impl Engine {
 
         if let Some(position) = winner_position {
             if let Some((event, key)) = mapped_ordinary.get(position) {
-                self.handle_voiced_event(&message, *event, key.clone(), now_ms);
+                self.handle_voiced_event(&message, event.clone(), key.clone(), now_ms);
             }
         }
     }
@@ -551,13 +558,13 @@ impl Engine {
     }
 
     fn handle_voiced_event(&mut self, message: &TickMsg, event: Event, key: String, now_ms: u64) {
-        self.request_voiced_event(message, event, key, now_ms);
+        self.request_voiced_event(message, event.clone(), key, now_ms);
         if message.session_epoch == self.session_epoch {
-            self.report_invalid_variants(event);
+            self.report_invalid_variants(event, message.own_hero.as_deref());
         }
     }
 
-    fn report_invalid_variants(&mut self, event: Event) {
+    fn report_invalid_variants(&mut self, event: Event, own_hero: Option<&str>) {
         let table = Arc::clone(&self.table);
         let BindingLookup::Variants {
             bound_tier,
@@ -566,7 +573,10 @@ impl Engine {
         else {
             return;
         };
-        for (index, variant) in binding.variants.iter().enumerate() {
+        for index in binding.eligible_indices(own_hero) {
+            let Some(variant) = binding.variants.get(index) else {
+                continue;
+            };
             let Err(reason) = &variant.media else {
                 continue;
             };
@@ -623,7 +633,13 @@ impl Engine {
         let selected =
             match self
                 .selector
-                .select(&self.table, event.id, event.tier, message.session_epoch)
+                .select_for_hero(
+                    &self.table,
+                    event.id,
+                    event.tier,
+                    message.session_epoch,
+                    message.own_hero.as_deref(),
+                )
             {
                 Ok(selected) => selected,
                 Err(failure) => {
@@ -802,7 +818,7 @@ impl Engine {
             {
                 return Err(AuditionRefusal::MediaStateUnknown);
             }
-            self.resolve_audition_clip(audition.event, audition.variant_id.as_deref())
+            self.resolve_audition_clip(audition.event.clone(), audition.variant_id.as_deref())
                 .map_err(|failure| match failure {
                     SelectionFailure::Unmapped => AuditionRefusal::Unmapped,
                     SelectionFailure::InvalidMedia => AuditionRefusal::MediaStateUnknown,

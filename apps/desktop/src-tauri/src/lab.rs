@@ -3,7 +3,7 @@
 //! also needs `KOHBOR_LAB=1`. Release builds compile only `current_config` and `observe`,
 //! which return the embedded default and the plain detector result.
 
-use kohbor_events::{Config, Detector, Event, Tick};
+use kohbor_events::{Config, Detector, Event, Tick, UltimateContext};
 
 #[cfg(feature = "lab")]
 #[path = "minimap_recorder/mod.rs"]
@@ -131,6 +131,17 @@ pub mod dev {
 
     pub fn observe(detector: &mut Detector, tick: &Tick) -> Vec<Event> {
         let (events, trace) = detector.observe_traced(tick);
+        let json = trace.to_json();
+        with_slot(|s| s.last_trace = Some(json));
+        events
+    }
+
+    pub fn observe_with_ultimate(
+        detector: &mut Detector,
+        tick: &Tick,
+        context: &UltimateContext,
+    ) -> Vec<Event> {
+        let (events, trace) = detector.observe_traced_with_ultimate(tick, context);
         let json = trace.to_json();
         with_slot(|s| s.last_trace = Some(json));
         events
@@ -1157,9 +1168,27 @@ pub fn observe(detector: &mut Detector, tick: &Tick) -> Vec<Event> {
     dev::observe(detector, tick)
 }
 
+#[cfg(any(feature = "lab", debug_assertions))]
+pub fn observe_with_ultimate(
+    detector: &mut Detector,
+    tick: &Tick,
+    context: &UltimateContext,
+) -> Vec<Event> {
+    dev::observe_with_ultimate(detector, tick, context)
+}
+
 #[cfg(not(any(feature = "lab", debug_assertions)))]
 pub fn observe(detector: &mut Detector, tick: &Tick) -> Vec<Event> {
     detector.observe(tick)
+}
+
+#[cfg(not(any(feature = "lab", debug_assertions)))]
+pub fn observe_with_ultimate(
+    detector: &mut Detector,
+    tick: &Tick,
+    context: &UltimateContext,
+) -> Vec<Event> {
+    detector.observe_with_ultimate(tick, context)
 }
 
 #[cfg(test)]

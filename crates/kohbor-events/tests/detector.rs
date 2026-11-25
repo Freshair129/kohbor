@@ -2,7 +2,7 @@ use kohbor_events::{Detector, Event, EventId, Phase, Tick};
 use serde_json::Value;
 use std::{collections::HashSet, fs, path::PathBuf};
 
-const IDS: [EventId; 12] = [
+const IDS: [EventId; 14] = [
     EventId::MultiKill,
     EventId::Streak,
     EventId::FirstBlood,
@@ -15,6 +15,8 @@ const IDS: [EventId; 12] = [
     EventId::MatchStarted,
     EventId::HeroRespawn,
     EventId::HealthDanger,
+    EventId::UltimateFired,
+    EventId::UltimateKill,
 ];
 
 fn json(path: &str) -> Value {

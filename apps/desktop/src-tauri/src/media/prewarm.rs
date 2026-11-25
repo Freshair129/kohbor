@@ -117,6 +117,7 @@ pub fn cabinet_key_space(catalog: &Catalog) -> Vec<(EventId, Option<u8>)> {
 struct PlannedVariant {
     resolved: ResolvedVariant,
     source: crate::audio::resolve::VariantSource,
+    hero: Option<String>,
     authored_selection: Option<VariantSelection>,
     ordinal: usize,
     loaded: Option<Result<Clip, &'static str>>,
@@ -253,15 +254,15 @@ pub fn build_table<H: Hook>(
             let Some(pack) = loadout.equipped.get(slot) else {
                 continue;
             };
-            let binding = bindings_by_slot
+            let matching = bindings_by_slot
                 .get(slot)
                 .into_iter()
                 .flatten()
-                .find(|binding| {
+                .filter(|binding| {
                     binding.event_id == id.as_str()
                         && binding.tier.and_then(|value| u8::try_from(value).ok()) == tier
                 });
-            if let Some(binding) = binding {
+            for binding in matching {
                 source_bindings.push((slot, pack, binding));
             }
         }
@@ -302,6 +303,7 @@ pub fn build_table<H: Hook>(
                         install_id: Arc::from(pack.install_id.as_str()),
                         package_id: Arc::from(pack.package_id.as_str()),
                     },
+                    hero: binding.hero.clone(),
                     authored_selection: mode,
                     ordinal: selected,
                     loaded: None,
@@ -329,6 +331,7 @@ pub fn build_table<H: Hook>(
                         install_id: Arc::from(pack.install_id.as_str()),
                         package_id: Arc::from(pack.package_id.as_str()),
                     },
+                    hero: binding.hero.clone(),
                     authored_selection,
                     ordinal,
                     loaded: None,
@@ -462,6 +465,7 @@ pub fn build_table<H: Hook>(
                     variant_id: variant.resolved.variant_id,
                     clip_id: variant.resolved.clip_id,
                     caption: variant.resolved.caption,
+                    hero: variant.hero,
                     weight: variant
                         .resolved
                         .media
@@ -792,7 +796,16 @@ pub(crate) mod test_support {
     }
 
     pub fn package(temp: &TempDir, package_id: &str, bindings: &[BindingSpec]) -> Package {
-        package_with_options(temp, package_id, bindings, None, None, None)
+        package_with_options(temp, package_id, bindings, None, None, None, None)
+    }
+
+    pub fn package_with_hero(
+        temp: &TempDir,
+        package_id: &str,
+        binding: BindingSpec,
+        hero: &str,
+    ) -> Package {
+        package_with_options(temp, package_id, &[binding], None, None, None, Some(hero))
     }
 
     pub fn package_with_caption(
@@ -801,7 +814,7 @@ pub(crate) mod test_support {
         binding: BindingSpec,
         caption: &str,
     ) -> Package {
-        package_with_options(temp, package_id, &[binding], None, None, Some(caption))
+        package_with_options(temp, package_id, &[binding], None, None, Some(caption), None)
     }
 
     pub fn package_with_cover(
@@ -822,6 +835,7 @@ pub(crate) mod test_support {
             }),
             Some(cover_bytes.to_vec()),
             None,
+            None,
         )
     }
 
@@ -832,6 +846,7 @@ pub(crate) mod test_support {
         presentation: Option<kohbor_pack_author::PresentationOptions>,
         cover_bytes: Option<Vec<u8>>,
         caption: Option<&str>,
+        hero: Option<&str>,
     ) -> Package {
         let clips = temp.path().join("clips");
         fs::create_dir_all(&clips).expect("create generated input clip directory");
@@ -851,6 +866,9 @@ pub(crate) mod test_support {
             if let Some(tier) = binding.tier {
                 row["tier"] = json!(tier);
             }
+            if let Some(hero) = hero {
+                row["hero"] = json!(hero);
+            }
             if binding.visual {
                 let visual_name = format!("visual-{index}.webm");
                 fs::write(clips.join(&visual_name), webm())
@@ -863,7 +881,10 @@ pub(crate) mod test_support {
                 if let Some(tier) = binding.tier {
                     fields["tier"] = json!(tier);
                 }
-                for key in ["event_id", "tier"] {
+                if let Some(hero) = hero {
+                    fields["hero"] = json!(hero);
+                }
+                for key in ["event_id", "tier", "hero"] {
                     variant.as_object_mut().unwrap().remove(key);
                 }
                 variant["variant_id"] = json!("v1");
@@ -1021,7 +1042,8 @@ mod tests {
     use sha2::{Digest, Sha256};
 
     use super::test_support::{
-        BindingSpec, Package, TempDir, activate, catalog, install, package, pcm_wav,
+        BindingSpec, Package, TempDir, activate, catalog, install, package, package_with_hero,
+        pcm_wav,
     };
     use super::{build_table, cabinet_key_space, key_space, new_visual_index_handle};
     use crate::audio::lanes::EngineShared;
@@ -1302,7 +1324,7 @@ mod tests {
             expected,
             "keys follow the independent catalog count"
         );
-        assert_eq!(expected, 26, "the independent count is 26 for this catalog");
+        assert_eq!(expected, 28, "the independent count is 28 for this catalog");
     }
 
     #[test]
@@ -1386,8 +1408,8 @@ mod tests {
         let unique: HashSet<_> = keys.iter().copied().collect();
         assert_eq!(
             keys.len(),
-            24,
-            "four multi-kill, eight streak and twelve untiered tiles"
+            26,
+            "four multi-kill, eight streak and fourteen untiered tiles"
         );
         assert_eq!(
             unique.len(),
@@ -1465,8 +1487,8 @@ mod tests {
         let mut calls = 0;
         let _ = build_table(&store, &catalog(), &mut || calls += 1);
         assert_eq!(
-            calls, 28,
-            "pause callback runs once for 26 keys, the pack, and decoded variant"
+            calls, 30,
+            "pause callback runs once for 28 keys, the pack, and decoded variant"
         );
     }
 
@@ -1875,6 +1897,67 @@ mod tests {
                 .as_ref(),
             "voice.special"
         );
+    }
+
+    #[test]
+    fn merged_loadout_hero_binding_outranks_general_only_for_matching_hero() {
+        let temp = TempDir::new("hero-pack-merge");
+        let mut store = open_store(&temp);
+        let general = package(&temp, "voice.general", &[audio("hero_kill", 480)]);
+        let sniper = package_with_hero(
+            &temp,
+            "voice.sniper",
+            audio("hero_kill", 720),
+            "npc_dota_hero_sniper",
+        );
+        let general_id = install(&mut store, &general, "hero-general-install")
+            .record
+            .unwrap()
+            .install_id;
+        let sniper_id = install(&mut store, &sniper, "hero-sniper-install")
+            .record
+            .unwrap()
+            .install_id;
+        let result = store
+            .set_loadout(
+                "hero-loadout",
+                &LoadoutDesired {
+                    install_ids: vec![general_id, sniper_id],
+                    event_locks: Default::default(),
+                    match_consistency: false,
+                },
+                ActivationPolicy::NowIfIdle,
+                &ActivationState::default(),
+            )
+            .unwrap();
+        assert_eq!(result.status.as_str(), "active");
+
+        let (table, _) = build_table(&store, &catalog(), &mut || {});
+        let BindingLookup::Variants { binding, .. } =
+            table.lookup_binding(EventId::HeroKill, None)
+        else {
+            panic!("merged hero kill binding is available")
+        };
+        assert_eq!(binding.variants.len(), 2);
+        assert!(binding.variants.iter().any(|variant| {
+            variant.hero.as_deref() == Some("npc_dota_hero_sniper")
+        }));
+
+        let mut selector = VariantSelector::with_seed(13);
+        let sniper = selector
+            .select_for_hero(
+                &table,
+                EventId::HeroKill,
+                None,
+                1,
+                Some("npc_dota_hero_sniper"),
+            )
+            .unwrap();
+        assert_eq!(sniper.source.unwrap().package_id.as_ref(), "voice.sniper");
+        let unknown = selector
+            .select_for_hero(&table, EventId::HeroKill, None, 1, None)
+            .unwrap();
+        assert_eq!(unknown.source.unwrap().package_id.as_ref(), "voice.general");
     }
 
     #[test]

@@ -1,6 +1,10 @@
-use kohbor_events::{adapter::tick_from_admitted, Phase, Tick};
+use kohbor_events::{
+    adapter::{tick_from_admitted, ultimate_context_from_admitted},
+    Phase, Tick,
+};
 use kohbor_gsi::admission::{
-    Admitted, Field, HeroFields, MapFields, OwnCounters, Ownership, Phase as GsiPhase,
+    AbilityObservation, Admitted, Field, HeroFields, MapFields, OwnCounters, OwnLoadout, Ownership,
+    Phase as GsiPhase,
 };
 
 fn admitted(phase: GsiPhase) -> Admitted {
@@ -64,6 +68,36 @@ fn maps_admitted_values_and_keeps_hp_above_max_hp_unchanged() {
             alive: Some(true),
         }
     );
+}
+
+#[test]
+fn maps_own_hero_and_ability_observations_into_the_detector_tick() {
+    let loadout = OwnLoadout {
+        items: Field::Missing,
+        abilities: Field::Value(vec![AbilityObservation {
+            slot: 6,
+            name: Field::Value("sniper_assassinate".into()),
+            level: Field::Value(3),
+            cooldown: Field::Value(0),
+            ultimate: Field::Value(true),
+            can_cast: Field::Value(true),
+            active: Field::Missing,
+            passive: Field::Missing,
+        }]),
+    };
+    let admitted = admitted(GsiPhase::Live);
+    let tick = tick_from_admitted(&admitted, 1, 7, true);
+    assert_eq!(tick.at_ms, 1);
+    assert_eq!(tick.phase, Phase::Live);
+    let context = ultimate_context_from_admitted(&admitted, &loadout, 4);
+    assert_eq!(context.generation, 4);
+    assert_eq!(context.hero_id.as_deref(), Some("npc_dota_hero_silencer"));
+    let Field::Value(abilities) = context.abilities else {
+        panic!("admitted own abilities remain available to the detector");
+    };
+    assert_eq!(abilities.len(), 1);
+    assert_eq!(abilities[0].name, Field::Value("sniper_assassinate".into()));
+    assert_eq!(abilities[0].ultimate, Field::Value(true));
 }
 
 #[test]
