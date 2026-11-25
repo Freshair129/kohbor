@@ -122,12 +122,12 @@ test("centred own card keeps icons and all stat rows inside both target card siz
   assert.match(ownStatsRule, /grid-template-rows:\s*repeat\(3,\s*minmax\(12px,/);
   assert.match(cardCss, /\.lhc-field-card\.lhc-field-own\.is-own-two-row-22 \.lhc-side\s*\{[^}]*gap:\s*0/,
     "the 22 px own-card item row fits inside the minimum card content width");
-  assert.match(compactTeam, /grid-template-rows:\s*16px\s+14px\s+22px\s+22px\s+minmax\(36px,/);
+  assert.match(compactTeam, /grid-template-rows:\s*14px\s+24px\s+18px\s+18px\s+minmax\(36px,/);
   assert.match(compactTeam, /"ab ab ab"\s+"it it it"\s+"st st st"/);
   assert.match(cardCss, /\.lhc-field-card\.is-compact-fit \.lhc-stats\s*\{[^}]*repeat\(5,\s*minmax\(0,\s*1fr\)\)[^}]*repeat\(3,\s*minmax\(12px,/);
   assert.match(cardSource, /roomyField \? " is-roomy-field" : " is-compact-fit"/);
   assert.match(cardSource, /is-own-\$\{ownFieldMode\}/);
-  assert.match(ownWide, /grid-template-rows:\s*16px\s+14px\s+14px\s+14px\s+minmax\(48px,/);
+  assert.match(ownWide, /grid-template-rows:\s*16px\s+24px\s+12px\s+12px\s+minmax\(48px,/);
 
   const viewports = [[1920, 1080, "one-row-28"], [1280, 720, "two-row-22"]] as const;
   for (const [width, height, expectedMode] of viewports) {
