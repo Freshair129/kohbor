@@ -1,17 +1,27 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { AI_PROVIDER_COPY, copy, type Locale } from "../copy";
+import {
+  analyticsPaneLayout, analyticsShortcut, analyticsSizeClass, analyticsTopBarLayout, toggleCardColumns,
+  defaultPanePreferences, readPanePreferences, resetPanePreferences, writePanePreferences,
+  selectionPrompt, selectionQuote, type SelectionQuote as PaneSelectionQuote,
+} from "./analyticsLayoutModel.mjs";
+import {
+  readHeroCardDisplay, writeHeroCardDisplay, type HeroCardDisplay,
+} from "../shared/heroCardDisplay.mjs";
+import { HeroCardDisplayControls } from "../settings/HeroCardDisplaySettings";
 import { readDeveloperMode } from "../shell/developerMode";
 import type { ReplayLibraryEntry, ReplayLibraryList, ReplayStatus } from "../replay/replayLibraryClient";
 import { MatchViewerSurface, analyticsPlayerShadowCss } from "../replay/MatchViewPanel";
+import { BUNDLED } from "../replay/bundledIcons";
 import { admitLibraryBundle, type MatchBundle } from "../replay/matchBundle";
 import { ANALYTICS_TEMPLATE_QUESTIONS, answerAnalyticsTemplate, clock } from "../replay/coach";
 import { actionFromMarkdownTarget, renderMarkdownSafe, renderMarkdownStreaming } from "./analyticsMarkdown";
 import { createAnalyticsChartResolver } from "./analyticsChart";
 import {
-  analyticsAiVisibility, analyticsBundleSelectionKey, analyticsConsentRePrompt, analyticsDeleteTransition, analyticsDocumentDestination, analyticsLayout,
+  analyticsAiVisibility, analyticsBundleSelectionKey, analyticsConsentRePrompt, analyticsDeleteTransition, analyticsDocumentDestination,
   analyticsReplayAction, analyticsReplaySelection, ANALYTICS_ORPHANS_COMMAND, buildChatRecap,
   analyticsDeathTeam, analyticsPlaybackKeyAction, analyticsViewState, enterAnalyticsReplayDetails,
   formatAnalyticsTime, replayRowFacts, UNKNOWN_VALUE,
@@ -21,7 +31,7 @@ import {
 } from "./analyticsModel";
 import { ProviderControls, type ProviderPreferences } from "./ProviderControls";
 import {
-  AiReportTab, HeroComparisonTab, KnowledgeTabs, MatchSummaryTab, MatchupStrip,
+  AiReportTab, HeroComparisonTab, KnowledgeTabs, MatchSummaryTab,
   type KnowledgeDigest, type SavedReport,
 } from "./knowledge";
 import { providerErrorKind, shouldOfferSaveAsNote } from "./provider-model.mjs";
@@ -31,6 +41,7 @@ type Note = { id: string; title: string; ai: boolean };
 type KeyStatus = { provider: string; set: boolean; last4: string | null; requires_key?: boolean };
 type Usage = { input: number | null; cache_read: number | null; cache_creation: number | null; output: number | null };
 type ReportDetail = SavedReport & { stale_reasons?: string[] };
+type SelectionQuote = PaneSelectionQuote;
 type KnowledgeSnapshot = {
   digest: KnowledgeDigest | null;
   own_hero_id?: string | null;
@@ -79,6 +90,10 @@ function orphanRows(value: unknown): Record<string, unknown>[] {
   return rows.flatMap(item => typeof item === "string"
     ? [{}]
     : item && typeof item === "object" && !Array.isArray(item) ? [item as Record<string, unknown>] : []);
+}
+
+function preferenceStorage(): Storage | undefined {
+  try { return window.localStorage; } catch { return undefined; }
 }
 
 function chatTurnsFromCommand(value: unknown): ChatTurn[] {
@@ -159,9 +174,24 @@ function statusText(status: ReplayStatus, locale: Locale) {
   const label = labels[status.state]; return locale === "th" ? label[0] : label[1];
 }
 
-export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchKey = null, active = true }: {
+function moveMenuFocus(event: ReactKeyboardEvent<HTMLDivElement>) {
+  const direction = event.key === "ArrowDown" ? 1 : event.key === "ArrowUp" ? -1 : 0;
+  if (!direction && event.key !== "Home" && event.key !== "End") return;
+  const items = [...event.currentTarget.querySelectorAll<HTMLElement>("[role='menuitem']:not([aria-disabled='true']):not(:disabled)")]
+    .filter(item => item.getClientRects().length > 0);
+  if (!items.length) return;
+  event.preventDefault();
+  const current = items.indexOf(document.activeElement as HTMLElement);
+  const next = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1
+    : current < 0 ? (direction > 0 ? 0 : items.length - 1)
+      : (current + direction + items.length) % items.length;
+  items[next]!.focus();
+}
+
+export function AnalyticsPage({ locale, onOpenReplay, onOpenHeroCardSettings, restoreContext, openMatchKey = null, active = true }: {
   locale: Locale;
   onOpenReplay?: (route: AnalyticsReplayDetailsRoute) => void;
+  onOpenHeroCardSettings?: () => void;
   restoreContext?: AnalyticsReturnContext | null;
   /** Open the library match whose install-keyed hash equals `key` (post-game panel). `nonce` repeats a request. */
   openMatchKey?: { key: string; nonce: number } | null;
@@ -181,11 +211,30 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
   const [noteText, setNoteText] = useState("");
   const [filter, setFilter] = useState<"all" | "pinned" | "notAnalysed">("all");
   const [showList, setShowList] = useState(false);
-  const [leftCollapsed, setLeftCollapsed] = useState(true);
-  const [rightCollapsed, setRightCollapsed] = useState(false);
-  const [readingMode, setReadingMode] = useState(false);
   const [pageSize, setPageSize] = useState({ width: 0, height: 0 });
   const pageRef = useRef<HTMLDivElement>(null);
+  const focusRegion = useRef(-1);
+  const shellToolsRef = useRef<HTMLDivElement>(null);
+  const cardSettingsTrigger = useRef<HTMLElement | null>(null);
+  const moreMenuButton = useRef<HTMLButtonElement>(null);
+  const layoutMenuButton = useRef<HTMLButtonElement>(null);
+  const matchPickerButton = useRef<HTMLButtonElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
+  const developerMode = readDeveloperMode(window.localStorage);
+  const paneSizeClass = analyticsSizeClass(pageSize.width);
+  const [panePreferences, setPanePreferences] = useState(() => readPanePreferences(preferenceStorage(), "m"));
+  const panePreferencesRef = useRef(panePreferences);
+  const paneSizeClassRef = useRef(paneSizeClass);
+  const paneWidthReady = useRef(false);
+  const [shellToolsTarget, setShellToolsTarget] = useState<HTMLElement | null>(null);
+  const [shellBarWidth, setShellBarWidth] = useState(0);
+  const [cardSettingsOpen, setCardSettingsOpen] = useState(false);
+  const [layoutMenuOpen, setLayoutMenuOpen] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [matchPickerOpen, setMatchPickerOpen] = useState(false);
+  const [heroCardDisplay, setHeroCardDisplay] = useState<HeroCardDisplay>(() => readHeroCardDisplay(preferenceStorage()));
+  const [selectionAction, setSelectionAction] = useState<{ quote: SelectionQuote; rect: DOMRect } | null>(null);
+  const [quoteChips, setQuoteChips] = useState<SelectionQuote[]>([]);
   const localeRef = useRef(locale);
   localeRef.current = locale;
   const [hero, setHero] = useState<string | null>(null);
@@ -230,6 +279,86 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
   const playerRange = useRef<HTMLInputElement>(null);
   const chartResolver = useMemo(() => createAnalyticsChartResolver(bundle, knowledge?.digest ?? null), [bundle, knowledge?.digest]);
   const markdown = useMemo(() => renderMarkdownSafe(noteText, { resolveChartReference: chartResolver }), [noteText, chartResolver]);
+  const leftCollapsed = panePreferences.collapsed.summary;
+  const rightCollapsed = panePreferences.collapsed.assistant;
+  const commitPanePreferences = (next: typeof panePreferences) => {
+    panePreferencesRef.current = next;
+    setPanePreferences(next);
+    writePanePreferences(preferenceStorage(), paneSizeClass, next);
+  };
+  const previewPanePreferences = (next: typeof panePreferences) => {
+    panePreferencesRef.current = next;
+    setPanePreferences(next);
+  };
+  const updatePanePreferences = (update: (current: typeof panePreferences) => typeof panePreferences) => {
+    commitPanePreferences(update(panePreferencesRef.current));
+  };
+  const setLeftCollapsed = (collapsed: boolean) => updatePanePreferences(current => ({
+    ...current, collapsed: { ...current.collapsed, summary: collapsed, ...(collapsed && current.collapsed.assistant ? { assistant: false } : {}) },
+  }));
+  const setRightCollapsed = (collapsed: boolean) => updatePanePreferences(current => ({
+    ...current, collapsed: { ...current.collapsed, assistant: collapsed, ...(collapsed && current.collapsed.summary ? { summary: false } : {}) },
+  }));
+  const changeHeroCardDisplay = (next: HeroCardDisplay) => setHeroCardDisplay(writeHeroCardDisplay(preferenceStorage(), next));
+
+  useEffect(() => {
+    const target = document.querySelector<HTMLElement>("[data-analytics-shell-tools]");
+    setShellToolsTarget(target);
+  }, []);
+  useEffect(() => {
+    const node = shellToolsTarget;
+    if (!node) return;
+    const measure = () => setShellBarWidth(node.getBoundingClientRect().width);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [shellToolsTarget]);
+  useEffect(() => {
+    if (!cardSettingsOpen && !layoutMenuOpen && !moreMenuOpen && !matchPickerOpen) return;
+    const close = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      if (cardSettingsOpen) {
+        setCardSettingsOpen(false);
+        cardSettingsTrigger.current?.focus();
+      } else if (matchPickerOpen) {
+        setMatchPickerOpen(false);
+        matchPickerButton.current?.focus();
+      } else if (layoutMenuOpen) {
+        setLayoutMenuOpen(false);
+        layoutMenuButton.current?.focus();
+      } else if (moreMenuOpen) {
+        setMoreMenuOpen(false);
+        moreMenuButton.current?.focus();
+      }
+    };
+    document.addEventListener("keydown", close);
+    return () => document.removeEventListener("keydown", close);
+  }, [cardSettingsOpen, layoutMenuOpen, moreMenuOpen, matchPickerOpen]);
+  useEffect(() => {
+    if (pageSize.width <= 0) return;
+    const changedClass = paneSizeClassRef.current !== paneSizeClass;
+    if (!changedClass && paneWidthReady.current) return;
+    paneSizeClassRef.current = paneSizeClass;
+    paneWidthReady.current = true;
+    const next = readPanePreferences(preferenceStorage(), paneSizeClass, pageSize.width);
+    panePreferencesRef.current = next;
+    setPanePreferences(next);
+  }, [paneSizeClass, pageSize.width]);
+  useEffect(() => {
+    const sync = (event: StorageEvent) => {
+      if (event.key === "kohbor.analytics.panes.v1") {
+        const next = readPanePreferences(preferenceStorage(), paneSizeClass, pageSize.width);
+        panePreferencesRef.current = next;
+        setPanePreferences(next);
+      }
+      if (event.key === "kohbor.hero-card.display") setHeroCardDisplay(readHeroCardDisplay(preferenceStorage()));
+    };
+    window.addEventListener("storage", sync);
+    return () => window.removeEventListener("storage", sync);
+  }, [paneSizeClass, pageSize.width]);
 
   const refresh = useCallback(async () => {
     try {
@@ -466,14 +595,14 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
     }
   }
   async function ask() {
-    if (!question.trim() || streaming || !selectedId) return;
-    const userQuestion = question.trim();
+    if ((!question.trim() && !quoteChips.length) || streaming || !selectedId) return;
+    const promptQuestion = selectionPrompt(question, quoteChips, locale);
     if (!aiAvailable) {
       if (prefs.ai_on && !prefs.consent) { setConsentOpen(true); return; }
-      const localAnswer = localTemplate(bundle, userQuestion, ownHero ?? selected?.own_hero ?? null, selected, locale);
+      const localAnswer = localTemplate(bundle, promptQuestion, ownHero ?? selected?.own_hero ?? null, selected, locale);
       setAnswer(localAnswer);
-      setTranscript(turns => [...turns, { role: "user", content: userQuestion }, { role: "assistant", content: localAnswer }]);
-      setUsage(null); setQuestion(""); setNoteFallback(false);
+      setTranscript(turns => [...turns, { role: "user", content: promptQuestion }, { role: "assistant", content: localAnswer }]);
+      setUsage(null); setQuestion(""); setQuoteChips([]); setNoteFallback(false);
       return;
     }
     if (knowledge?.chat_history_over_budget) {
@@ -484,11 +613,11 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
     requestMode.current = "chat";
     try {
       const id = await invoke<string>("analytics_chat_submit", {
-        matchId: selectedId, question: userQuestion, selectedHero: hero, scrubberTimeS: currentTime,
+        matchId: selectedId, question: promptQuestion, selectedHero: hero, scrubberTimeS: currentTime,
       });
-      activeRequestId.current = id; setRequestId(id); setQuestion("");
+      activeRequestId.current = id; setRequestId(id); setQuestion(""); setQuoteChips([]);
       setToolCalls(pendingToolCalls.current.get(id) ?? []); pendingToolCalls.current.delete(id);
-      setTranscript(turns => [...turns, { role: "user", content: userQuestion }, { role: "assistant", content: "" }]);
+      setTranscript(turns => [...turns, { role: "user", content: promptQuestion }, { role: "assistant", content: "" }]);
       const pending = pendingEvents.current.get(id); pendingEvents.current.delete(id);
       if (pending?.deltas.length) {
         const delta = pending.deltas.join("");
@@ -616,21 +745,65 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
   useEffect(() => {
     if (!active) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.altKey || event.ctrlKey || event.metaKey || document.querySelector('dialog[open], [aria-modal="true"]')) return;
+      if (document.querySelector('dialog[open], [aria-modal="true"]')) return;
+      const action = analyticsShortcut(event);
+      if (action) {
+        event.preventDefault();
+        if (action === "ask-selection" && !developerMode) return;
+        if (action === "toggle-side") updatePanePreferences(current => ({ ...current, collapsed: { ...current.collapsed, side: !current.collapsed.side } }));
+        if (action === "toggle-cards") updatePanePreferences(current => ({ ...current, collapsed: { ...current.collapsed, ...toggleCardColumns(current.collapsed) } }));
+        if (action === "toggle-assistant") {
+          if (rightCollapsed) {
+            updatePanePreferences(current => ({ ...current, collapsed: { ...current.collapsed, side: false, summary: false, assistant: false } }));
+            window.requestAnimationFrame(() => composerRef.current?.focus());
+          } else setRightCollapsed(true);
+        }
+        if (action === "reset-layout") { resetPanePreferences(preferenceStorage(), paneSizeClass, pageSize.width); resetHandle("all"); }
+        if (action === "ask-selection") void useSelectionAction("ask");
+        if (action === "note-selection") void useSelectionAction("note");
+        return;
+      }
+      if (!event.ctrlKey && !event.altKey && !event.metaKey && event.key === "F6") {
+        event.preventDefault();
+        const regions = [
+          viewerRoot.current?.querySelector<HTMLElement>(".rv-team-column.team-radiant .rc[tabindex='0']"),
+          playerRange.current,
+          viewerRoot.current?.querySelector<HTMLElement>(".rv-team-column.team-dire .rc[tabindex='0']"),
+          pageRef.current?.querySelector<HTMLElement>("#analytics-summary"),
+          pageRef.current?.querySelector<HTMLElement>(".analytics-composer textarea:not(:disabled)"),
+        ].filter((node): node is HTMLElement => !!node && node.getClientRects().length > 0);
+        if (regions.length) {
+          const activeElement = viewerRoot.current?.activeElement ?? document.activeElement;
+          const activeIndex = regions.findIndex(node => node === activeElement || node.contains(activeElement));
+          const from = activeIndex >= 0 ? activeIndex : focusRegion.current >= 0 ? focusRegion.current : event.shiftKey ? 0 : regions.length - 1;
+          focusRegion.current = (from + (event.shiftKey ? -1 : 1) + regions.length) % regions.length;
+          regions[focusRegion.current]!.focus();
+        }
+        return;
+      }
+      if (!event.ctrlKey && !event.altKey && !event.metaKey && event.key.toLowerCase() === "i") {
+        const target = event.composedPath().find(item => item instanceof Element);
+        if (!(target instanceof Element) || !target.closest("input,textarea,select,button")) {
+          event.preventDefault();
+          viewerRoot.current?.dispatchEvent(new CustomEvent("analytics-status-open-selected", { bubbles: true }));
+        }
+        return;
+      }
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
       const path = event.composedPath();
       const origin = path.find((item): item is Element => item instanceof Element);
       const targetType = origin?.tagName === "INPUT"
         ? ((origin as HTMLInputElement).type === "range" ? "range" : "input")
         : origin?.tagName.toLowerCase();
-      const action = analyticsPlaybackKeyAction(event.key, targetType);
-      if (!action) return;
+      const playback = analyticsPlaybackKeyAction(event.key, targetType);
+      if (!playback) return;
       event.preventDefault();
-      if (action.type === "toggle") viewerRoot.current?.getElementById("rv-play")?.click();
-      else seek(currentTime + action.deltaSeconds);
+      if (playback.type === "toggle") viewerRoot.current?.getElementById("rv-play")?.click();
+      else seek(currentTime + playback.deltaSeconds);
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [active, currentTime, seek]);
+  }, [active, currentTime, seek, rightCollapsed, pageSize.width, paneSizeClass, developerMode]);
   function onMarkdownAction(event: MouseEvent<HTMLDivElement>) {
     const target = (event.target as Element | null)?.closest<HTMLElement>("[data-seek-time],[data-seek-event],[data-doc-id],[data-md-copy-url],[data-md-copy-code]");
     if (!target) return;
@@ -655,24 +828,192 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
     }
   }
 
+  function captureSelection(container: HTMLElement, source: string) {
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed || !selection.rangeCount) return;
+    const range = selection.getRangeAt(0);
+    if (!container.contains(range.startContainer) || !container.contains(range.endContainer)) return;
+    const startElement = range.startContainer instanceof Element ? range.startContainer : range.startContainer.parentElement;
+    const timeMarker = startElement?.closest<HTMLElement>("[data-seek-time],[data-time],[data-time-s],a[href*=\"#t=\"]");
+    const rawTime = timeMarker?.dataset.seekTime ?? timeMarker?.dataset.time ?? timeMarker?.dataset.timeS
+      ?? timeMarker?.getAttribute("href")?.match(/#t=(\d{1,7})/)?.[1];
+    const contextTime = rawTime !== undefined && rawTime !== null && Number.isFinite(Number(rawTime)) ? Number(rawTime) : null;
+    const sourceLabel = source === "summary"
+      ? t(locale, "สรุป › " + knowledgeTab, "Summary › " + knowledgeTab)
+      : t(locale, "ผู้ช่วย", "Assistant");
+    const quote = selectionQuote({ text: selection.toString(), source: sourceLabel, fallbackTime: contextTime });
+    if (!quote.text) return;
+    const rect = range.getBoundingClientRect();
+    setSelectionAction({ quote, rect });
+  }
+
+  async function useSelectionAction(action: "ask" | "seek" | "note") {
+    const quote = selectionAction?.quote;
+    if (!quote) return;
+    if (action === "ask" && !developerMode) return;
+    setSelectionAction(null);
+    if (action === "seek") {
+      if (quote.time !== null) seek(quote.time);
+      return;
+    }
+    if (action === "ask") {
+      setQuoteChips(current => [...current.slice(-2), quote]);
+      updatePanePreferences(current => ({
+        ...current,
+        collapsed: { ...current.collapsed, side: false, summary: false, assistant: false },
+      }));
+      window.requestAnimationFrame(() => composerRef.current?.focus());
+      return;
+    }
+    if (!selectedId) return;
+    const timestamp = quote.time === null ? "" : ` (${formatAnalyticsTime(quote.time)})`;
+    const markdown = `> ${quote.text}\n\n— ${quote.source}${timestamp}`;
+    try {
+      const noteId = await invoke<string>("analytics_note_save_text", {
+        matchId: selectedId,
+        title: t(locale, `ข้อความที่เลือก${timestamp}`, `Selected text${timestamp}`),
+        markdown,
+      });
+      setCreatedNote(noteId);
+      void refreshKnowledge(selectedId);
+    } catch {
+      setError(t(locale, "บันทึกข้อความที่เลือกไม่ได้", "Could not save the selected text"));
+    }
+  }
+
   const documentTitle = openNote === SYSTEM_NOTE_ID ? t(locale, "สรุปแมตช์.md", "Match summary.md") : notes.find(note => note.id === openNote)?.title ?? openNote;
-  const developerMode = readDeveloperMode(window.localStorage);
   const aiVisibility = analyticsAiVisibility(developerMode, prefs.show_untested);
-  const actualRightCollapsed = aiVisibility.chatCollapsed || rightCollapsed;
-  const layout = analyticsLayout(pageSize.width, pageSize.height, leftCollapsed, actualRightCollapsed, readingMode);
+  const actualRightCollapsed = rightCollapsed;
+  const layout = analyticsPaneLayout({
+    width: pageSize.width || 1366,
+    height: pageSize.height || 768,
+    preferences: panePreferences,
+  });
+  const sideCollapsed = layout.collapsed.side;
+  const topBarLayout = analyticsTopBarLayout(shellBarWidth || pageSize.width);
   const layoutStyle = {
-    "--analytics-docs-track": `${leftCollapsed ? 28 : layout.mode === "docked" ? layout.docs : 28}px`,
-    "--analytics-chat-track": `${actualRightCollapsed ? 28 : layout.right}px`,
-    "--analytics-drawer-width": `${layout.drawerWidth}px`,
-    "--analytics-center-min": `${layout.minCenter}px`,
-    "--hc-scale": layout.heroCardScale,
+    "--an-card-w": `${layout.cardWidth}px`,
+    "--an-r-card-w": `${layout.cardWidths.radiant}px`,
+    "--an-d-card-w": `${layout.cardWidths.dire}px`,
+    "--analytics-side-track": `${sideCollapsed ? 40 : layout.sideWidth}px`,
+    "--analytics-pane-split": `${Math.round(panePreferences.split * 100)}%`,
+    "--analytics-summary-height": `${Math.max(40, Math.round((pageSize.height - 8) * panePreferences.split))}px`,
+    "--analytics-map-side": `${layout.mapSide}px`,
+    "--hc-scale": layout.scale,
   } as CSSProperties;
-  const lastLayoutMode = useRef(layout.mode);
-  useEffect(() => {
-    if (pageSize.width <= 0 || lastLayoutMode.current === layout.mode) return;
-    lastLayoutMode.current = layout.mode;
-    setLeftCollapsed(readingMode ? false : layout.mode !== "docked");
-  }, [layout.mode, pageSize.width, readingMode]);
+  const resetHandle = (target: "cards" | "side" | "split" | "all") => {
+    const defaults = defaultPanePreferences(paneSizeClass, pageSize.width);
+    updatePanePreferences(current => ({
+      ...current,
+      cardWidth: target === "cards" || target === "all" ? defaults.cardWidth : current.cardWidth,
+      sideWidth: target === "side" || target === "all" ? defaults.sideWidth : current.sideWidth,
+      split: target === "split" || target === "all" ? defaults.split : current.split,
+      collapsed: target === "all" ? defaults.collapsed : {
+        ...current.collapsed,
+        ...(target === "cards" ? { radiant: false, dire: false } : {}),
+        ...(target === "side" ? { side: defaults.collapsed.side } : {}),
+        ...(target === "split" ? { summary: false, assistant: false } : {}),
+      },
+    }));
+  };
+  const beginPaneResize = (event: ReactPointerEvent<HTMLDivElement>, target: "card-left" | "card-right" | "side" | "split") => {
+    event.preventDefault();
+    try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* Window listeners remain available. */ }
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const start = panePreferencesRef.current;
+    let pending = start;
+    let finished = false;
+    let pendingFrame = 0;
+    let latestPointer: PointerEvent | null = null;
+    let move = (_pointer: PointerEvent) => {};
+    const compute = (pointer: PointerEvent) => {
+      const dx = pointer.clientX - startX;
+      const dy = pointer.clientY - startY;
+      if (target === "side") {
+        const width = start.sideWidth - dx;
+        pending = width < 244
+          ? { ...start, collapsed: { ...start.collapsed, side: true } }
+          : { ...start, sideWidth: width, collapsed: { ...start.collapsed, side: false } };
+      } else if (target === "split") {
+        const split = start.split + dy / Math.max(1, pageSize.height - 8);
+        const available = pageSize.height - 8;
+        if (available * split < 72) pending = { ...start, collapsed: { ...start.collapsed, summary: true, assistant: false } };
+        else if (available * (1 - split) < 72) pending = { ...start, collapsed: { ...start.collapsed, summary: false, assistant: true } };
+        else pending = { ...start, split, collapsed: { ...start.collapsed, summary: false, assistant: false } };
+      } else {
+        const side = target === "card-left" ? "radiant" : "dire";
+        const width = start.cardWidth + dx * (target === "card-left" ? 1 : -1);
+        pending = width < 176
+          ? { ...start, collapsed: { ...start.collapsed, [side]: true } }
+          : { ...start, cardWidth: width, collapsed: { ...start.collapsed, [side]: false } };
+      }
+    };
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      if (pendingFrame) window.cancelAnimationFrame(pendingFrame);
+      pendingFrame = 0;
+      if (latestPointer) compute(latestPointer);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", finish);
+      commitPanePreferences(pending);
+    };
+    move = (pointer: PointerEvent) => {
+      latestPointer = pointer;
+      if (pendingFrame) return;
+      pendingFrame = window.requestAnimationFrame(() => {
+        pendingFrame = 0;
+        if (latestPointer) compute(latestPointer);
+        previewPanePreferences(pending);
+      });
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", finish, { once: true });
+    window.addEventListener("pointercancel", finish, { once: true });
+  };
+  const onPaneHandleKey = (event: ReactKeyboardEvent<HTMLDivElement>, target: "card-left" | "card-right" | "side" | "split") => {
+    if (event.key === "Home" || event.key === "End") {
+      event.preventDefault();
+      const minimum = event.key === "Home";
+      if (target === "card-left" || target === "card-right") updatePanePreferences(current => ({
+        ...current, cardWidth: minimum ? 232 : 420,
+        collapsed: { ...current.collapsed, [target === "card-left" ? "radiant" : "dire"]: false },
+      }));
+      if (target === "side") updatePanePreferences(current => ({ ...current, sideWidth: minimum ? 300 : 640, collapsed: { ...current.collapsed, side: false } }));
+      if (target === "split") updatePanePreferences(current => ({ ...current, split: minimum ? 0.25 : 0.75, collapsed: { ...current.collapsed, summary: false, assistant: false } }));
+      return;
+    }
+    if (["Enter", " "].includes(event.key)) {
+      event.preventDefault();
+      if (target === "card-left" || target === "card-right") {
+        const side = target === "card-left" ? "radiant" : "dire";
+        updatePanePreferences(current => ({ ...current, collapsed: { ...current.collapsed, [side]: !current.collapsed[side] } }));
+      }
+      if (target === "side") updatePanePreferences(current => ({ ...current, collapsed: { ...current.collapsed, side: !current.collapsed.side } }));
+      if (target === "split") setRightCollapsed(!rightCollapsed);
+      return;
+    }
+    const directions = target === "split" ? { ArrowUp: -1, ArrowDown: 1 } : { ArrowLeft: -1, ArrowRight: 1 };
+    const direction = directions[event.key as keyof typeof directions];
+    if (direction === undefined) return;
+    event.preventDefault();
+    const amount = event.shiftKey ? 64 : 16;
+    updatePanePreferences(current => {
+      if (target === "card-left" || target === "card-right") {
+        const side = target === "card-left" ? "radiant" : "dire";
+        const width = current.cardWidth + direction * amount * (target === "card-left" ? 1 : -1);
+        return { ...current, cardWidth: Math.max(232, Math.min(420, width)), collapsed: { ...current.collapsed, [side]: false } };
+      }
+      if (target === "side") {
+        const width = current.sideWidth - direction * amount;
+        return { ...current, sideWidth: Math.max(300, Math.min(640, width)), collapsed: { ...current.collapsed, side: false } };
+      }
+      const split = current.split + direction * amount / Math.max(1, pageSize.height - 8);
+      return { ...current, split: Math.max(0.25, Math.min(0.75, split)), collapsed: { ...current.collapsed, summary: false, assistant: false } };
+    });
+  };
   const reportRows: ReportDetail[] = (knowledge?.reports ?? []).map(report => loadedReport?.id === report.id ? loadedReport : report as ReportDetail);
   if (loadedReport && !reportRows.some(report => report.id === loadedReport.id)) reportRows.unshift(loadedReport);
   const providerControls = <ProviderControls locale={locale} developerMode={developerMode} settings={prefs}
@@ -687,8 +1028,12 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
   const heroName = matchHeroes.find(item => item.id === (selected?.own_hero ?? ownHero))?.name;
   const selectedHeroName = typeof heroName === "string" ? heroName
     : UNKNOWN_VALUE;
+  const matchHeroId = selected?.own_hero ?? ownHero ?? null;
+  const matchHeroIcon = matchHeroId ? BUNDLED.icons.get(`hero:${matchHeroId.replace(/^npc_dota_hero_/, "").toLowerCase()}`) : null;
   const result = selected?.local_history?.result === "win" ? t(locale, "ชนะ", "Win")
     : selected?.local_history?.result === "loss" ? t(locale, "แพ้", "Loss") : UNKNOWN_VALUE;
+  const matchPickerLabel = [thaiDate(selected, locale), selectedHeroName, result, duration,
+    selected ? statusText(selected.status, locale) : t(locale, "เลือกรีเพลย์", "Choose replay")].filter(Boolean).join(" · ");
   const player = playerSlot && bundle && timelineEnd !== null && timelineEnd > timelineStart ? createPortal(
     <>
       <style>{analyticsPlayerShadowCss}</style>
@@ -753,51 +1098,112 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
         </div>
       </div>
     </>, playerSlot) : null;
-  return <div ref={pageRef} className="analytics-page" style={layoutStyle} data-state={state} data-layout={layout.mode}
-    data-left-collapsed={leftCollapsed} data-right-collapsed={actualRightCollapsed} data-reading-mode={readingMode}>
-    <div className="analytics-topbar">
+  const shellToolbar = shellToolsTarget ? createPortal(
+    <div className="analytics-topbar" data-toolbar-size={shellBarWidth >= 1181 ? "wide" : shellBarWidth >= 981 ? "medium" : shellBarWidth >= 760 ? "narrow" : "compact"}>
       <div className="analytics-replay-select">
-        <button type="button" aria-label={t(locale, "รีเพลย์ก่อนหน้า", "Previous replay")} onClick={() => {
+          <button type="button" className="analytics-match-step" aria-label={t(locale, "รีเพลย์ก่อนหน้า", "Previous replay")} title={t(locale, "รีเพลย์ก่อนหน้า", "Previous replay")} onClick={() => {
           const index = rows.findIndex(row => row.match_id === selectedId); if (rows.length) void selectEntry(rows[(index - 1 + rows.length) % rows.length]!);
         }}>‹</button>
-        <select aria-label={t(locale, "เลือกรีเพลย์", "Choose replay")} value={selectedId ?? ""} onChange={event => {
-          const entry = library?.matches.find(item => item.match_id === event.currentTarget.value); if (entry) void selectEntry(entry);
-        }}>
-          <option value="">{loading ? t(locale, "กำลังโหลด…", "Loading…") : t(locale, "เลือกรีเพลย์", "Choose replay")}</option>
-          {(library?.matches ?? []).map(entry => <option key={entry.match_id} value={entry.match_id}>{thaiDate(entry, locale)} · {displayHeroName(entry.own_hero)} · {entry.local_history?.result === "win" ? t(locale, "ชนะ", "Win") : entry.local_history?.result === "loss" ? t(locale, "แพ้", "Loss") : UNKNOWN_VALUE} · {statusText(entry.status, locale)}</option>)}
-        </select>
-        <button type="button" aria-label={t(locale, "รีเพลย์ถัดไป", "Next replay")} onClick={() => {
+        <button ref={matchPickerButton} type="button" className="analytics-match-picker" aria-label={matchPickerLabel} title={matchPickerLabel} aria-haspopup="menu" aria-expanded={matchPickerOpen} onClick={() => setMatchPickerOpen(open => !open)}>
+          <span className="analytics-match-avatar" aria-hidden="true">{matchHeroIcon ? <img src={matchHeroIcon} alt="" /> : <span>?</span>}</span>
+          <span className="analytics-match-date">{thaiDate(selected, locale)}</span>
+          <span className="analytics-match-hero">{selectedHeroName}</span>
+          <span className="analytics-match-result" data-result={selected?.local_history?.result ?? "unknown"}>{result}</span>
+          <span className="analytics-match-duration">{duration}</span>
+          <span className="analytics-match-status">{selected ? statusText(selected.status, locale) : t(locale, "เลือกรีเพลย์", "Choose replay")}</span>
+        </button>
+        <button type="button" className="analytics-match-step" aria-label={t(locale, "รีเพลย์ถัดไป", "Next replay")} title={t(locale, "รีเพลย์ถัดไป", "Next replay")} onClick={() => {
           const index = rows.findIndex(row => row.match_id === selectedId); if (rows.length) void selectEntry(rows[(index + 1) % rows.length]!);
         }}>›</button>
+        {matchPickerOpen && <div className="analytics-shell-menu analytics-match-menu" role="menu" aria-label={t(locale, "เลือกรีเพลย์", "Choose replay")} onKeyDown={moveMenuFocus}>
+          {(library?.matches ?? []).map(entry => <button role="menuitem" key={entry.match_id} onClick={() => { void selectEntry(entry); setMatchPickerOpen(false); }}>
+            {thaiDate(entry, locale)} · {displayHeroName(entry.own_hero)} · {entry.local_history?.result === "win" ? t(locale, "ชนะ", "Win") : entry.local_history?.result === "loss" ? t(locale, "แพ้", "Loss") : UNKNOWN_VALUE} · {statusText(entry.status, locale)}
+          </button>)}
+        </div>}
       </div>
-      <div className="analytics-row-facts">
-        <span>{selected ? statusText(selected.status, locale) : UNKNOWN_VALUE}</span><span>{thaiDate(selected, locale)}</span>
-        <span>{selectedHeroName}</span><span>{result}</span><span>{duration}</span>
+      {selected && analyticsReplayAction(selected.status) && analyticsReplayAction(selected.status) !== "reparse" && <button type="button" className="analytics-parse-action" aria-label={t(locale, "แยกรีเพลย์", "Parse replay")} title={t(locale, "แยกรีเพลย์", "Parse replay")} onClick={() => void parseSelectedEntry(selected)}><span aria-hidden="true">↻</span><span className="analytics-toolbar-label">{t(locale, "แยกรีเพลย์", "Parse replay")}</span></button>}
+      {bundle && topBarLayout.hero !== "more" && <label className="analytics-own-hero">
+        <span>{topBarLayout.hero === "portraitLabel" ? t(locale, "ฮีโร่ของฉัน", "My hero") : t(locale, "ฮีโร่", "Hero")}</span>
+        <select value={ownHeroChoice} aria-label={t(locale, "เลือกฮีโร่ของฉัน", "Choose my hero")} onChange={event => setOwnHeroChoice(event.currentTarget.value)}>
+          <option value="">{t(locale, "เลือกฮีโร่", "Choose hero")}</option>
+          {matchHeroes.filter(item => typeof item.id === "string").map(item => <option key={String(item.id)} value={String(item.id)}>{typeof item.name === "string" ? item.name : String(item.id).replace("npc_dota_hero_", "")}</option>)}
+        </select>
+        <button type="button" disabled={!ownHeroChoice} onClick={() => identifyOwnHero(ownHeroChoice)}>{t(locale, "ตั้งค่า", "Set")}</button>
+      </label>}
+      <span className="analytics-toolbar-status" role="status" title={selected ? statusText(selected.status, locale) : t(locale, "ยังไม่เลือกรีเพลย์", "No replay selected")}>
+        <i aria-hidden="true" data-status={selected?.status.state ?? "empty"} />
+        {topBarLayout.status === "dotLabel" && <span>{selected ? statusText(selected.status, locale) : t(locale, "พร้อม", "Ready")}</span>}
+      </span>
+      <button type="button" className="analytics-toolbar-action" aria-pressed={layout.collapsed.radiant && layout.collapsed.dire}
+        aria-label={t(locale, "สลับการ์ดฮีโร่", "Toggle hero cards")} title={t(locale, "สลับการ์ดฮีโร่", "Toggle hero cards")} onClick={() => updatePanePreferences(current => ({ ...current, collapsed: { ...current.collapsed, ...toggleCardColumns(current.collapsed) } }))}>
+        <span aria-hidden="true">▤</span><span className="analytics-toolbar-label">{t(locale, "การ์ด", "Cards")}</span>
+      </button>
+      <button type="button" className="analytics-toolbar-action" aria-pressed={sideCollapsed}
+        aria-label={t(locale, "สลับแผงวิเคราะห์", "Toggle analysis pane")} title={t(locale, "สลับแผงวิเคราะห์", "Toggle analysis pane")} onClick={() => updatePanePreferences(current => ({ ...current, collapsed: { ...current.collapsed, side: !current.collapsed.side } }))}>
+        <span aria-hidden="true">◫</span><span className="analytics-toolbar-label">{t(locale, "แผง", "Pane")}</span>
+      </button>
+      {topBarLayout.buttons.includes("cardSettings") && <button ref={element => { if (element) cardSettingsTrigger.current = element; }} type="button" className="analytics-toolbar-action" aria-expanded={cardSettingsOpen}
+        aria-label={t(locale, "การตั้งค่าการ์ดฮีโร่", "Hero card settings")} title={t(locale, "การ์ดฮีโร่", "Hero card")}
+        onClick={event => { cardSettingsTrigger.current = event.currentTarget; setCardSettingsOpen(open => !open); }}><span aria-hidden="true">☷</span><span className="analytics-toolbar-label">{t(locale, "การ์ดฮีโร่", "Hero card")}</span></button>}
+      {cardSettingsOpen && <div className="analytics-shell-menu analytics-card-menu">
+        <HeroCardDisplayControls value={heroCardDisplay} locale={locale} onChange={changeHeroCardDisplay} compact />
+        <button type="button" onClick={() => { setCardSettingsOpen(false); onOpenHeroCardSettings?.(); }}>{t(locale, "เปิดการตั้งค่าการ์ดฮีโร่", "Open hero card settings")}</button>
+      </div>}
+      {topBarLayout.buttons.includes("layout") && <div className="analytics-toolbar-menu-wrap">
+        <button ref={layoutMenuButton} type="button" className="analytics-toolbar-action" aria-haspopup="menu" aria-expanded={layoutMenuOpen} aria-label={t(locale, "จัดวางแผง", "Pane layout")} title={t(locale, "จัดวางแผง", "Pane layout")} onClick={() => setLayoutMenuOpen(open => !open)}>
+          <span aria-hidden="true">⛶</span><span className="analytics-toolbar-label">{t(locale, "จัดวาง", "Layout")}</span>
+        </button>
+        {layoutMenuOpen && <div className="analytics-shell-menu" role="menu" onKeyDown={moveMenuFocus}>
+          <button role="menuitem" onClick={() => setLeftCollapsed(!leftCollapsed)}>{leftCollapsed ? t(locale, "เปิดสรุป", "Open summary") : t(locale, "ยุบสรุป", "Collapse summary")}</button>
+          <button role="menuitem" onClick={() => setRightCollapsed(!rightCollapsed)}>{rightCollapsed ? t(locale, "เปิดผู้ช่วย", "Open assistant") : t(locale, "ยุบผู้ช่วย", "Collapse assistant")}</button>
+          <button role="menuitem" onClick={() => { resetPanePreferences(preferenceStorage(), paneSizeClass, pageSize.width); resetHandle("all"); }}>{t(locale, "คืนค่าเลย์เอาต์", "Reset layout")}</button>
+        </div>}
+      </div>}
+      <div className="analytics-toolbar-menu-wrap">
+        <button ref={moreMenuButton} type="button" className="analytics-toolbar-action analytics-more" aria-haspopup="menu" aria-expanded={moreMenuOpen} aria-label={t(locale, "เพิ่มเติม", "More")} title={t(locale, "เพิ่มเติม", "More")} onClick={event => { cardSettingsTrigger.current = event.currentTarget; setMoreMenuOpen(open => !open); }}>
+          <span aria-hidden="true">⋯</span><span className="analytics-toolbar-label">{t(locale, "เพิ่มเติม", "More")}</span>
+        </button>
+        {moreMenuOpen && <div className="analytics-shell-menu" role="menu" onKeyDown={moveMenuFocus}>
+          {topBarLayout.overflow.includes("cardSettings") && <button role="menuitem" onClick={() => { cardSettingsTrigger.current = moreMenuButton.current; setCardSettingsOpen(true); setMoreMenuOpen(false); }}>{t(locale, "การ์ดฮีโร่", "Hero card settings")}</button>}
+          {topBarLayout.overflow.includes("layout") && <>
+            <button role="menuitem" onClick={() => setLeftCollapsed(!leftCollapsed)}>{leftCollapsed ? t(locale, "เปิดสรุป", "Open summary") : t(locale, "ยุบสรุป", "Collapse summary")}</button>
+            <button role="menuitem" onClick={() => setRightCollapsed(!rightCollapsed)}>{rightCollapsed ? t(locale, "เปิดผู้ช่วย", "Open assistant") : t(locale, "ยุบผู้ช่วย", "Collapse assistant")}</button>
+            <button role="menuitem" onClick={() => { resetPanePreferences(preferenceStorage(), paneSizeClass, pageSize.width); resetHandle("all"); }}>{t(locale, "คืนค่าเลย์เอาต์", "Reset layout")}</button>
+          </>}
+          {topBarLayout.hero === "more" && bundle && <label className="analytics-menu-own-hero">{t(locale, "ฮีโร่ของฉัน", "My hero")}
+            <select value={ownHeroChoice} aria-label={t(locale, "เลือกฮีโร่ของฉัน", "Choose my hero")} onChange={event => setOwnHeroChoice(event.currentTarget.value)}>
+              <option value="">{t(locale, "เลือกฮีโร่", "Choose hero")}</option>
+              {matchHeroes.filter(item => typeof item.id === "string").map(item => <option key={String(item.id)} value={String(item.id)}>{typeof item.name === "string" ? item.name : String(item.id).replace("npc_dota_hero_", "")}</option>)}
+            </select><button type="button" disabled={!ownHeroChoice} onClick={() => identifyOwnHero(ownHeroChoice)}>{t(locale, "ตั้งค่า", "Set")}</button>
+          </label>}
+          <button role="menuitem" onClick={() => void toggleDataManagement()}>{t(locale, "ข้อมูลวิเคราะห์", "Analysis data")}</button>
+          <button role="menuitem" onClick={() => { setMoreMenuOpen(false); setShowDataManagement(false); setShowList(true); }}>{t(locale, "คลังรีเพลย์", "Replay library")}</button>
+          {consentVersionNotice && <button role="menuitem" className="analytics-consent-version-notice" onClick={() => setConsentOpen(true)}>{t(locale, "อ่านข้อความยินยอมอีกครั้ง", "Review updated consent")}</button>}
+          <p>{t(locale, "ปุ่มลัด: Ctrl+\\ แผง · Ctrl+Shift+\\ การ์ด · Ctrl+J ผู้ช่วย · Ctrl+Alt+0 คืนค่า · F6 เปลี่ยนพื้นที่ · I บัฟ", "Shortcuts: Ctrl+\\ pane · Ctrl+Shift+\\ cards · Ctrl+J assistant · Ctrl+Alt+0 reset · F6 region · I effects")}</p>
+        </div>}
       </div>
-      <div className="analytics-top-actions">
-        {selected && analyticsReplayAction(selected.status) && analyticsReplayAction(selected.status) !== "reparse" && <button type="button" onClick={() => void parseSelectedEntry(selected)}>{t(locale, "แยกรีเพลย์นี้", "Parse this replay")}</button>}
-        {bundle && <label className="analytics-own-hero">{t(locale, "ฮีโร่ของฉัน", "My hero")}
-          <select value={ownHeroChoice} aria-label={t(locale, "เลือกฮีโร่ของฉัน", "Choose my hero")} onChange={event => setOwnHeroChoice(event.currentTarget.value)}>
-            <option value="">{t(locale, "เลือกฮีโร่", "Choose a hero")}</option>
-            {matchHeroes.filter(item => typeof item.id === "string").map(item => <option key={String(item.id)} value={String(item.id)}>{typeof item.name === "string" ? item.name : String(item.id).replace("npc_dota_hero_", "")}</option>)}
-          </select><button type="button" disabled={!ownHeroChoice} onClick={() => identifyOwnHero(ownHeroChoice)}>{t(locale, "นี่คือฉัน", "This is me")}</button>
-        </label>}
-        <button type="button" aria-pressed={readingMode} onClick={() => { const next = !readingMode; setReadingMode(next); if (next) setLeftCollapsed(false); }}>{t(locale, "โหมดอ่าน", "Reading mode")}</button>
-        <button type="button" onClick={() => void toggleDataManagement()}>{t(locale, "ข้อมูลวิเคราะห์", "Analysis data")}</button>
-        {consentVersionNotice && <button type="button" className="analytics-consent-version-notice" onClick={() => setConsentOpen(true)}>{t(locale, "ข้อความยินยอมเปลี่ยน · อ่านอีกครั้ง", "Consent text changed · read again")}</button>}
-        <button type="button" onClick={() => { setShowDataManagement(false); setShowList(true); }}>{t(locale, "คลังรีเพลย์", "Replay library")}</button>
-        {aiVisibility.showUnavailableNotice && <span className="analytics-ai-unavailable" role="status">ผู้ช่วย AI ยังไม่เปิดให้ใช้ในรุ่นนี้</span>}
-      </div>
-    </div>
-    {layout.mode === "enlarge-window" ? <div className="analytics-enlarge" role="status">
+      {aiVisibility.showUnavailableNotice && <span className="analytics-assistant-unavailable-dot" role="status" title={t(locale, "ผู้ช่วย AI ยังไม่เปิดให้ใช้ในรุ่นนี้", "AI assistant is unavailable in this build")}>●</span>}
+    </div>, shellToolsTarget) : null;
+  return <div ref={pageRef} className="analytics-page" style={layoutStyle} data-state={state} data-layout={layout.density}
+    data-size-class={layout.sizeClass} data-side-collapsed={sideCollapsed} data-summary-collapsed={leftCollapsed}
+    data-assistant-collapsed={actualRightCollapsed} data-assistant-unavailable={String(!developerMode)}
+    data-cards-collapsed={layout.collapsed.radiant && layout.collapsed.dire}
+    data-selection-action={selectionAction ? "open" : "closed"}>
+    {shellToolbar}
+    {layout.tooSmall ? <div className="analytics-enlarge" role="status">
       <strong>{t(locale, "ขยายหน้าต่างเพื่อดู Analytics", "Enlarge the window to view Analytics")}</strong>
-      <span>{t(locale, `ต้องการพื้นที่กว้างอย่างน้อย ${Math.ceil(28 + layout.minCenter + layout.right + 20)} px และสูง 760 px`, `This view needs at least ${Math.ceil(28 + layout.minCenter + layout.right + 20)} px width and 760 px height`)}</span>
+      <span>{t(locale, "แผงจะยุบเป็นแถบเมื่อพื้นที่ไม่พอ และการ์ดจะคงขนาดอย่างน้อย 85%", "Panels collapse to rails when space is limited; cards stay at least 85% scale")}</span>
     </div> : null}
-    <div className="analytics-columns" aria-hidden={layout.mode === "enlarge-window"}>
-      {!leftCollapsed ? <aside className="analytics-column analytics-docs"><header><button onClick={() => setLeftCollapsed(true)} aria-label={t(locale, "ยุบแผงซ้าย", "Collapse left panel")}>‹</button><strong>{t(locale, "วิเคราะห์", "Analysis")}</strong></header>
+    <div className="analytics-columns" aria-hidden={layout.tooSmall}>
+      {sideCollapsed && <aside className="analytics-side-rail" aria-label={t(locale, "แผงวิเคราะห์", "Analysis pane")}>
+        <button type="button" aria-label={t(locale, "เปิดแผงสรุป", "Open summary pane")} onClick={() => updatePanePreferences(current => ({ ...current, collapsed: { ...current.collapsed, side: false, summary: false } }))}>▤</button>
+        <button type="button" aria-label={t(locale, "เปิดแผงผู้ช่วย", "Open assistant pane")} onClick={() => updatePanePreferences(current => ({ ...current, collapsed: { ...current.collapsed, side: false, assistant: false } }))}>✦</button>
+      </aside>}
+      {!leftCollapsed ? <aside id="analytics-summary" tabIndex={-1} className="analytics-column analytics-docs"><header><button onClick={() => setLeftCollapsed(true)} aria-label={t(locale, "ยุบส่วนสรุป", "Collapse summary")}>⌄</button><strong>{t(locale, "สรุป", "Summary")}</strong></header>
+        {createdNote && <button type="button" className="analytics-created-note" onClick={() => { setOpenNote(createdNote); setKnowledgeTab("notes"); setCreatedNote(null); }}>{t(locale, "จดโน้ตแล้ว · ดูโน้ต", "Note saved · view note")}</button>}
         <section className="analytics-knowledge-slot" aria-label={t(locale, "แท็บความรู้และโน้ตแมตช์", "Match knowledge and notes tabs")} data-knowledge-tabs-slot>
           <KnowledgeTabs activeTab={knowledgeTab} onSelectTab={setKnowledgeTab} />
-          <div className="analytics-knowledge-panel">
+          <div className="analytics-knowledge-panel" data-analytics-quotable onMouseUp={event => captureSelection(event.currentTarget, "summary")} onKeyUp={event => captureSelection(event.currentTarget, "summary")}>
             {knowledgeTab === "summary" && <MatchSummaryTab digest={knowledge?.digest ?? null} loading={!knowledge && !!selectedId} onSeek={seek} />}
             {knowledgeTab === "compare" && <HeroComparisonTab digest={knowledge?.digest ?? null} selectedHeroId={hero ?? ownHero ?? knowledge?.own_hero_id ?? null}
               opponentHeroId={compareHero} onSelectHero={setHero} onSelectOpponentHero={setCompareHero} />}
@@ -827,18 +1233,38 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
             </div>}
           </div>
         </section>
-      </aside> : <button className="analytics-expand" onClick={() => setLeftCollapsed(false)}>›</button>}
+      </aside> : <button className="analytics-expand analytics-summary-rail" aria-label={t(locale, "เปิดสรุป", "Open summary")} onClick={() => setLeftCollapsed(false)}>▤</button>}
       <main className="analytics-column analytics-centre">
         {!bundle && <div className="analytics-empty" role="status">{state === "empty" ? t(locale, "ยังไม่มีรีเพลย์ในคลัง", "No replays in the library") : selected?.status.state === "parsing" || selected?.status.state === "queued" ? t(locale, statusText(selected.status, "th"), statusText(selected.status, "en")) : t(locale, "เลือกรีเพลย์ที่พร้อมดู", "Select a replay that is ready to view")}</div>}
         {selected?.status.state === "failed" && <p className="analytics-error" role="status">{t(locale, "แยกรีเพลย์ไม่สำเร็จ ตรวจสอบไฟล์แล้วลองอีกครั้งได้", "Replay parsing failed. Check the file and try again.")}</p>}
-        {bundle && <MatchupStrip digest={knowledge?.digest ?? null} selectedHeroId={hero ?? ownHero ?? knowledge?.own_hero_id ?? null} onSelectHero={setHero} />}
-        {bundle && <MatchViewerSurface locale={locale} bundle={bundle} onHeroSelect={setHero} statLabelMode="text"
-          onTimeChange={onTimeChange} onReady={onViewerReady} initialTime={0} disableKeyboard />}
+        {bundle && <div className="analytics-viewer-frame">
+          <MatchViewerSurface locale={locale} bundle={bundle} onHeroSelect={setHero} statLabelMode="icon" heroCardDisplay={heroCardDisplay}
+            selectedHeroId={hero ?? ownHero ?? selected?.own_hero ?? knowledge?.own_hero_id ?? null} density={layout.density}
+            cardsCollapsed={{ radiant: layout.collapsed.radiant, dire: layout.collapsed.dire }}
+            onTimeChange={onTimeChange} onReady={onViewerReady} initialTime={0} disableKeyboard />
+          <div className="analytics-resize-handle analytics-handle-cards-left" role="separator" tabIndex={0} aria-orientation="vertical"
+            aria-valuenow={layout.cardWidth} aria-valuemin={232} aria-valuemax={420} aria-controls="rv-cards-r"
+            aria-label={t(locale, "ปรับความกว้างการ์ด Radiant", "Resize Radiant cards")}
+            onPointerDown={event => beginPaneResize(event, "card-left")} onDoubleClick={() => resetHandle("cards")} onKeyDown={event => onPaneHandleKey(event, "card-left")} />
+          <div className="analytics-resize-handle analytics-handle-cards-right" role="separator" tabIndex={0} aria-orientation="vertical"
+            aria-valuenow={layout.cardWidth} aria-valuemin={232} aria-valuemax={420} aria-controls="rv-cards-d"
+            aria-label={t(locale, "ปรับความกว้างการ์ด Dire", "Resize Dire cards")}
+            onPointerDown={event => beginPaneResize(event, "card-right")} onDoubleClick={() => resetHandle("cards")} onKeyDown={event => onPaneHandleKey(event, "card-right")} />
+        </div>}
         {player}
       </main>
-      {!actualRightCollapsed && developerMode ? <aside className="analytics-column analytics-chat"><header className="analytics-chat-status"><strong>{t(locale, "ผู้ช่วย", "Assistant")}</strong><span>{prefs.provider} · {prefs.model || UNKNOWN_VALUE} · {streaming ? t(locale, "กำลังตอบ…", "Responding…") : aiAvailable ? t(locale, "พร้อม", "Ready") : t(locale, "ยังไม่เปิด", "Unavailable")}</span><button onClick={() => setRightCollapsed(true)} aria-label={t(locale, "ยุบแผงขวา", "Collapse right panel")}>›</button></header>
+      <div className="analytics-resize-handle analytics-handle-side" role="separator" tabIndex={0} aria-orientation="vertical"
+        aria-valuenow={layout.sideWidth} aria-valuemin={300} aria-valuemax={640} aria-controls="analytics-side-pane"
+        aria-label={t(locale, "ปรับความกว้างแผงวิเคราะห์", "Resize analysis pane")}
+        onPointerDown={event => beginPaneResize(event, "side")} onDoubleClick={() => resetHandle("side")} onKeyDown={event => onPaneHandleKey(event, "side")} />
+      <aside id="analytics-side-pane" className="analytics-side-pane">
+        {!leftCollapsed && !actualRightCollapsed && <div className="analytics-resize-handle analytics-handle-split" role="separator" tabIndex={0} aria-orientation="horizontal"
+          aria-valuenow={Math.round(panePreferences.split * 100)} aria-valuemin={25} aria-valuemax={75} aria-controls="analytics-summary analytics-assistant"
+          aria-label={t(locale, "ปรับสัดส่วนสรุปและผู้ช่วย", "Resize summary and assistant")}
+          onPointerDown={event => beginPaneResize(event, "split")} onDoubleClick={() => resetHandle("split")} onKeyDown={event => onPaneHandleKey(event, "split")} />}
+        {!actualRightCollapsed && developerMode && <aside id="analytics-assistant" className="analytics-column analytics-chat"><header className="analytics-chat-status"><strong>{t(locale, "ผู้ช่วย", "Assistant")}</strong><span>{prefs.provider} · {prefs.model || UNKNOWN_VALUE} · {streaming ? t(locale, "กำลังตอบ…", "Responding…") : aiAvailable ? t(locale, "พร้อม", "Ready") : t(locale, "ยังไม่เปิด", "Unavailable")}</span><button onClick={() => setRightCollapsed(true)} aria-label={t(locale, "ยุบส่วนผู้ช่วย", "Collapse assistant")}>⌄</button></header>
         {providerControls}
-        <div className="analytics-chat-feed" aria-live="polite" onClick={onMarkdownAction}>
+        <div className="analytics-chat-feed" aria-live="polite" onClick={onMarkdownAction} data-analytics-quotable onMouseUp={event => captureSelection(event.currentTarget, "assistant")} onKeyUp={event => captureSelection(event.currentTarget, "assistant")}>
           {state === "noai" && <div className="analytics-noai"><strong>{t(locale, "เปิดใช้ผู้ให้บริการ AI ในการตั้งค่า", "Enable an AI provider in Settings")}</strong><p>{t(locale, "ถามด้วยแม่แบบในเครื่องได้ คำถามเหล่านี้ไม่ส่งข้อมูลออกจากเครื่อง", "Use local templates; these questions do not send data off-device.")}</p>
             <div className="analytics-template-questions">{ANALYTICS_TEMPLATE_QUESTIONS.map(item => <button key={item.id} onClick={() => {
               const prompt = locale === "th" ? item.th : item.en;
@@ -864,16 +1290,42 @@ export function AnalyticsPage({ locale, onOpenReplay, restoreContext, openMatchK
 
         <form className="analytics-composer" onSubmit={event => { event.preventDefault(); void ask(); }}>
           {!prefs.consent && <button type="button" onClick={() => setConsentOpen(true)}>{AI_PROVIDER_COPY[locale].consent}</button>}
-          <textarea value={question} onChange={event => setQuestion(event.currentTarget.value)} onKeyDown={event => {
+          {quoteChips.map((quote, index) => <button type="button" className="analytics-quote-chip" key={`${quote.source}-${quote.time}-${index}`}
+            title={t(locale, "นำข้อความที่เลือกออก", "Remove selected text")} onClick={() => setQuoteChips(chips => chips.filter((_, item) => item !== index))}>
+            {quote.time === null ? t(locale, "ข้อความที่เลือก", "Selected text") : formatAnalyticsTime(quote.time)} · {quote.source} · {quote.text}
+          </button>)}
+          <textarea ref={composerRef} value={question} onChange={event => setQuestion(event.currentTarget.value)} onKeyDown={event => {
             if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void ask(); }
           }} placeholder={t(locale, "ถามเกี่ยวกับแมตช์นี้…", "Ask about this match…")} disabled={streaming || !bundle} />
           <div><span>{AI_PROVIDER_COPY[locale].sendDisclosure}</span>
-            {streaming ? <button type="button" onClick={() => { if (requestId) void invoke("analytics_chat_cancel", { requestId }); requestMode.current = null; activeRequestId.current = null; setRequestId(null); setStreaming(false); }}>{t(locale, "ยกเลิก", "Cancel")}</button> : <button type="submit" disabled={!question.trim() || !bundle || (aiAvailable && knowledge?.chat_history_over_budget === true)}>{t(locale, "ส่ง", "Send")}</button>}
+            {streaming ? <button type="button" onClick={() => { if (requestId) void invoke("analytics_chat_cancel", { requestId }); requestMode.current = null; activeRequestId.current = null; setRequestId(null); setStreaming(false); }}>{t(locale, "ยกเลิก", "Cancel")}</button> : <button type="submit" disabled={(!question.trim() && !quoteChips.length) || !bundle || (aiAvailable && knowledge?.chat_history_over_budget === true)}>{t(locale, "ส่ง", "Send")}</button>}
           </div>
         </form>
-      </aside> : developerMode ? <button className="analytics-expand" onClick={() => setRightCollapsed(false)}>‹</button> : null}
-      {(actualRightCollapsed || !developerMode) && <div className="analytics-provider-anchor" hidden>{providerControls}</div>}
+      </aside>}
+      {!actualRightCollapsed && !developerMode && <aside id="analytics-assistant" className="analytics-column analytics-chat is-unavailable">
+        <header className="analytics-chat-status"><strong>{t(locale, "ผู้ช่วย", "Assistant")}</strong><span>{t(locale, "ยังไม่เปิดให้ใช้ในรุ่นนี้", "Unavailable in this build")}</span></header>
+        <div className="analytics-assistant-unavailable" role="status">{t(locale, "ผู้ช่วย AI ยังไม่เปิดให้ใช้ในรุ่นนี้", "AI assistant is unavailable in this build")}</div>
+        <form className="analytics-composer" onSubmit={event => event.preventDefault()}>
+          {quoteChips.map((quote, index) => <button type="button" className="analytics-quote-chip" key={`${quote.source}-${quote.time}-${index}`} title={t(locale, "นำข้อความที่เลือกออก", "Remove selected text")} onClick={() => setQuoteChips(chips => chips.filter((_, item) => item !== index))}>
+            {quote.time === null ? t(locale, "ข้อความที่เลือก", "Selected text") : formatAnalyticsTime(quote.time)} · {quote.source} · {quote.text}
+          </button>)}
+          <textarea value={question} disabled aria-label={t(locale, "ข้อความคำถาม", "Question text")} placeholder={t(locale, "ข้อความที่เลือกจะปรากฏที่นี่", "Selected text will appear here")} />
+          <button type="button" disabled>{t(locale, "ส่ง", "Send")}</button>
+        </form>
+      </aside>}
+      </aside>
+      {actualRightCollapsed && <button className="analytics-expand analytics-assistant-rail" aria-label={t(locale, "เปิดผู้ช่วย", "Open assistant")} onClick={() => setRightCollapsed(false)}>✦</button>}
     </div>
+    {selectionAction && <div className="analytics-selection-actions" role="toolbar" aria-label={t(locale, "การทำงานกับข้อความที่เลือก", "Actions for selected text")}
+      style={{ left: Math.max(8, selectionAction.rect.left), top: Math.max(8, selectionAction.rect.top >= 56 ? selectionAction.rect.top - 48 : selectionAction.rect.bottom + 8) }}
+      onMouseDown={event => event.preventDefault()}>
+      {developerMode && <button type="button" onClick={() => void useSelectionAction("ask")}>{t(locale, "ถาม AI เรื่องนี้", "Ask AI about this")}</button>}
+      {selectionAction.quote.time !== null && <button type="button" onClick={() => void useSelectionAction("seek")}>
+        {t(locale, "ไปที่", "Go to")} {formatAnalyticsTime(selectionAction.quote.time)}
+      </button>}
+      <button type="button" onClick={() => void useSelectionAction("note")}>{t(locale, "จดโน้ต", "Save note")}</button>
+      <button type="button" aria-label={t(locale, "ปิด", "Dismiss")} onClick={() => setSelectionAction(null)}>×</button>
+    </div>}
     {showDataManagement && <div className="analytics-data-overlay" role="dialog" aria-modal="true" aria-labelledby="analytics-data-title"><section className="analytics-data-management">
       <header><h2 id="analytics-data-title">{t(locale, "ข้อมูลวิเคราะห์", "Analysis data")}</h2><button type="button" onClick={() => void toggleDataManagement()}>×</button></header>
       <p>{selected ? t(locale, "จัดการข้อมูลวิเคราะห์ที่บันทึกไว้สำหรับแมตช์ที่เลือก", "Manage saved analysis data for the selected match") : t(locale, "เลือกรายการแมตช์เพื่อจัดการข้อมูลวิเคราะห์", "Select a match to manage its analysis data")}</p>

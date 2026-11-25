@@ -23,7 +23,7 @@ test("Replay and Analytics render the canonical row IDs; Live keeps its own card
   assert.match(replay, /import \{ heroCardView \} from "\.\.\/analytics\/heroCardView\.mjs"/);
   for (const row of HERO_CARD_ROW_IDS) assert.ok(replay.includes(`rowAttr("${row}")`), `Replay ${row} row`);
   assert.doesNotMatch(live, /sharedHeroCardView\(view\)\.rows/, "Live does not use the six-row reference card");
-  assert.match(analytics, /statLabelMode="text"/);
+  assert.match(analytics, /statLabelMode="icon"/);
   assert.match(surface, /live\/heroCard\.css\?raw/);
 });
 
@@ -34,7 +34,7 @@ test("the shared stylesheet locks the six-row reference geometry and compact sca
     assert.ok(css.includes(size), `reference size ${size}`);
   assert.match(css, /--hc-scale/);
   const analytics = readFileSync(new URL("../src/analytics/AnalyticsPage.tsx", import.meta.url), "utf8");
-  assert.match(analytics, /"--hc-scale": layout\.heroCardScale/);
+  assert.match(analytics, /"--hc-scale": layout\.scale/);
 });
 
 test("Replay always renders missing stats and derived cells as an em dash", () => {

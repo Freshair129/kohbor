@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Locale } from "../copy";
+import { DEFAULT_HERO_CARD_DISPLAY, HERO_CARD_DISPLAY_EVENT, HERO_CARD_DISPLAY_KEY, readHeroCardDisplay, type HeroCardDisplay } from "../shared/heroCardDisplay.mjs";
 import { STAT_ICON_CATALOG, type StatIconId } from "../live/statIcons/catalog";
 import { statIconUrl } from "../live/statIcons/assets";
 import { BUNDLED } from "./bundledIcons";
@@ -62,9 +63,35 @@ export function MatchViewPanel({ locale, initialBundle = null, initialMatchId = 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [heroCardDisplay, setHeroCardDisplay] = useState<HeroCardDisplay>(() => {
+    try { return readHeroCardDisplay(window.localStorage); } catch { return DEFAULT_HERO_CARD_DISPLAY; }
+  });
   const listRequest = useRef(0);
   const dropTarget = useRef<HTMLElement>(null);
   const viewerTarget = useRef<HTMLDivElement>(null);
+  const activeViewerRoot = useRef<ShadowRoot | null>(null);
+
+  useEffect(() => {
+    const syncStorage = (event: StorageEvent) => {
+      if (event.key !== HERO_CARD_DISPLAY_KEY) return;
+      try { setHeroCardDisplay(readHeroCardDisplay(window.localStorage)); } catch { setHeroCardDisplay(DEFAULT_HERO_CARD_DISPLAY); }
+    };
+    const syncSameWindow = (event: Event) => {
+      const value = (event as CustomEvent<{ value?: HeroCardDisplay }>).detail?.value;
+      if (value) setHeroCardDisplay(value);
+    };
+    window.addEventListener("storage", syncStorage);
+    window.addEventListener(HERO_CARD_DISPLAY_EVENT, syncSameWindow);
+    return () => {
+      window.removeEventListener("storage", syncStorage);
+      window.removeEventListener(HERO_CARD_DISPLAY_EVENT, syncSameWindow);
+    };
+  }, []);
+  useEffect(() => {
+    activeViewerRoot.current?.dispatchEvent(new CustomEvent("hero-card-display-change", {
+      detail: { heroCardDisplay, density: "full", selectedHeroId: null, cardsCollapsed: false },
+    }));
+  }, [heroCardDisplay]);
 
   const refresh = useCallback(async (showLoading = false) => {
     const ticket = ++listRequest.current;
@@ -139,6 +166,7 @@ export function MatchViewPanel({ locale, initialBundle = null, initialMatchId = 
     const frame = viewerTarget.current;
     if (!loaded || !frame) return;
     const root = frame.shadowRoot ?? frame.attachShadow({ mode: "open" });
+    activeViewerRoot.current = root;
     const mode = gameModeName(loaded.bundle.gameMode) ?? text.unknownMode;
     const patch = loaded.bundle.patch ?? text.unknownPatch;
     const length = loaded.bundle.durationS === null ? text.unknownLength : clock(loaded.bundle.durationS);
@@ -150,8 +178,10 @@ export function MatchViewPanel({ locale, initialBundle = null, initialMatchId = 
     let unmount: (() => void) | undefined;
     try {
       unmount = mountMatchView(root, loaded.bundle, {
-      locale, markup, style: `${style}\n${sharedHeroCardStyle}`, statLabelMode: "text",
+      locale, markup, style: `${style}\n${sharedHeroCardStyle}\n${replayHeroCardOverrides}`, statLabelMode: "text",
+      heroCardDisplay, density: "full", selectedHeroId: null, cardsCollapsed: false,
       icon: iconResolver(BUNDLED.icons),
+      hasIcon: (kind: "ability" | "item", name: string) => BUNDLED.icons.has(`${kind}:${name.toLowerCase()}`),
       statCatalog: STAT_ICON_CATALOG,
       statIcon: (id: StatIconId) => statIconUrl(id),
       hasMap: BUNDLED.icons.has("map:"),
@@ -434,6 +464,7 @@ export function MatchViewPanel({ locale, initialBundle = null, initialMatchId = 
 /** A library-selected viewer surface used by Analytics; it keeps the same validated bundle and viewer. */
 export function MatchViewerSurface({
   locale, bundle, onHeroSelect, onTimeChange, onReady, initialTime = null, disableKeyboard = false, statLabelMode = "text",
+  heroCardDisplay = DEFAULT_HERO_CARD_DISPLAY, selectedHeroId = null, density = "full", cardsCollapsed = false,
 }: {
   locale: Locale;
   bundle: MatchBundle;
@@ -443,8 +474,13 @@ export function MatchViewerSurface({
   initialTime?: number | null;
   disableKeyboard?: boolean;
   statLabelMode?: HeroCardLabelMode;
+  heroCardDisplay?: HeroCardDisplay;
+  selectedHeroId?: string | null;
+  density?: "full" | "compact" | "roster";
+  cardsCollapsed?: boolean | { radiant: boolean; dire: boolean };
 }) {
   const target = useRef<HTMLDivElement>(null);
+  const viewerRoot = useRef<ShadowRoot | null>(null);
   useEffect(() => {
     const frame = target.current;
     if (!frame) return;
@@ -453,12 +489,15 @@ export function MatchViewerSurface({
     const map = chooseMapCalibration(bundle.calibration, bundle.mapSize, lookup.pack.map);
     if (!map.calibration || map.source === "unknown") return;
     const root = frame.shadowRoot ?? frame.attachShadow({ mode: "open" });
+    viewerRoot.current = root;
     const patch = bundle.patch ?? matchViewerCopy[locale].unknownPatch;
     const mode = gameModeName(bundle.gameMode) ?? matchViewerCopy[locale].unknownMode;
     const length = bundle.durationS === null ? matchViewerCopy[locale].unknownLength : clock(bundle.durationS);
     const mounted = mountMatchView(root, bundle, {
       locale, markup, style: `${style}\n${sharedHeroCardStyle}\n${analyticsSurfaceOverrides}`, statLabelMode,
+      heroCardDisplay, density, selectedHeroId, cardsCollapsed,
       icon: iconResolver(BUNDLED.icons), hasMap: BUNDLED.icons.has("map:"), patchData: lookup.pack,
+      hasIcon: (kind: "ability" | "item", name: string) => BUNDLED.icons.has(`${kind}:${name.toLowerCase()}`),
       statCatalog: STAT_ICON_CATALOG,
       statIcon: (id: StatIconId) => statIconUrl(id),
       mapCalibration: map.calibration,
@@ -485,8 +524,13 @@ export function MatchViewerSurface({
     const scrub = () => { if (scrubber) { const time = Number(scrubber.value); if (Number.isFinite(time)) onTimeChange?.(time); } };
     scrubber?.addEventListener("input", scrub);
     onReady?.(root);
-    return () => { root.removeEventListener("click", click); scrubber?.removeEventListener("input", scrub); mounted(); };
+    return () => { root.removeEventListener("click", click); scrubber?.removeEventListener("input", scrub); viewerRoot.current = null; mounted(); };
   }, [bundle, locale, onHeroSelect, onTimeChange, onReady, initialTime, disableKeyboard, statLabelMode]);
+  useEffect(() => {
+    viewerRoot.current?.dispatchEvent(new CustomEvent("hero-card-display-change", {
+      detail: { heroCardDisplay, density, selectedHeroId, cardsCollapsed },
+    }));
+  }, [heroCardDisplay, selectedHeroId, density, cardsCollapsed]);
   return <div ref={target} className="analytics-viewer-surface" />;
 }
 
@@ -496,12 +540,79 @@ const analyticsSurfaceOverrides = `
 .rv-bar { display: none !important; }
 #analytics-player-slot:empty { display: none; }
 .rv-row.small { display: none; }
-.rv-stage { height: auto; min-height: 560px; grid-template-columns: minmax(calc(344px * var(--hc-scale, 1)), 1fr) minmax(300px, 1.35fr) minmax(calc(344px * var(--hc-scale, 1)), 1fr); gap: 8px; align-items: stretch; }
-.rv-col { height: 100%; grid-template-rows: repeat(5, minmax(104px, 1fr)); gap: 6px; align-content: stretch; overflow-y: auto; }
-.rv-center { height: 100%; grid-template-rows: auto minmax(300px, 1fr); }
-.rv-center { height: auto; grid-template-rows: auto min-content; align-content: start; }
+.rv-stage { width: 100%; height: 100%; min-height: 0; grid-template-columns: var(--an-r-card-w, var(--an-card-w, 344px)) minmax(300px, var(--analytics-map-side, 600px)) var(--an-d-card-w, var(--an-card-w, 344px)); grid-template-rows: minmax(0, 1fr); gap: 8px; align-items: start; }
+.rv-team-column { height: 100%; min-width: 0; }
+.team-head { min-height: 30px; }
+.rv-col { height: 100%; min-height: 0; grid-template-rows: none; grid-auto-rows: max-content; gap: 6px; align-content: start; overflow-y: auto; }
+.rv-center { height: 100%; min-height: 0; grid-template-rows: min-content; align-content: start; position: relative; }
+.rv-score { display: none !important; }
 .rv-mapcard { align-content: start; }
-.rv-mapwrap { height: auto; max-height: none; min-height: 300px; aspect-ratio: 1 / 1; }
+.rv-mapwrap { width: 100%; height: var(--analytics-map-side, 600px); max-height: none; min-height: 300px; aspect-ratio: 1 / 1; position: relative; }
+.rv-mapcard { padding: 4px; gap: 6px; }
+.rv-legend, .rv-keys, .rv-multi { display: none !important; }
+.rv-col { overflow-x: hidden; }
+.rv-team-column .rc { width: calc(var(--an-r-card-w, var(--an-card-w, 344px)) / var(--hc-scale, 1)); min-width: 0; grid-template-areas: var(--hc-grid-areas, "pt top" "pt bars" "ab ab" "it it" "st st" "dv dv"); }
+.team-dire .rc { width: calc(var(--an-d-card-w, var(--an-card-w, 344px)) / var(--hc-scale, 1)); }
+.rv-team-column .rc .row.dvs { grid-template-columns: repeat(var(--cells, 1), minmax(0, 1fr)); }
+.rv-team-column .rc .row.st { flex-wrap: wrap; height: auto; overflow: visible; white-space: normal; }
+.rv-team-column .rc .row.st .at, .rv-team-column .rc .row.dvs .dv { min-width: 0; }
+.rv-team-column .rc .row.st .stat-glyph img, .rv-team-column .rc .row.dvs .stat-glyph img { width: 14px; height: 14px; }
+.rv-team-column .rc .row.st .stat-glyph, .rv-team-column .rc .row.dvs .stat-glyph { width: 14px; height: 14px; font-size: 13px; }
+.rv-team-column .rc .bar-reg { font-size: 9px; }
+.rv-team-column .rc .mods { min-width: 0; overflow: visible; flex-wrap: wrap; align-content: flex-start; }
+.rv-team-column .rc .status-effect { width: 22px; height: 22px; border-radius: 5px; overflow: visible; }
+.rv-team-column .rc .status-effect.buff { border-radius: 50%; }
+.rv-team-column .rc .status-effect.debuff { border-radius: 6px; border-color: color-mix(in srgb, var(--bad) 70%, var(--line)); }
+.rv-team-column .rc .status-effect.control { border-radius: 6px; border-color: var(--bad); box-shadow: 0 0 0 1px color-mix(in srgb, var(--bad) 45%, transparent); }
+.rv-team-column .rc .status-effect.control .status-ring { background: conic-gradient(var(--bad) var(--p), transparent 0); }
+.rv-team-column .rc .status-effect.buff .status-ring { background: conic-gradient(var(--muted) var(--p), transparent 0); }
+.rv-team-column .rc .status-effect.debuff .status-ring { background: conic-gradient(var(--bad) var(--p), transparent 0); }
+.rv-team-column .rc .status-effect.control small { color: var(--bad); }
+.rv-team-column .rc .status-divider { width: 1px; height: 19px; flex: none; margin: 0 1px; background: var(--line); }
+.rv-team-column .rc .status-overflow { min-width: 25px; height: 22px; flex: none; }
+.team-winner { flex: none; padding: 2px 5px; border-radius: 4px; background: color-mix(in srgb, var(--good) 18%, var(--surface)); color: var(--good); font: 700 9px/1.2 var(--f-body); }
+:host([data-analytics-density="compact"]) .rc:not(.selected-card) .row.it,
+:host([data-analytics-density="compact"]) .rc:not(.selected-card) .row.st,
+:host([data-analytics-density="compact"]) .rc:not(.selected-card) .row.dvs { display: none !important; }
+:host([data-analytics-density="compact"]) .rc.selected-card { grid-row: auto; min-height: 0; overflow: visible; }
+:host([data-analytics-density="compact"]) .rc.selected-card .row { min-height: 0; }
+:host([data-analytics-density="roster"]) .rc .row { display: none !important; }
+:host([data-cards-radiant-collapsed="true"]) .team-radiant .rv-col .rc .row,
+:host([data-cards-dire-collapsed="true"]) .team-dire .rv-col .rc .row { display: none !important; }
+:host([data-cards-radiant-collapsed="true"]) .team-radiant .rv-col,
+:host([data-cards-dire-collapsed="true"]) .team-dire .rv-col { grid-template-columns: minmax(0, 1fr); }
+.rv-team-column .rc.collapsed-column { display: flex; flex-direction: column; align-items: center; justify-content: start; width: calc(56px / var(--hc-scale, 1)); height: calc(72px / var(--hc-scale, 1)); min-height: 0; gap: 2px; padding: 3px; overflow: hidden; cursor: pointer; }
+.rv-team-column .rc.collapsed-column .top, .rv-team-column .rc.collapsed-column .ic.ab { display: none !important; }
+.rv-team-column .rc.collapsed-column .pt { width: 34px; height: 34px; }
+.rv-team-column .rc.collapsed-column .pt img { width: 34px; height: 34px; }
+.rv-team-column .rc.collapsed-column .bars { display: grid; width: 100%; gap: 1px; }
+.rv-team-column .rc.collapsed-column .bar { height: 4px; }
+.rv-team-column .rc.collapsed-column .bar.mp { height: 4px; }
+.rv-team-column .rc.collapsed-column .bar .num, .rv-team-column .rc.collapsed-column .bar-reg { display: none; }
+.rv-team-column .rc.collapsed-column .row.ab { display: flex; grid-area: auto; min-height: 9px; max-width: 100%; }
+.rv-team-column .rc.collapsed-column .mods { flex: none; gap: 1px; max-width: 100%; overflow: visible; margin: 0; }
+.rv-team-column .rc.collapsed-column .status-effect { width: 8px; height: 8px; border-radius: 50%; overflow: hidden; }
+.rv-team-column .rc.collapsed-column .status-effect > img:not(.status-source) { width: 100%; height: 100%; }
+.rv-team-column .rc.collapsed-column .status-ring, .rv-team-column .rc.collapsed-column .status-effect small,
+.rv-team-column .rc.collapsed-column .status-effect .status-source { display: none; }
+.rv-team-column .rc.collapsed-column .row.ab { display: flex !important; }
+.rv-team-column .rc.collapsed-column .status-overflow { min-width: 12px; height: 8px; padding: 0 2px; border: 0; font: 700 7px/8px var(--f-mono); }
+`;
+
+const replayHeroCardOverrides = `
+.rc { grid-template-areas: var(--hc-grid-areas, "pt top" "pt bars" "ab ab" "it it" "st st" "dv dv"); }
+.rc .row.dvs { grid-template-columns: repeat(var(--cells, 1), minmax(0, 1fr)); }
+.rc .row.st { height: auto; flex-wrap: wrap; overflow: visible; white-space: normal; }
+.rc .mods { min-width: 0; overflow: visible; flex-wrap: wrap; align-content: flex-start; }
+.rc .status-effect { width: 22px; height: 22px; border-radius: 5px; overflow: visible; }
+.rc .status-effect.buff { border-radius: 50%; }
+.rc .status-effect.debuff { border-radius: 6px; }
+.rc .status-effect.control { border-radius: 6px; border-color: var(--bad); box-shadow: 0 0 0 1px color-mix(in srgb, var(--bad) 45%, transparent); }
+.rc .status-effect.control .status-ring, .rc .status-effect.debuff .status-ring { background: conic-gradient(var(--bad) var(--p), transparent 0); }
+.rc .status-effect.buff .status-ring { background: conic-gradient(var(--muted) var(--p), transparent 0); }
+.rc .status-divider { width: 1px; height: 19px; flex: none; margin: 0 1px; background: var(--line); }
+.rc .status-overflow { min-width: 25px; height: 22px; flex: none; }
+.team-winner { flex: none; padding: 2px 5px; border-radius: 4px; background: color-mix(in srgb, var(--good) 18%, var(--surface)); color: var(--good); font: 700 9px/1.2 var(--f-body); }
 `;
 
 export const analyticsPlayerShadowCss = `

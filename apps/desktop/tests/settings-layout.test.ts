@@ -51,11 +51,11 @@ test("every existing settings control and renderer section occurs exactly once",
     "mockCaptureReason",
     "newsFeed", "ownHistoryOpenDota", "publicHeroStats", "draftBar", "draftPosition", "draftBracket",
     "orbEnable", "orbDwell", "orbFocus", "orbMixer", "orbMusicApp", "orbMixerFocus", "orbMixerReset",
-    "gsiConnection",
+    "gsiConnection", "heroCardDisplay",
   ];
   const expectedComponents = [
     "generalPreferences", "developerPreferences", "objectiveAlerts", "objectiveCardLayout", "minimapCapture",
-    "gsiConnection", "replayAnalytics", "showAppHotkey", "newsFeed", "ownHistoryOpenDota", "publicHeroStats", "orbAudio",
+    "gsiConnection", "replayAnalytics", "showAppHotkey", "newsFeed", "ownHistoryOpenDota", "publicHeroStats", "orbAudio", "heroCardDisplay",
   ];
   assert.deepEqual([...model.SETTINGS_CONTROL_IDS].sort(), [...expectedControls].sort());
   assert.deepEqual([...model.SETTINGS_COMPONENT_IDS].sort(), [...expectedComponents].sort());
@@ -68,6 +68,7 @@ test("every existing settings control and renderer section occurs exactly once",
   for (const tag of ["ObjectiveSettings", "LayoutEditor", "MinimapPanel", "Guide", "AnalyticsSettings", "ShowHotkeySettings", "DraftSettings", "NewsSettings", "OpenDotaSettings", "OrbSettings"]) {
     assert.equal((appSource.match(new RegExp(`<${tag}\\b`, "g")) ?? []).length, 1, tag);
   }
+  assert.equal((settingsPage.match(/<HeroCardDisplaySettings\b/g) ?? []).length, 1, "hero-card settings renderer");
   for (const assignment of [
     '"overlay-layout": <LayoutEditor',
     '"minimap-capture": (',
@@ -78,8 +79,9 @@ test("every existing settings control and renderer section occurs exactly once",
     '"audio-controls": <OrbSettings',
   ]) assert.ok(appSource.includes(assignment), assignment);
   assert.match(settingsPage, /SETTINGS_SECTIONS\.map/);
+  assert.match(settingsPage, /section\.id === "hero-card" \? sections\[section\.id\] \?\? <HeroCardDisplaySettings/);
   assert.doesNotMatch(settingsPage, /ReplayAutoParseSetting/);
-  assert.match(settingsPage, /initialSection\?: "overlay-layout" \| null/);
+  assert.match(settingsPage, /initialSection\?: "overlay-layout" \| "hero-card" \| null/);
   assert.match(settingsPage, /hidden=\{activeSection !== section\.id\}/);
   assert.match(appSource, /<div className="shell-screen shell-settings">\s*<ObjectiveSettings/);
 });

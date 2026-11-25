@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { copy, type Locale } from "../copy";
+import { HeroCardDisplaySettings } from "./HeroCardDisplaySettings";
 import {
   DEFAULT_SETTINGS_SECTION,
   initialSettingsSection,
@@ -13,8 +14,8 @@ export interface SettingsPageProps {
   locale: Locale;
   sections: Partial<Record<SettingsSectionId, ReactNode>>;
   objectiveAlerts?: ReactNode;
-  /** Set to `overlay-layout` when Settings is opened from a layout action. */
-  initialSection?: "overlay-layout" | null;
+  /** Select a Settings section when the page is opened from a quick action. */
+  initialSection?: "overlay-layout" | "hero-card" | null;
 }
 
 const rendererStorage = {
@@ -25,7 +26,7 @@ const rendererStorage = {
 export function SettingsPage({ locale, sections, objectiveAlerts, initialSection = null }: SettingsPageProps) {
   const text = copy(locale);
   const [activeSection, setActiveSection] = useState<SettingsSectionId>(() => {
-    const preferredEntry = initialSection === "overlay-layout" ? "layout" : null;
+    const preferredEntry = initialSection === "overlay-layout" ? "layout" : initialSection;
     return initialSettingsSection(preferredEntry, readSettingsSection(rendererStorage));
   });
 
@@ -35,6 +36,7 @@ export function SettingsPage({ locale, sections, objectiveAlerts, initialSection
 
   useEffect(() => {
     if (initialSection === "overlay-layout") setActiveSection(DEFAULT_SETTINGS_SECTION);
+    if (initialSection === "hero-card") setActiveSection("hero-card");
   }, [initialSection]);
 
   return (
@@ -42,7 +44,7 @@ export function SettingsPage({ locale, sections, objectiveAlerts, initialSection
       <nav className="settings-nav" aria-label={text.shell.settingsNavigationLabel}>
         <h2 className="settings-nav-title">{text.shell.destinations.settings}</h2>
         {SETTINGS_SECTIONS.map((section) => {
-          const label = text.shell.settingsSections[section.id];
+          const label = section.id === "hero-card" ? (locale === "en" ? "Hero card" : "การ์ดฮีโร่") : text.shell.settingsSections[section.id];
           return (
             <button key={section.id} type="button" aria-current={activeSection === section.id ? "page" : undefined}
               aria-controls={`settings-section-${section.id}`} onClick={() => setActiveSection(section.id)}>
@@ -53,8 +55,10 @@ export function SettingsPage({ locale, sections, objectiveAlerts, initialSection
       </nav>
       <div className="settings-content" role="region" aria-label={text.shell.settingsContentLabel} tabIndex={0}>
         {SETTINGS_SECTIONS.map((section) => {
-          const label = text.shell.settingsSections[section.id];
-          const sectionContent = section.id === "alerts-objectives" ? objectiveAlerts : sections[section.id];
+          const label = section.id === "hero-card" ? (locale === "en" ? "Hero card" : "การ์ดฮีโร่") : text.shell.settingsSections[section.id];
+          const sectionContent = section.id === "alerts-objectives" ? objectiveAlerts
+            : section.id === "hero-card" ? sections[section.id] ?? <HeroCardDisplaySettings locale={locale} />
+            : sections[section.id];
           return (
             <section key={section.id} id={`settings-section-${section.id}`} className="settings-section"
               aria-labelledby={`settings-section-title-${section.id}`} hidden={activeSection !== section.id}>

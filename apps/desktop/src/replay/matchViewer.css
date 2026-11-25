@@ -299,3 +299,38 @@ kbd { font: 12px var(--f-mono); border: 1px solid var(--line); border-bottom-wid
 #replay { display: grid; gap: 16px }
 .rv-btn.primary { background: var(--brand, #b3261e); border-color: var(--brand-edge, #d4453a); color: var(--brand-ink, #ede6d8) }
 .mv-proto { border-left: 3px solid var(--warn); padding-left: 10px; color: var(--ink-2) }
+
+/* Analytics status tray and team headers */
+.rv-team-column { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 6px; }
+.team-head { min-width: 0; display: flex; align-items: center; gap: 7px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: 700 13px/1.2 var(--f-display); }
+.team-head strong { min-width: 0; flex: 1; }
+.team-kills { font: 700 18px/1 var(--f-mono); color: var(--ink); }
+.team-radiant .team-kills { color: var(--good); }
+.team-dire .team-kills { color: var(--bad); }
+.status-info { flex: none; width: 22px; height: 22px; padding: 0; border: 1px solid var(--line); border-radius: 50%; background: var(--bg); color: var(--muted); font: 700 13px/20px var(--f-body); }
+.status-effect { position: relative; width: 22px; height: 22px; flex: none; display: inline-grid; place-items: center; border: 1px solid color-mix(in srgb, var(--line) 70%, transparent); border-radius: 5px; background: var(--surface); color: var(--ink); overflow: visible; }
+.status-effect > img:not(.status-source) { width: 20px; height: 20px; border-radius: 4px; object-fit: cover; }
+.status-effect > b { z-index: 1; font: 700 14px/1 var(--f-body); }
+.status-effect .status-ring { position: absolute; inset: -2px; border-radius: 50%; background: conic-gradient(var(--brand, #d6b16c) var(--p), transparent 0); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px)); mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px)); }
+.status-effect.debuff { border-color: color-mix(in srgb, var(--bad) 60%, var(--line)); }
+.status-effect.control { border-color: var(--bad); box-shadow: 0 0 0 1px color-mix(in srgb, var(--bad) 45%, transparent); }
+.status-effect .status-source { position: absolute; right: -4px; top: -5px; width: 10px; height: 10px; border: 1px solid var(--surface); border-radius: 50%; object-fit: cover; }
+.status-effect:not(.status-list-effect) small { position: absolute; inset: auto -3px -5px auto; z-index: 2; padding: 0 2px; border-radius: 3px; background: var(--bg); color: var(--ink); font: 600 8px/10px var(--f-mono); white-space: nowrap; }
+.status-list-effect { width: 30px; height: 30px; }
+.status-list-effect > img:not(.status-source) { width: 28px; height: 28px; }
+.status-list-effect small { position: absolute; inset: auto -4px -5px auto; z-index: 2; padding: 0 2px; border-radius: 3px; background: var(--bg); color: var(--ink); font: 600 12px/14px var(--f-mono); white-space: nowrap; }
+.mods { min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.mods[data-status-visible="false"] .status-effect, .mods[data-status-visible="false"] .status-overflow { display: none; }
+.status-overflow { min-width: 25px; height: 22px; padding: 0 4px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg); color: var(--ink); font: 700 10px/20px var(--f-mono); }
+.status-alert { min-width: 0; color: var(--warn); font: 600 12px/1.2 var(--f-body); }
+.status-overflow-list { position: absolute; z-index: 20; inset: 40px 8px auto auto; width: min(320px, calc(100% - 16px)); max-height: min(70vh, 520px); overflow: auto; padding: 9px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); box-shadow: 0 8px 28px #0007; }
+.status-overflow-list[hidden] { display: none; }
+.status-overflow-list header { position: sticky; top: -9px; z-index: 1; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 0 8px; background: var(--surface); }
+.status-overflow-list header button { width: 28px; height: 28px; }
+.status-overflow-list ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.status-overflow-list li { min-width: 0; display: flex; align-items: center; gap: 8px; padding: 4px; border-bottom: 1px solid var(--line); }
+.status-overflow-list li > span:last-child { min-width: 0; display: grid; gap: 2px; overflow-wrap: anywhere; font-size: 12px; }
+.status-overflow-list li small { color: var(--muted); }
+.status-overflow-list .status-missing-note { align-items: flex-start; color: var(--muted); }
+.row.st, .row.dvs { grid-template-columns: repeat(var(--cells, 1), minmax(0, 1fr)); }
+.row .stat-glyph img { width: 14px; height: 14px; object-fit: contain; }

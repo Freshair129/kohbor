@@ -27,11 +27,16 @@ test("Analytics keeps the approved chat width and scales only the hero cards at 
 test("The 12 px floor remains outside the hero-card exemption and shared card scale stays uniform", () => {
   for (const path of ["../src/analytics/analytics.css", "../src/replay/matchViewer.css"]) {
     const css = readFileSync(new URL(path, import.meta.url), "utf8");
-    const sizes = [...css.matchAll(/font(?:-size)?\s*:\s*([^;{}]+)/g)]
-      .map(match => Number(match[1]?.match(/(\d+(?:\.\d+)?)px/)?.[1]))
-      .filter(Number.isFinite);
-    assert.ok(sizes.length > 0, path);
-    assert.ok(sizes.every(size => size >= 12), `${path} has fonts below 12 px: ${sizes.filter(size => size < 12).join(", ")}`);
+    const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/gs)];
+    const smallRules = rules.flatMap(rule => [...(rule[2] ?? "").matchAll(/font(?:-size)?\s*:\s*([^;{}]+)/g)]
+      .map(font => ({ selector: rule[1] ?? "", size: Number(font[1]?.match(/(\d+(?:\.\d+)?)px/)?.[1]) })))
+      .filter(item => Number.isFinite(item.size) && item.size < 12);
+    assert.ok(rules.length > 0, path);
+    for (const item of smallRules) {
+      const cardOnly = path.includes("matchViewer.css")
+        && /\.status-effect:not\(\.status-list-effect\)|\.status-overflow\b/.test(item.selector);
+      assert.ok(cardOnly, `${path} has non-card text below 12 px: ${item.selector} (${item.size}px)`);
+    }
   }
   const shared = readFileSync(new URL("../src/live/heroCard.css", import.meta.url), "utf8");
   assert.match(shared, /--hc-scale/);
@@ -77,17 +82,19 @@ test("Analytics detail route restores the AI report in the left panel", () => {
   assert.match(page, /restoreContext\.documentId === "ai-report"[\s\S]*?setKnowledgeTab\("ai"\)/);
 });
 
-test("Analytics viewer leaves item, ability, and buff rows visible and hosts its player under the map", () => {
+test("Analytics viewer uses measured card columns, icon labels, and hosts its player under the map", () => {
   const panel = readFileSync(new URL("../src/replay/MatchViewPanel.tsx", import.meta.url), "utf8");
   const viewer = readFileSync(new URL("../src/replay/matchViewer.mjs", import.meta.url), "utf8");
   const markup = readFileSync(new URL("../src/replay/matchViewer.html", import.meta.url), "utf8");
   const analytics = readFileSync(new URL("../src/analytics/AnalyticsPage.tsx", import.meta.url), "utf8");
   const overrides = panel.match(/const analyticsSurfaceOverrides = `([\s\S]*?)`;/)?.[1] ?? "";
-  assert.match(overrides, /minmax\(calc\(344px \* var\(--hc-scale, 1\)\)/);
-  assert.doesNotMatch(overrides, /\.rc(?:\s|\{|\.)/);
+  assert.match(overrides, /grid-template-columns:\s*var\(--an-r-card-w/);
+  assert.match(overrides, /var\(--analytics-map-side/);
+  assert.match(overrides, /\.rv-team-column \.rc/);
+  assert.match(overrides, /:host\(\[data-analytics-density="compact"\]\) \.rc\.selected-card/);
   assert.match(panel, /live\/heroCard\.css\?raw/);
   assert.match(panel, /type HeroCardLabelMode = "text" \| "icon"/);
-  assert.match(analytics, /statLabelMode="text"/);
+  assert.match(analytics, /statLabelMode="icon"/);
   assert.match(viewer, /statLabelMode/);
   assert.match(analytics, /getElementById\("analytics-player-slot"\)/);
   assert.match(markup, /id="analytics-player-slot"/);
