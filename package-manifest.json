@@ -12813,13 +12813,13 @@
     },
     {
       "path": "apps/desktop/src/live/MapCountdowns.tsx",
-      "bytes": 3536,
-      "sha256": "df8d597901fc7a9614dbebf4f37ecb90030f4f2f8cf77dd7a9b6762b97f3dda9"
+      "bytes": 4119,
+      "sha256": "0e31c0c00f099576ad728dd21a7915f0d1c30c97f79e4c406ae1eca8df33d20d"
     },
     {
       "path": "apps/desktop/src/live/MapRoshanStatus.tsx",
-      "bytes": 635,
-      "sha256": "b3678202ab6a591a6727ef43f67e1b6284e9f87eab92b1a67223b8ee4db19b64"
+      "bytes": 791,
+      "sha256": "43012a5d0ce253f73b2019bc37db1eea1cc96ae7f1e9a471365bf7a2495b1905"
     },
     {
       "path": "apps/desktop/src/live/MinimapPanel.tsx",
@@ -12833,8 +12833,8 @@
     },
     {
       "path": "apps/desktop/src/live/PinnedPanels.tsx",
-      "bytes": 8567,
-      "sha256": "a07592f6a83dac40f7352a72ffee1706e908218706208c2efe5b729c92ee8fab"
+      "bytes": 8676,
+      "sha256": "af41a10c1f552631a62ae9fdbc40999a3f5844568b72aa86a3a8048d21ae957f"
     },
     {
       "path": "apps/desktop/src/live/PostGameSummary.tsx",
@@ -13043,8 +13043,8 @@
     },
     {
       "path": "apps/desktop/src/live/secondMonitor.css",
-      "bytes": 18907,
-      "sha256": "3e355bc20721b087062bc34a1a22d5aaa3f0d08636f6d9615ae9a34c33b9e5b3"
+      "bytes": 18905,
+      "sha256": "3e6235fd328d80def20c4ef742185dc5dbf5ab211676832a769f339c2b30843e"
     },
     {
       "path": "apps/desktop/src/live/secondMonitorCards.ts",

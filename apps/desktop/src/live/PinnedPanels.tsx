@@ -122,9 +122,10 @@ function ObjectivePanel({ schedule, receivedAtMs, gameClockSeconds, mapFields, s
     <section className="pp-panel pp-objectives-panel" data-panel="objectives" aria-label={copy.objectivesTitle}>
       <h2>{copy.objectivesTitle}</h2>
       <div className="pp-objective-grid">
-        {rows.map(row => <div key={row.id} className="pp-objective-row" data-state={row.state}>
+        {rows.map(row => <div key={row.id} className="pp-objective-row" data-state={row.state}
+          title={row.patchVersion ? (locale === "en" ? `Timing from patch ${row.patchVersion} rules` : `เวลาตามกติกาแพตช์ ${row.patchVersion}`) : undefined}>
           <span>{copy.timerNames[row.id]}</span>
-          <small className="pp-objective-patch">{row.patchVersion ? `${locale === "en" ? "Rule" : "กติกา"} ${row.patchVersion}` : ""}</small>
+          <small className="pp-objective-patch" aria-hidden="true" />
           <strong className="mono">{row.state === "unknown" ? copy.unknown : row.state === "ready" ? copy.ready : row.text}</strong>
         </div>)}
       </div>
