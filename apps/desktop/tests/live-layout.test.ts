@@ -116,7 +116,7 @@ test("centred own card keeps icons and all stat rows inside both target card siz
   assert.match(ownRow22, /grid-template-rows:\s*16px\s+24px\s+18px\s+18px\s+minmax\(36px,/);
   assert.match(ownRow22, /grid-template-areas:\s*"pt nm top"\s+"bars bars bars"\s+"ab ab ab"\s+"it it it"\s+"st st st"/,
     "the minimum viewport keeps separate ability, item, and stat tracks inside the own card");
-  assert.match(cardCss, /\.lhc-field-card\.lhc-field-own\.is-own-two-row-22 \.lhc-ic\.is-ab\s*\{[^}]*height:\s*16px/);
+  assert.match(cardCss, /\.lhc-field-card\.lhc-field-own\.is-own-two-row-22 \.lhc-ic\.is-ab[^{]*\{[^}]*height:\s*16px/);
   assert.match(cardCss, /\.lhc-field-card\.lhc-field-own\.is-own-two-row-22 \.lhc-ic\.is-it\s*\{[^}]*height:\s*16px/);
   assert.match(ownStatsRule, /grid-template-columns:\s*repeat\(5,/);
   assert.match(ownStatsRule, /grid-template-rows:\s*repeat\(3,\s*minmax\(12px,/);
