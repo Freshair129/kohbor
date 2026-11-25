@@ -254,3 +254,22 @@ These open items do not authorize guessed live values or hidden scope changes. R
 - [DGM-017 — Startup, navigation and explicit user tasks](../diagrams/INDEX.html#DGM-017)
 
 Read each figure with its catalog notes and linked SRS requirements. Short labels do not replace failure, consent or cancellation guards. The [diagram index](../diagrams/README.md) provides editable sources and maintenance rules.
+
+
+## UX review amendments (2026-11-25, DEC-UX-REVIEW-20261125)
+
+### Post-game Live panel (UI-002)
+
+The host retains the last finished match record (epoch, install-keyed match hash, observed end values and ended time) across the phase returning to none and application restart. Live associates the panel with that exact record, keeps its epoch visible in none/menu, and provides a reopen action until the next draft. A hidden window can surface or reach the panel after match end. The panel has three steps: recap; download the replay in Dota while showing watcher and parse state, plus manual `.dem` selection; and analysis only after a validated bundle matches the same recorded match. Kohbor explains the Dota step and never clicks in the game. If watcher status is unavailable, show unknown. Do not infer win/loss from kills; unknown says "— ไม่ทราบ". Format the score as "Radiant 33 : 23 Dire" using admitted scores and localize recap event rows.
+
+### Rune chips (UI-018, D.4)
+
+On the map, show only a rune mark and time until its alert lead threshold; use the full chip only within the configured lead time, or in the final ten seconds when no user lead is set. Distinguish rune types by shape. Put names in the legend below the map. Use a dashed ring when the coordinate source patch differs from the schedule patch, and do not claim that either patch is the installed game patch. Unknown coordinates stay omitted. The current W1 overlay can place the legend at the bottom of the map overlay; placing it physically below the captured map needs the map wrapper's out-of-scope layout files.
+
+### Analytics review (UI-021, UI-022)
+
+Use measured page width and four tabs: "สรุป", "ทียบ", "AI" and "โน้ต". Show score in one matchup row. Reading mode widens the left panel while chat remains 423 px at 1920×1080 and 289 px at 1440×900. Coach Review belongs in Lab or Developer mode. "ค่าเฉลี่ยของคุณ" is visible only on screen and is not sent in an AI digest or request. Chat, notes and reports remain deletable per match when its replay is absent. The untested-provider toggle is Developer-only; other users see AI unavailable in this release with its chat collapsed.
+
+### Replay states and retention (MEM-007)
+
+Interrupted automatic jobs and jobs stopped by a match start return to Available and queue again when the barrier clears; actual parse failures remain manual. Queue order and eviction use match end time, and evicted matches remain as lightweight rows. Retention settings apply only after Save and a preview of the number of rows to remove. Use "แยกรีเพลย์" for parsing states and reserve "วิเคราะห์" for analysis and AI.

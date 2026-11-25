@@ -1,6 +1,7 @@
 //! Read-only post-game replay lookup keyed by the active host session record.
 
 use crate::analytics::AnalyticsService;
+use crate::intake::LastFinishedMatchRecord;
 use crate::match_history::MatchEntry;
 use crate::replay_library::{ReplayBundle, ReplayLibrary, ReplayLibraryEntry, ReplayStatus};
 use crate::AppState;
@@ -19,6 +20,56 @@ pub(crate) struct PostGameReplayReply {
     ready: bool,
     match_key: Option<String>,
     headline: PostGameHeadline,
+    parse_state: PostGameParseState,
+    failure_reason: Option<String>,
+    last_finished_match: Option<LastFinishedMatchRecord>,
+    watcher: PostGameWatcherReply,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum PostGameParseState {
+    NotFound,
+    Available,
+    Queued,
+    Parsing,
+    Ready,
+    Failed,
+    NeedsPack,
+    Unknown,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum PostGameWatcherFolder {
+    Known,
+    NotFound,
+    Unknown,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct PostGameWatcherReply {
+    state: PostGameWatcherState,
+    folder: PostGameWatcherFolder,
+    /// The legacy replay-library list has no completed-scan timestamp.
+    last_scan_at_ms: Option<u64>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum PostGameWatcherState {
+    Unknown,
+}
+
+impl PostGameWatcherReply {
+    fn unknown() -> Self {
+        Self {
+            state: PostGameWatcherState::Unknown,
+            folder: PostGameWatcherFolder::Unknown,
+            last_scan_at_ms: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, PartialEq, Eq)]
@@ -29,27 +80,30 @@ pub(crate) struct PostGameHeadline {
 }
 
 impl PostGameReplayReply {
-    fn unavailable(match_key: Option<String>) -> Self {
+    fn unavailable(
+        record: Option<LastFinishedMatchRecord>,
+        parse_state: PostGameParseState,
+        watcher: PostGameWatcherReply,
+    ) -> Self {
         Self {
             ready: false,
-            match_key,
+            match_key: record.as_ref().map(|value| value.match_key.clone()),
             headline: PostGameHeadline::default(),
+            parse_state,
+            failure_reason: None,
+            last_finished_match: record,
+            watcher,
         }
     }
 }
 
-/// Only use a match key recorded by the host for the exact session epoch shown by the panel.
-fn recorded_match_key(runtime_state: &Value, expected_epoch: u64) -> Option<String> {
-    let sessions = runtime_state.get("sessions")?;
-    if sessions.get("schema_version")?.as_str()? != "1.0.0" {
-        return None;
-    }
-    let current = sessions.get("current_session")?;
-    if current.get("epoch")?.as_u64()? != expected_epoch {
-        return None;
-    }
-    let key = current.get("match_key")?.as_str()?;
-    valid_match_key(key).then(|| key.to_owned())
+/// Only the typed, host-persisted last-finished record can identify the panel's match.
+fn recorded_last_finished_match(runtime_state: &Value) -> Option<LastFinishedMatchRecord> {
+    let record = serde_json::from_value::<LastFinishedMatchRecord>(
+        runtime_state.get("last_finished_match")?.clone(),
+    )
+    .ok()?;
+    record.valid().then_some(record)
 }
 
 fn valid_match_key(key: &str) -> bool {
@@ -59,7 +113,7 @@ fn valid_match_key(key: &str) -> bool {
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
-fn read_recorded_match_key(data_dir: &Path, expected_epoch: u64) -> Option<String> {
+fn read_last_finished_match(data_dir: &Path) -> Option<LastFinishedMatchRecord> {
     let path = data_dir.join("runtime-state.json");
     let mut bytes = Vec::with_capacity(MAX_RUNTIME_STATE_BYTES);
     std::fs::File::open(path)
@@ -71,7 +125,7 @@ fn read_recorded_match_key(data_dir: &Path, expected_epoch: u64) -> Option<Strin
         return None;
     }
     let runtime_state = serde_json::from_slice::<Value>(&bytes).ok()?;
-    recorded_match_key(&runtime_state, expected_epoch)
+    recorded_last_finished_match(&runtime_state)
 }
 
 fn safe_nonnegative_integer(value: &Value) -> Option<u64> {
@@ -115,31 +169,63 @@ fn headline_for(bundle: &ReplayBundle, own_hero: Option<&str>) -> PostGameHeadli
     PostGameHeadline { deaths, net_worth }
 }
 
+fn parse_state(status: &ReplayStatus) -> PostGameParseState {
+    match status {
+        ReplayStatus::Available => PostGameParseState::Available,
+        ReplayStatus::Queued => PostGameParseState::Queued,
+        ReplayStatus::Parsing => PostGameParseState::Parsing,
+        ReplayStatus::Ready => PostGameParseState::Ready,
+        ReplayStatus::Failed { .. } => PostGameParseState::Failed,
+        ReplayStatus::NeedsPack => PostGameParseState::NeedsPack,
+    }
+}
+
+/// Adapt the legacy list without returning its watched path to the renderer. It proves only that
+/// the expected Dota folder location can be derived; it does not report a scan or file discovery.
+fn watcher_from_library_list(list: &crate::replay_library::ReplayLibraryList) -> PostGameWatcherReply {
+    let folder = match list.watched_replay_folder_path.as_deref() {
+        Some(path) if !path.trim().is_empty() => PostGameWatcherFolder::Known,
+        Some(_) => PostGameWatcherFolder::Unknown,
+        None => PostGameWatcherFolder::NotFound,
+    };
+    PostGameWatcherReply {
+        state: PostGameWatcherState::Unknown,
+        folder,
+        last_scan_at_ms: None,
+    }
+}
+
 fn lookup_replay_summary(
-    match_key: &str,
+    record: LastFinishedMatchRecord,
+    watcher: PostGameWatcherReply,
     own_hero: Option<&str>,
     entries: &[ReplayLibraryEntry],
     mut match_key_for: impl FnMut(&str) -> Option<String>,
     mut open_validated_bundle: impl FnMut(&str) -> Option<ReplayBundle>,
 ) -> PostGameReplayReply {
-    let unavailable = || PostGameReplayReply::unavailable(Some(match_key.to_owned()));
+    let match_key = record.match_key.as_str();
     for entry in entries {
         if match_key_for(&entry.match_id).as_deref() != Some(match_key) {
             continue;
         }
-        if entry.status != ReplayStatus::Ready {
-            continue;
+        let state = parse_state(&entry.status);
+        if state != PostGameParseState::Ready {
+            return PostGameReplayReply::unavailable(Some(record), state, watcher);
         }
         let Some(bundle) = open_validated_bundle(&entry.match_id) else {
-            continue;
+            return PostGameReplayReply::unavailable(Some(record), PostGameParseState::Unknown, watcher);
         };
         return PostGameReplayReply {
             ready: true,
             match_key: Some(match_key.to_owned()),
             headline: headline_for(&bundle, own_hero),
+            parse_state: PostGameParseState::Ready,
+            failure_reason: None,
+            last_finished_match: Some(record),
+            watcher,
         };
     }
-    unavailable()
+    PostGameReplayReply::unavailable(Some(record), PostGameParseState::NotFound, watcher)
 }
 
 #[tauri::command(async)]
@@ -153,22 +239,27 @@ pub(crate) fn post_game_replay_summary(
     if webview.label() != "control" {
         return Err("window_not_allowed".to_owned());
     }
-    let Some(session_epoch) = session_epoch else {
-        return Ok(PostGameReplayReply::unavailable(None));
+    let Some(record) = read_last_finished_match(&state.settings_dir)
+        .filter(|record| session_epoch.is_none_or(|epoch| record.epoch == epoch))
+    else {
+        return Ok(PostGameReplayReply::unavailable(None, PostGameParseState::NotFound, PostGameWatcherReply::unknown()));
     };
-    let Some(match_key) = read_recorded_match_key(&state.settings_dir, session_epoch) else {
-        return Ok(PostGameReplayReply::unavailable(None));
-    };
+    let match_key = record.match_key.as_str();
     let history = state.match_history.entries();
     let own_hero = history
         .iter()
         .find(|entry: &&MatchEntry| entry.source == "kohbor" && entry.match_key == match_key)
         .and_then(|entry| entry.hero.as_deref());
     let Ok(list) = library.list() else {
-        return Ok(PostGameReplayReply::unavailable(Some(match_key)));
+        return Ok(PostGameReplayReply::unavailable(
+            Some(record),
+            PostGameParseState::Unknown,
+            PostGameWatcherReply::unknown(),
+        ));
     };
     Ok(lookup_replay_summary(
-        &match_key,
+        record,
+        watcher_from_library_list(&list),
         own_hero,
         &list.matches,
         |match_id| analytics.store().match_key(match_id).ok(),
@@ -184,6 +275,28 @@ mod tests {
 
     const SESSION_KEY: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     const OWN_HERO: &str = "npc_dota_hero_axe";
+
+    fn last_match() -> LastFinishedMatchRecord {
+        LastFinishedMatchRecord {
+            epoch: 7,
+            match_key: SESSION_KEY.to_owned(),
+            end_values: crate::intake::LastFinishedMatchValues {
+                hero_id: Some(OWN_HERO.to_owned()),
+                result: None,
+                kills: None,
+                deaths: None,
+                assists: None,
+                last_hits: None,
+                denies: None,
+                gpm: None,
+                xpm: None,
+                duration_seconds: None,
+                radiant_score: None,
+                dire_score: None,
+            },
+            ended_at: 1_800_000_000,
+        }
+    }
 
     fn entry(match_id: &str) -> ReplayLibraryEntry {
         ReplayLibraryEntry {
@@ -230,21 +343,19 @@ mod tests {
     }
 
     #[test]
-    fn session_key_is_read_only_for_the_matching_host_epoch() {
-        let record = json!({
-            "sessions": {
-                "schema_version": "1.0.0",
-                "current_session": { "epoch": 7, "match_key": SESSION_KEY }
-            }
-        });
-        assert_eq!(recorded_match_key(&record, 7).as_deref(), Some(SESSION_KEY));
-        assert_eq!(recorded_match_key(&record, 8), None);
+    fn last_match_record_is_validated_and_survives_phase_changes_in_runtime_state() {
+        let runtime = json!({ "last_finished_match": last_match() });
+        assert_eq!(recorded_last_finished_match(&runtime), Some(last_match()));
+        let mut bad_hash = last_match();
+        bad_hash.match_key = "not-a-hash".to_owned();
+        assert!(!bad_hash.valid());
     }
 
     #[test]
     fn lookup_finds_the_ready_bundle_by_its_install_keyed_match_hash() {
         let result = lookup_replay_summary(
-            SESSION_KEY,
+            last_match(),
+            PostGameWatcherReply::unknown(),
             Some(OWN_HERO),
             &[entry("123456789")],
             |match_id| (match_id == "123456789").then(|| SESSION_KEY.to_owned()),
@@ -254,12 +365,14 @@ mod tests {
         assert_eq!(result.match_key.as_deref(), Some(SESSION_KEY));
         assert_eq!(result.headline.deaths, Some(2));
         assert_eq!(result.headline.net_worth, Some(18_400));
+        assert_eq!(result.parse_state, PostGameParseState::Ready);
     }
 
     #[test]
     fn lookup_without_a_matching_key_is_unavailable() {
         let result = lookup_replay_summary(
-            SESSION_KEY,
+            last_match(),
+            PostGameWatcherReply::unknown(),
             Some(OWN_HERO),
             &[entry("987654321")],
             |_| Some("b".repeat(64)),
@@ -268,6 +381,7 @@ mod tests {
         assert!(!result.ready);
         assert_eq!(result.match_key.as_deref(), Some(SESSION_KEY));
         assert_eq!(result.headline, PostGameHeadline::default());
+        assert_eq!(result.parse_state, PostGameParseState::NotFound);
     }
 
     #[test]
@@ -280,7 +394,8 @@ mod tests {
             json!([{ "hero": "npc_dota_hero_lion" }]),
         );
         let result = lookup_replay_summary(
-            SESSION_KEY,
+            last_match(),
+            PostGameWatcherReply::unknown(),
             Some(OWN_HERO),
             &[entry("123456789")],
             |_| Some(SESSION_KEY.to_owned()),
@@ -294,7 +409,8 @@ mod tests {
     fn reply_never_contains_the_raw_match_id_or_source_path() {
         let raw_match_id = "123456789";
         let result = lookup_replay_summary(
-            SESSION_KEY,
+            last_match(),
+            PostGameWatcherReply::unknown(),
             Some(OWN_HERO),
             &[entry(raw_match_id)],
             |_| Some(SESSION_KEY.to_owned()),

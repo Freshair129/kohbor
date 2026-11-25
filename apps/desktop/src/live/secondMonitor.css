@@ -72,23 +72,28 @@
 /* Rune countdowns over the pinned minimap (UI-018). */
 .sm-pinned .minimap-stage > .live-map-canvas, .sm-pinned .minimap-stage > .sm-map-overlay { grid-area: 1 / 1; }
 .sm-map-overlay { position: relative; z-index: 2; pointer-events: none; }
+.sm-countdown-layer { position: absolute; inset: 0; pointer-events: none; }
 .sm-countdowns { position: absolute; inset: 0; margin: 0; padding: 0; list-style: none; }
 .sm-countdown-spot { position: absolute; width: 8px; height: 8px; transform: translate(-50%, -50%); list-style: none; }
 .sm-countdown-anchor { position: absolute; inset: 0; border: 1px solid #ffe08a; border-radius: 50%; background: #17191d; box-shadow: 0 0 0 2px rgba(10,12,16,.88); }
-.sm-countdown { position: absolute; display: flex; flex-direction: column; align-items: stretch; gap: 2px; padding: 3px 6px; border: 1px solid rgba(255, 255, 255, .45); border-radius: 8px; background: rgba(10, 12, 16, .94); color: #f2f4f7; font-size: 12px; line-height: 14px; white-space: nowrap; }
+.sm-countdown-spot[data-position-patch-differs="true"] .sm-countdown-anchor { border-style: dashed; }
+.sm-countdown { position: absolute; display: flex; flex-direction: column; align-items: stretch; gap: 2px; padding: 2px 4px; border: 1px solid rgba(255, 255, 255, .45); border-radius: 6px; background: rgba(10, 12, 16, .94); color: #f2f4f7; font-size: 12px; line-height: 14px; white-space: nowrap; }
 .sm-countdown[data-placement="upper-left"] { right: 8px; bottom: 8px; }
 .sm-countdown[data-placement="upper-right"] { left: 8px; bottom: 8px; }
 .sm-countdown[data-placement="lower-left"] { right: 8px; top: 8px; }
 .sm-countdown[data-placement="lower-right"] { left: 8px; top: 8px; }
 .sm-countdown-entry { display: inline-flex; align-items: center; gap: 4px; min-height: 20px; font-size: 12px; font-weight: 700; line-height: 14px; }
-.sm-countdown-mark { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: currentColor; }
+.sm-countdown-mark { display: inline-grid; flex: none; place-items: center; width: 12px; height: 12px; color: currentColor; font-size: 12px; line-height: 12px; }
 .sm-countdown-name { color: #f2f4f7; font-weight: 600; }
-.sm-countdown-entry[data-objective="power_rune"] .sm-countdown-mark { color: #6fb3ff; }
-.sm-countdown-entry[data-objective="bounty_rune"] .sm-countdown-mark { color: #d9a441; }
-.sm-countdown-entry[data-objective="wisdom_rune"] .sm-countdown-mark { color: #b48ae6; }
-.sm-countdown-entry[data-objective="lotus"] .sm-countdown-mark { color: #f18bb8; }
+.sm-countdown-entry[data-objective="power_rune"] .sm-countdown-mark, .sm-countdown-legend [data-objective="power_rune"] .sm-countdown-mark { color: #6fb3ff; }
+.sm-countdown-entry[data-objective="bounty_rune"] .sm-countdown-mark, .sm-countdown-legend [data-objective="bounty_rune"] .sm-countdown-mark { color: #d9a441; }
+.sm-countdown-entry[data-objective="wisdom_rune"] .sm-countdown-mark, .sm-countdown-legend [data-objective="wisdom_rune"] .sm-countdown-mark { color: #b48ae6; }
+.sm-countdown-entry[data-objective="lotus"] .sm-countdown-mark, .sm-countdown-legend [data-objective="lotus"] .sm-countdown-mark { color: #f18bb8; }
 .sm-countdown-entry[data-mode="seconds"], .sm-countdown-entry[data-mode="ready"] { color: #ffe08a; }
-.sm-countdown-patch { color: #d2d5db; font-size: 12px; font-weight: 500; line-height: 14px; }
+.sm-countdown-legend { position: absolute; z-index: 5; right: 4px; bottom: 4px; left: 4px; display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 8px; max-width: calc(100% - 8px); margin: 0 auto; padding: 2px 5px; border: 1px solid rgba(255, 255, 255, .35); border-radius: 6px; background: rgba(10, 12, 16, .88); color: #f2f4f7; list-style: none; }
+.sm-countdown-legend li { display: inline-flex; align-items: center; gap: 3px; min-height: 14px; font-size: 12px; line-height: 14px; white-space: nowrap; }
+.sm-countdown-legend .sm-countdown-mark { width: 10px; height: 10px; font-size: 12px; line-height: 10px; }
+.sm-countdown-legend strong { color: #ffe08a; font-size: 12px; font-weight: 650; }
 .sm-roshan-status { position: absolute; z-index: 2; top: 8px; left: 8px; display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border: 1px solid rgba(255,255,255,.35); border-radius: 999px; background: rgba(10,12,16,.9); color: #f2f4f7; font-size: 12px; line-height: 16px; }
 .sm-roshan-status strong { font-weight: 700; }
 .sm-roshan-status[data-changed="true"] { animation: pp-roshan-change 1.8s ease-out both; }

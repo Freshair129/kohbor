@@ -97,7 +97,7 @@ test("objective timers use the accepted ALERT-008 patch, GSI observations, unkno
   assert.deepEqual(unknown.find(row => row.id === "roshan"), { id: "roshan", state: "unknown", text: "— ไม่ทราบ", patchVersion: null });
   assert.ok(deriveObjectiveTimerRows(schedule, 1_000, 1_100, 450, mapFields, "stale").every(row => row.state === "unknown"));
   assert.deepEqual(countdownLabel({ objective: "power_rune", occurrence_seconds: 480, last_occurrence_seconds: 480, lead_s: [] }, 480),
-    { objective: "power_rune", text: "พร้อม", mode: "ready", remaining: 0, patch_version: null });
+    { objective: "power_rune", text: "พร้อม", mode: "ready", remaining: 0, patch_version: null, fullChip: true });
   assert.deepEqual(countdownLabel({ objective: "power_rune", occurrence_seconds: 480, last_occurrence_seconds: 480, lead_s: [] }, 483)?.mode, "ready");
   assert.equal(countdownLabel({ objective: "power_rune", occurrence_seconds: 480, last_occurrence_seconds: 480, lead_s: [] }, 484), null,
     "ready is brief and does not use wall-clock extrapolation");

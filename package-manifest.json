@@ -83,8 +83,8 @@
     },
     {
       "path": "acceptance/scenarios.feature",
-      "bytes": 80963,
-      "sha256": "675cbca0625bb4fdf10280d11916433bc9b71579b41b8176d0c1cfad2b8c7d5f"
+      "bytes": 85018,
+      "sha256": "b2ba2bb498bf82bad16050085af4d43b5e4eecfdb1bdd7cde698d82095b09d11"
     },
     {
       "path": "acceptance/spec-validation.json",
@@ -563,8 +563,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/intake.rs",
-      "bytes": 135521,
-      "sha256": "d5bafd74e75117366fd2a5afcffa1d53b33a2810b69439d2c104e56a3df8d19a"
+      "bytes": 141132,
+      "sha256": "cc01744fe90398dcd2a4083e36e2335d3f4d011f7391dd827379e36ffd1c148a"
     },
     {
       "path": "apps/desktop/src-tauri/src/lab.rs",
@@ -713,8 +713,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/post_game_replay.rs",
-      "bytes": 10347,
-      "sha256": "1468cf262667ee6693c4151db85934eb2bc505d41174f22e2b22029879c4c415"
+      "bytes": 14441,
+      "sha256": "1dcb41044f0039c873b5c9af75259179776b291d7e18f2ea3c3f1112862b630c"
     },
     {
       "path": "apps/desktop/src-tauri/src/replay_library/engine.rs",
@@ -743,8 +743,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/status.rs",
-      "bytes": 10116,
-      "sha256": "38f89256e182980157d5bcc686c26a7e5b6d0b9b931867244483ac840304c030"
+      "bytes": 11540,
+      "sha256": "f1fa2610314fb9697785788bbf6349d47f3eb4cb225fee60d39060a50181716c"
     },
     {
       "path": "apps/desktop/src-tauri/src/steam.rs",
@@ -12513,8 +12513,8 @@
     },
     {
       "path": "apps/desktop/src/deck/Deck.tsx",
-      "bytes": 14890,
-      "sha256": "f490f01a48ef145c7a6eae301e274d2b9c3d7e6bebc5f92d9bd93fccd411eeea"
+      "bytes": 17575,
+      "sha256": "d0681db1fdd3f01871788ec0998d3047b51962f4eaac1fef33566e792f2d3c2b"
     },
     {
       "path": "apps/desktop/src/deck/DraftBarStrip.tsx",
@@ -12813,8 +12813,8 @@
     },
     {
       "path": "apps/desktop/src/live/MapCountdowns.tsx",
-      "bytes": 4119,
-      "sha256": "0e31c0c00f099576ad728dd21a7915f0d1c30c97f79e4c406ae1eca8df33d20d"
+      "bytes": 5124,
+      "sha256": "ca646fddc3be1b507c0b0d97f73a08b064556ef4d6cf4b38bb7dcc5a21cce761"
     },
     {
       "path": "apps/desktop/src/live/MapRoshanStatus.tsx",
@@ -12838,8 +12838,8 @@
     },
     {
       "path": "apps/desktop/src/live/PostGameSummary.tsx",
-      "bytes": 4093,
-      "sha256": "4481855c710d60b64b3aab5110e32c72f4c7c1a576083e274912a77acca65142"
+      "bytes": 4869,
+      "sha256": "7338ad7377ff16b28c0b3e884ca61a15f8dd453b9f2bcf147bdaeb9b26c582db"
     },
     {
       "path": "apps/desktop/src/live/PregameDashboard.tsx",
@@ -12903,8 +12903,8 @@
     },
     {
       "path": "apps/desktop/src/live/copy.ts",
-      "bytes": 13292,
-      "sha256": "ef111ace2a014a9cefab64827050d5501487ef9d2e5ef208358c634ae191dc6c"
+      "bytes": 19438,
+      "sha256": "1770686bf57359aa2da65e34c5c4572d062ed738879280f384cc70fe12095785"
     },
     {
       "path": "apps/desktop/src/live/dotaIconSet.ts",
@@ -12958,8 +12958,8 @@
     },
     {
       "path": "apps/desktop/src/live/live.css",
-      "bytes": 15479,
-      "sha256": "c901765bbc21a95ebbb241d327f86094ca6b298813d7f320cfab9db652980bda"
+      "bytes": 16600,
+      "sha256": "2f7283de1e681bc7e845303d4f1c21fbfb5b1a72bf40d277ba074a28a38a7912"
     },
     {
       "path": "apps/desktop/src/live/meter.ts",
@@ -12993,8 +12993,8 @@
     },
     {
       "path": "apps/desktop/src/live/objectiveCountdownModel.ts",
-      "bytes": 12084,
-      "sha256": "913ade8080a9f726680f171e0f5ea85c366b6e166ad073cb8c7ad40589ce9eb6"
+      "bytes": 12547,
+      "sha256": "5a108dd6bbb877c39e775032107d7f1278f6cd9919e149234ddf20cf4dfaa7d7"
     },
     {
       "path": "apps/desktop/src/live/pinnedPanelsModel.ts",
@@ -13003,8 +13003,8 @@
     },
     {
       "path": "apps/desktop/src/live/postGameSummaryModel.ts",
-      "bytes": 6125,
-      "sha256": "0d6ce7d1a7e28f291aa865707af95d2de821e8eafd5f8dae325cca778fe4929c"
+      "bytes": 9344,
+      "sha256": "bd9a48076b0cbd363b3e3b1b25f9fac740630e10f2f301c18a5889acdb5be7e8"
     },
     {
       "path": "apps/desktop/src/live/pregameDashboardModel.ts",
@@ -13043,8 +13043,8 @@
     },
     {
       "path": "apps/desktop/src/live/secondMonitor.css",
-      "bytes": 18905,
-      "sha256": "3e6235fd328d80def20c4ef742185dc5dbf5ab211676832a769f339c2b30843e"
+      "bytes": 20019,
+      "sha256": "278d881d38ff0f10d6a20e68f89fdecf5fbacfa867999bbca4e96121fcaf83e8"
     },
     {
       "path": "apps/desktop/src/live/secondMonitorCards.ts",
@@ -13593,8 +13593,8 @@
     },
     {
       "path": "apps/desktop/src/runtime.ts",
-      "bytes": 20049,
-      "sha256": "5c0af2e484e8ba1ed5e55aba8c89bc21dfbf5c9bdb3d06b4ec06755edf8c22d3"
+      "bytes": 20226,
+      "sha256": "499f09cbb89fb83b9b82875908299b6a5ead002e49629cfeb72c2105ee0a6391"
     },
     {
       "path": "apps/desktop/src/settings.ts",
@@ -14118,8 +14118,8 @@
     },
     {
       "path": "apps/desktop/tests/live-centre-layout.test.ts",
-      "bytes": 3659,
-      "sha256": "5f13c9177e0f58028a7af09f956427addfae6f7080e95c50d996f720e89e119d"
+      "bytes": 3849,
+      "sha256": "76e31d6277e1621040a05c8594c3faa9493be013f06c31e3859e6aca5e8f7481"
     },
     {
       "path": "apps/desktop/tests/live-hero-card.test.ts",
@@ -14133,8 +14133,8 @@
     },
     {
       "path": "apps/desktop/tests/live-postgame-summary.test.ts",
-      "bytes": 7908,
-      "sha256": "e6c3d40298f98885408255471195c867cc1a2ebadb85021062d945edf53d4a71"
+      "bytes": 10396,
+      "sha256": "58b383776a3a2c7b8d38475ac3dba491d1a3af2c3d50aafc760ad890e5ccab9e"
     },
     {
       "path": "apps/desktop/tests/live-pregame-dashboard.test.ts",
@@ -14168,8 +14168,8 @@
     },
     {
       "path": "apps/desktop/tests/live-second-monitor-map.test.ts",
-      "bytes": 12279,
-      "sha256": "77255c64c94b9a402bffea8e415cc1c7f4e12201d6c564fa605b57a9a6a5aa20"
+      "bytes": 13004,
+      "sha256": "2a66a667aa2d899a8442604be8195b48a0465c3582fea718e6973e74424609b0"
     },
     {
       "path": "apps/desktop/tests/live-second-monitor.test.ts",
@@ -14283,8 +14283,8 @@
     },
     {
       "path": "apps/desktop/tests/pinned-panels-model.test.ts",
-      "bytes": 10636,
-      "sha256": "a5856ca2e0a771bad396100b9d708144a27af83af1f6b5e399e6bb82ff3fab97"
+      "bytes": 10652,
+      "sha256": "547394e727cfbc7c3a6a689cb720e7a76070631ef270ebb1352e3199c9808515"
     },
     {
       "path": "apps/desktop/tests/playback.test.ts",
@@ -14538,8 +14538,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 159138,
-      "sha256": "a42b233b387929562351973d09f6d87e7d1825eb5d32eed349a7885d3a0fd328"
+      "bytes": 166169,
+      "sha256": "794bf7688ef5cd8b3259ad336ca2093c3e06493243e1052410439d1d8df2b1c7"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -14638,8 +14638,8 @@
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 353367,
-      "sha256": "7b7f262ae872efb170730a354d779e7bed2f1705b50e9ce153d03c862d146c95"
+      "bytes": 368644,
+      "sha256": "eec352895114c39c50d8b08b6f8ab87530305d57de46862983f7b7b20443892f"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -15653,8 +15653,8 @@
     },
     {
       "path": "docs/design/UX-SPEC.md",
-      "bytes": 48446,
-      "sha256": "3ec36687fe350cc939571d3261b668df7e1b535fa73fce33bb13ca5edff3c3d2"
+      "bytes": 51465,
+      "sha256": "c292b21edfd39525801819904d90eccb781e535294bc832c719f509273ccb341"
     },
     {
       "path": "docs/design/VISUAL-DESIGN-PROPOSAL.md",
@@ -16098,8 +16098,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 116894,
-      "sha256": "99579e4b5024e3d76ecf85535713096e55d0dbc0da3dddf510a63c5be2e80baf"
+      "bytes": 119984,
+      "sha256": "d7f7f71508babe6e6031526fcb5fe806fb700224989914dcef9b99d8be9fafb8"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
@@ -16188,8 +16188,8 @@
     },
     {
       "path": "docs/requirements/SRS.md",
-      "bytes": 243145,
-      "sha256": "37b4877d76e3f0097babd82723b0eaf56810d221fce9f6dd1bb4c352d6e8f292"
+      "bytes": 250175,
+      "sha256": "215eada5b708750c73817b3a6a172cf57928bc538dd697ddae4cbec00f120a84"
     },
     {
       "path": "docs/security/SECURITY-PRIVACY.md",
