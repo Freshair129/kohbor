@@ -4,7 +4,7 @@
 // @ts-ignore Node's built-in TypeScript loader requires explicit source extensions for pure-model tests.
 import { RUNE_SPOTS as REPLAY_RUNE_SPOTS, RUNE_SPOT_PROVENANCE } from "./runeSpotCoordinates.ts";
 
-/** Objectives the minimap labels. Tormentor and Roshan are not labelled: their respawn timing is unknown. */
+/** Objectives the minimap labels. Tormentor and Roshan are not labelled here. */
 export const COUNTDOWN_OBJECTIVES = ["power_rune", "bounty_rune", "wisdom_rune", "lotus"] as const;
 export type CountdownObjective = (typeof COUNTDOWN_OBJECTIVES)[number];
 export type ScheduleObjective = CountdownObjective | "water_rune" | "tormentor" | "day_night";
@@ -13,7 +13,7 @@ export interface ScheduledObjective {
   objective: ScheduleObjective;
   /** GSI game-clock second of the next known occurrence. */
   occurrence_seconds: number;
-  /** Most recent occurrence, used only for a brief game-clock ready label. */
+  /** Most recent occurrence, used only for a brief game-clock spawned state. */
   last_occurrence_seconds?: number | null;
   /** Lead times from the objective Settings (ALERT-008 prefs), 5..60 s, at most two. Empty means none set. */
   lead_s: number[];
@@ -137,23 +137,41 @@ export function parseObjectiveReadModel(value: unknown): ObjectiveReadModel | nu
   };
 }
 
-export const SECONDS_WINDOW = 60;
 export const READY_WINDOW_SECONDS = 3;
 
-export interface CountdownLabel { objective: CountdownObjective; text: string; mode: "seconds" | "ready"; remaining: number; patch_version: string | null; fullChip: boolean }
+export interface CountdownLabel { objective: CountdownObjective; text: string | null; mode: "countdown" | "spawned"; remaining: number; patch_version: string | null }
 
-/** Map marks appear in the last minute; the word label expands only inside the configured alert lead or final 10 seconds. */
+/** The map counter is limited to two characters; long timers stay off-map until they fit. */
+export function formatRuneCountdown(seconds: number): string | null {
+  if (!Number.isFinite(seconds) || seconds < 1) return null;
+  const remaining = Math.ceil(seconds);
+  if (remaining < 60) return String(remaining).padStart(2, "0");
+  const minutes = Math.ceil(remaining / 60);
+  return minutes <= 9 ? `${minutes}m` : null;
+}
+
+export function runeAppearance(spawned: boolean): { filter: "grayscale" | "color"; showCountdown: boolean } {
+  return spawned ? { filter: "color", showCountdown: false } : { filter: "grayscale", showCountdown: true };
+}
+
+const RUNE_ICON_KEYS = new Set<string>(COUNTDOWN_OBJECTIVES);
+export function runeIconKey(objective: string, available: Readonly<Record<string, boolean>>): string {
+  return RUNE_ICON_KEYS.has(objective) && available[objective] === true ? objective : "neutral";
+}
+
+/** Uses only scheduled game-clock observations. A brief full-colour state appears at a recorded spawn. */
 export function countdownLabel(item: ScheduledObjective, clockSeconds: number, patchVersion: string | null = null): CountdownLabel | null {
   const remaining = item.occurrence_seconds - clockSeconds;
-  if (!Number.isFinite(remaining)) return null;
+  if (!Number.isFinite(remaining) || !Number.isFinite(clockSeconds)) return null;
   const sinceLastOccurrence = item.last_occurrence_seconds === undefined || item.last_occurrence_seconds === null
     ? null : clockSeconds - item.last_occurrence_seconds;
-  if (sinceLastOccurrence !== null && sinceLastOccurrence >= 0 && sinceLastOccurrence <= READY_WINDOW_SECONDS) {
-    return { objective: item.objective as CountdownObjective, text: "พร้อม", mode: "ready", remaining: 0, patch_version: patchVersion, fullChip: true };
+  if (remaining === 0 || (sinceLastOccurrence !== null && sinceLastOccurrence >= 0 && sinceLastOccurrence <= READY_WINDOW_SECONDS)) {
+    return { objective: item.objective as CountdownObjective, text: null, mode: "spawned", remaining: 0, patch_version: patchVersion };
   }
-  if (remaining < 1 || remaining > SECONDS_WINDOW) return null;
-  const fullChipWindow = Math.max(10, ...item.lead_s);
-  return { objective: item.objective as CountdownObjective, text: String(remaining), mode: "seconds", remaining, patch_version: patchVersion, fullChip: remaining <= fullChipWindow };
+  if (remaining < 1) return null;
+  const text = formatRuneCountdown(remaining);
+  if (text === null) return null;
+  return { objective: item.objective as CountdownObjective, text, mode: "countdown", remaining, patch_version: patchVersion };
 }
 
 /** A schedule older than this (wall time since it arrived) is treated as unknown: the labels disappear. */

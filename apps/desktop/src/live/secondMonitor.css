@@ -74,26 +74,20 @@
 .sm-map-overlay { position: relative; z-index: 2; pointer-events: none; }
 .sm-countdown-layer { position: absolute; inset: 0; pointer-events: none; }
 .sm-countdowns { position: absolute; inset: 0; margin: 0; padding: 0; list-style: none; }
-.sm-countdown-spot { position: absolute; width: 8px; height: 8px; transform: translate(-50%, -50%); list-style: none; }
-.sm-countdown-anchor { position: absolute; inset: 0; border: 1px solid #ffe08a; border-radius: 50%; background: #17191d; box-shadow: 0 0 0 2px rgba(10,12,16,.88); }
+.sm-countdown-spot { position: absolute; width: 24px; height: 24px; transform: translate(-50%, -50%); list-style: none; }
+.sm-countdown-anchor { position: absolute; z-index: 0; inset: 0; border: 1px solid #ffe08a; border-radius: 50%; background: rgba(23,25,29,.64); box-shadow: 0 0 0 2px rgba(10,12,16,.88); }
 .sm-countdown-spot[data-position-patch-differs="true"] .sm-countdown-anchor { border-style: dashed; }
-.sm-countdown { position: absolute; display: flex; flex-direction: column; align-items: stretch; gap: 2px; padding: 2px 4px; border: 1px solid rgba(255, 255, 255, .45); border-radius: 6px; background: rgba(10, 12, 16, .94); color: #f2f4f7; font-size: 12px; line-height: 14px; white-space: nowrap; }
-.sm-countdown[data-placement="upper-left"] { right: 8px; bottom: 8px; }
-.sm-countdown[data-placement="upper-right"] { left: 8px; bottom: 8px; }
-.sm-countdown[data-placement="lower-left"] { right: 8px; top: 8px; }
-.sm-countdown[data-placement="lower-right"] { left: 8px; top: 8px; }
-.sm-countdown-entry { display: inline-flex; align-items: center; gap: 4px; min-height: 20px; font-size: 12px; font-weight: 700; line-height: 14px; }
-.sm-countdown-mark { display: inline-grid; flex: none; place-items: center; width: 12px; height: 12px; color: currentColor; font-size: 12px; line-height: 12px; }
-.sm-countdown-name { color: #f2f4f7; font-weight: 600; }
-.sm-countdown-entry[data-objective="power_rune"] .sm-countdown-mark, .sm-countdown-legend [data-objective="power_rune"] .sm-countdown-mark { color: #6fb3ff; }
-.sm-countdown-entry[data-objective="bounty_rune"] .sm-countdown-mark, .sm-countdown-legend [data-objective="bounty_rune"] .sm-countdown-mark { color: #d9a441; }
-.sm-countdown-entry[data-objective="wisdom_rune"] .sm-countdown-mark, .sm-countdown-legend [data-objective="wisdom_rune"] .sm-countdown-mark { color: #b48ae6; }
-.sm-countdown-entry[data-objective="lotus"] .sm-countdown-mark, .sm-countdown-legend [data-objective="lotus"] .sm-countdown-mark { color: #f18bb8; }
-.sm-countdown-entry[data-mode="seconds"], .sm-countdown-entry[data-mode="ready"] { color: #ffe08a; }
-.sm-countdown-legend { position: absolute; z-index: 5; right: 4px; bottom: 4px; left: 4px; display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 8px; max-width: calc(100% - 8px); margin: 0 auto; padding: 2px 5px; border: 1px solid rgba(255, 255, 255, .35); border-radius: 6px; background: rgba(10, 12, 16, .88); color: #f2f4f7; list-style: none; }
-.sm-countdown-legend li { display: inline-flex; align-items: center; gap: 3px; min-height: 14px; font-size: 12px; line-height: 14px; white-space: nowrap; }
-.sm-countdown-legend .sm-countdown-mark { width: 10px; height: 10px; font-size: 12px; line-height: 10px; }
-.sm-countdown-legend strong { color: #ffe08a; font-size: 12px; font-weight: 650; }
+.sm-countdown { position: absolute; z-index: 1; display: flex; flex-direction: row; align-items: center; gap: 2px; }
+.sm-countdown[data-placement="upper-left"] { right: 12px; bottom: 12px; }
+.sm-countdown[data-placement="upper-right"] { left: 12px; bottom: 12px; }
+.sm-countdown[data-placement="lower-left"] { right: 12px; top: 12px; }
+.sm-countdown[data-placement="lower-right"] { left: 12px; top: 12px; }
+.sm-countdown-entry { position: relative; display: inline-block; flex: none; width: 24px; height: 24px; }
+.sm-countdown-icon { display: block; width: 24px; height: 24px; object-fit: contain; }
+.sm-countdown-entry[data-mode="countdown"] .sm-countdown-icon { filter: grayscale(1); opacity: .58; }
+.sm-countdown-entry[data-mode="spawned"] .sm-countdown-icon { filter: none; opacity: 1; }
+.sm-countdown-fallback { display: grid; width: 24px; height: 24px; place-items: center; color: #f2f4f7; font-size: 21px; line-height: 24px; text-shadow: 0 1px 2px #101317, 0 0 3px #101317; }
+.sm-countdown-text { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font-size: 10px; font-weight: 800; line-height: 1; text-shadow: 0 1px 2px #090b0e, 1px 0 2px #090b0e, -1px 0 2px #090b0e, 0 -1px 2px #090b0e; -webkit-text-stroke: .3px #090b0e; }
 .sm-roshan-status { position: absolute; z-index: 2; top: 8px; left: 8px; display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border: 1px solid rgba(255,255,255,.35); border-radius: 999px; background: rgba(10,12,16,.9); color: #f2f4f7; font-size: 12px; line-height: 16px; }
 .sm-roshan-status strong { font-weight: 700; }
 .sm-roshan-status[data-changed="true"] { animation: pp-roshan-change 1.8s ease-out both; }

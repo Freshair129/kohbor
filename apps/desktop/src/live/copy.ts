@@ -102,7 +102,7 @@ const MESSAGES = {
     percentUnit: "%",
     pinnedPanels: {
       objectivesTitle: "ตัวจับเวลาวัตถุประสงค์",
-      timerNames: { power_rune: "รูนพลัง", bounty_rune: "รูนทอง", wisdom_rune: "รูนปัญญา", lotus: "บัว", tormentor: "Tormentor", day_night: "กลางวัน / กลางคืน", roshan: "Roshan เกิดใหม่" },
+      timerNames: { power_rune: "รูนพลัง", bounty_rune: "รูนทอง", wisdom_rune: "รูนปัญญา", lotus: "บัว", tormentor: "Tormentor", day_night: "กลางวัน / กลางคืน", roshan: "Roshan เกิดใหม่", roshan_switch: "Roshan เปลี่ยนหลุม" },
       unknown: "— ไม่ทราบ",
       ready: "พร้อม",
       damageTitle: "HP ที่เสีย (ฮีโร่คุณ)",
@@ -218,7 +218,7 @@ const MESSAGES = {
     percentUnit: "%",
     pinnedPanels: {
       objectivesTitle: "Objective timers",
-      timerNames: { power_rune: "Power rune", bounty_rune: "Bounty rune", wisdom_rune: "Wisdom rune", lotus: "Lotus", tormentor: "Tormentor", day_night: "Day / night", roshan: "Roshan respawn" },
+      timerNames: { power_rune: "Power rune", bounty_rune: "Bounty rune", wisdom_rune: "Wisdom rune", lotus: "Lotus", tormentor: "Tormentor", day_night: "Day / night", roshan: "Roshan respawn", roshan_switch: "Roshan pit switch" },
       unknown: "— Unknown",
       ready: "Ready",
       damageTitle: "HP lost (your hero)",

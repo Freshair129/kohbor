@@ -107,14 +107,61 @@ export function buildKillTimeline(samples: readonly TimelineScoreSample[]): { ga
     ? [{ gameSeconds: sample.gameSeconds as number, radiant: sample.radiant, dire: sample.dire }] : []);
 }
 
-const TIMER_IDS = ["power_rune", "bounty_rune", "wisdom_rune", "lotus", "tormentor", "day_night", "roshan"] as const;
+const TIMER_IDS = ["power_rune", "bounty_rune", "wisdom_rune", "lotus", "tormentor", "day_night", "roshan", "roshan_switch"] as const;
 export type TimerId = (typeof TIMER_IDS)[number];
-export interface ObjectiveTimerRow { id: TimerId; state: "countdown" | "ready" | "observed" | "unknown"; text: string; patchVersion: string | null }
+export interface ObjectiveTimerRow { id: TimerId; state: "countdown" | "ready" | "spawned" | "observed" | "unknown"; text: string; patchVersion: string | null }
 const UNKNOWN_TIMER = "— ไม่ทราบ";
 const TIMER_NAMES: Record<TimerId, ScheduleObjective | null> = {
   power_rune: "power_rune", bounty_rune: "bounty_rune", wisdom_rune: "wisdom_rune",
-  lotus: "lotus", tormentor: "tormentor", day_night: "day_night", roshan: null,
+  lotus: "lotus", tormentor: "tormentor", day_night: "day_night", roshan: null, roshan_switch: null,
 };
+
+export interface RoshanPitCycleRule {
+  patchVersion: string;
+  patchVerified: boolean;
+  cycleStartSeconds: number;
+  daySeconds: number;
+  nightSeconds: number;
+  dayPit: "radiant" | "dire";
+  nightPit: "radiant" | "dire";
+}
+
+export type RoshanSwitchCountdown =
+  | { state: "countdown"; secondsUntilSwitch: number; targetPit: "radiant" | "dire"; patchVersion: string }
+  | { state: "unknown"; secondsUntilSwitch: null; targetPit: null; patchVersion: null };
+
+const UNKNOWN_ROSHAN_SWITCH: RoshanSwitchCountdown = {
+  state: "unknown", secondsUntilSwitch: null, targetPit: null, patchVersion: null,
+};
+
+/** Derive a pit switch only from an explicit verified patch rule and matching fresh GSI day/night state. */
+export function deriveRoshanSwitchCountdown(
+  clockSeconds: number | null,
+  daytime: boolean | null,
+  rule: RoshanPitCycleRule | null,
+): RoshanSwitchCountdown {
+  if (!Number.isSafeInteger(clockSeconds) || clockSeconds === null || typeof daytime !== "boolean" || !rule
+    || rule.patchVerified !== true || typeof rule.patchVersion !== "string" || !rule.patchVersion.trim()
+    || !Number.isSafeInteger(rule.cycleStartSeconds)
+    || !Number.isSafeInteger(rule.daySeconds) || rule.daySeconds <= 0
+    || !Number.isSafeInteger(rule.nightSeconds) || rule.nightSeconds <= 0
+    || !["radiant", "dire"].includes(rule.dayPit) || !["radiant", "dire"].includes(rule.nightPit)
+    || rule.dayPit === rule.nightPit) return UNKNOWN_ROSHAN_SWITCH;
+
+  const cycleSeconds = rule.daySeconds + rule.nightSeconds;
+  if (!Number.isSafeInteger(cycleSeconds) || cycleSeconds <= 0) return UNKNOWN_ROSHAN_SWITCH;
+  const rawPhase = (clockSeconds - rule.cycleStartSeconds) % cycleSeconds;
+  const phaseSeconds = rawPhase < 0 ? rawPhase + cycleSeconds : rawPhase;
+  const isDay = phaseSeconds < rule.daySeconds;
+  if (isDay !== daytime) return UNKNOWN_ROSHAN_SWITCH;
+
+  return {
+    state: "countdown",
+    secondsUntilSwitch: isDay ? rule.daySeconds - phaseSeconds : cycleSeconds - phaseSeconds,
+    targetPit: isDay ? rule.nightPit : rule.dayPit,
+    patchVersion: rule.patchVersion,
+  };
+}
 
 export function deriveObjectiveTimerRows(
   schedule: ObjectiveSchedule | null,
@@ -124,6 +171,7 @@ export function deriveObjectiveTimerRows(
   mapFields: ObjectiveMapFields | null = null,
   sourceAvailability: ObjectiveAvailability = "unknown",
   locale: "th" | "en" = "th",
+  roshanPitRule: RoshanPitCycleRule | null = null,
 ): ObjectiveTimerRow[] {
   const unknownText = locale === "th" ? UNKNOWN_TIMER : "— Unknown";
   const fresh = sourceAvailability === "fresh" && schedule !== null && schedule.patch_version !== null && receivedAtMs !== null
@@ -154,6 +202,24 @@ export function deriveObjectiveTimerRows(
       const seconds = field.value % 60;
       return { id, state: "countdown", text: `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`, patchVersion: null };
     }
+    if (id === "roshan_switch") {
+      const clock = mapFields?.clock_time;
+      const daytime = mapFields?.daytime;
+      if (sourceAvailability !== "fresh" || !clock || clock.availability !== "fresh"
+        || !daytime || daytime.availability !== "fresh") {
+        return { id, state: "unknown", text: unknownText, patchVersion: null };
+      }
+      const countdown = deriveRoshanSwitchCountdown(clock.value, daytime.value, roshanPitRule);
+      if (countdown.state === "unknown") return { id, state: "unknown", text: unknownText, patchVersion: null };
+      const minutes = Math.floor(countdown.secondsUntilSwitch / 60);
+      const seconds = countdown.secondsUntilSwitch % 60;
+      const time = `${minutes}:${String(seconds).padStart(2, "0")}`;
+      return {
+        id, state: "countdown",
+        text: locale === "th" ? `ย้ายใน ${time}` : `Switch in ${time}`,
+        patchVersion: countdown.patchVersion,
+      };
+    }
     if (!fresh || !schedule) return { id, state: "unknown", text: unknownText, patchVersion: rulePatch(id) };
     const patchVersion = schedule.patch_version;
     if (patchVersion === null) return { id, state: "unknown", text: unknownText, patchVersion: null };
@@ -167,7 +233,7 @@ export function deriveObjectiveTimerRows(
     const sinceLastOccurrence = scheduled.last_occurrence_seconds === undefined || scheduled.last_occurrence_seconds === null
       ? null : clockSeconds - scheduled.last_occurrence_seconds;
     if (sinceLastOccurrence !== null && sinceLastOccurrence >= 0 && sinceLastOccurrence <= READY_WINDOW_SECONDS) {
-      return { id, state: "ready", text: "พร้อม", patchVersion };
+      return { id, state: "spawned", text: "", patchVersion };
     }
     const remaining = scheduled.occurrence_seconds - clockSeconds;
     if (remaining <= 0) return { id, state: "unknown", text: unknownText, patchVersion: null };

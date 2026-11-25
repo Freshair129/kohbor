@@ -12,6 +12,8 @@ import {
   type LiveMatchSample,
 } from "../src/live/pinnedPanelsModel.ts";
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
+import * as PinnedPanelsModelApi from "../src/live/pinnedPanelsModel.ts";
+// @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
 import { countdownLabel, parseObjectiveReadModel, parseObjectiveSchedule, RUNE_SPOT_PROVENANCE, RUNE_SPOTS, spotLabels } from "../src/live/objectiveCountdownModel.ts";
 
 const sample = (sequence: number, atMs: number, gameSeconds: number | null, hp: number | null,
@@ -85,22 +87,37 @@ test("objective timers use the accepted ALERT-008 patch, GSI observations, unkno
   assert.deepEqual(known.find(row => row.id === "lotus"), { id: "lotus", state: "unknown", text: "— ไม่ทราบ", patchVersion: null });
   assert.deepEqual(known.find(row => row.id === "day_night"), { id: "day_night", state: "observed", text: "กลางวัน · สลับ — ไม่ทราบ", patchVersion: null });
   assert.deepEqual(known.find(row => row.id === "roshan"), { id: "roshan", state: "countdown", text: "00:42", patchVersion: null });
+  assert.deepEqual(known.find(row => row.id === "roshan_switch"), { id: "roshan_switch", state: "unknown", text: "— ไม่ทราบ", patchVersion: null });
   const justSpawned = parseObjectiveSchedule({ ...schedule, observed_clock_seconds: 482, upcoming: [
     { objective: "power_rune", occurrence_seconds: 600, last_occurrence_seconds: 480, lead_s: [] },
   ] });
   assert.deepEqual(deriveObjectiveTimerRows(justSpawned, 1_000, 1_100, 482, mapFields, "fresh").find(row => row.id === "power_rune"),
-    { id: "power_rune", state: "ready", text: "พร้อม", patchVersion: "7.42" });
+    { id: "power_rune", state: "spawned", text: "", patchVersion: "7.42" });
   assert.deepEqual(deriveObjectiveTimerRows(schedule, 1_000, 7_000, 450, mapFields, "fresh").find(row => row.id === "power_rune"),
     { id: "power_rune", state: "unknown", text: "— ไม่ทราบ", patchVersion: "7.42" }, "stale schedules become unknown while retaining the rule patch label");
+  const fixturePitRule = {
+    patchVersion: "fixture-only", patchVerified: true, cycleStartSeconds: 0,
+    daySeconds: 300, nightSeconds: 300, dayPit: "radiant" as const, nightPit: "dire" as const,
+  };
+  const boundaryFields = { ...mapFields,
+    clock_time: { value: 299, availability: "fresh" as const },
+    daytime: { value: true, availability: "fresh" as const },
+  };
+  assert.deepEqual(deriveObjectiveTimerRows(schedule, 1_000, 1_100, 299, boundaryFields, "fresh", "th", fixturePitRule).find(row => row.id === "roshan_switch"),
+    { id: "roshan_switch", state: "countdown", text: "ย้ายใน 0:01", patchVersion: "fixture-only" });
+  const staleDaytimeFields = { ...boundaryFields, daytime: { value: null, availability: "stale" as const } };
+  assert.deepEqual(deriveObjectiveTimerRows(schedule, 1_000, 1_100, 299, staleDaytimeFields, "fresh", "th", fixturePitRule).find(row => row.id === "roshan_switch"),
+    { id: "roshan_switch", state: "unknown", text: "— ไม่ทราบ", patchVersion: null }, "stale GSI daytime never advances a switch timer");
   const unknown = deriveObjectiveTimerRows(schedule, 1_000, 1_100, 450, null, "fresh");
   assert.deepEqual(unknown.find(row => row.id === "day_night"), { id: "day_night", state: "unknown", text: "— ไม่ทราบ", patchVersion: null });
   assert.deepEqual(unknown.find(row => row.id === "roshan"), { id: "roshan", state: "unknown", text: "— ไม่ทราบ", patchVersion: null });
+  assert.deepEqual(unknown.find(row => row.id === "roshan_switch"), { id: "roshan_switch", state: "unknown", text: "— ไม่ทราบ", patchVersion: null });
   assert.ok(deriveObjectiveTimerRows(schedule, 1_000, 1_100, 450, mapFields, "stale").every(row => row.state === "unknown"));
   assert.deepEqual(countdownLabel({ objective: "power_rune", occurrence_seconds: 480, last_occurrence_seconds: 480, lead_s: [] }, 480),
-    { objective: "power_rune", text: "พร้อม", mode: "ready", remaining: 0, patch_version: null, fullChip: true });
-  assert.deepEqual(countdownLabel({ objective: "power_rune", occurrence_seconds: 480, last_occurrence_seconds: 480, lead_s: [] }, 483)?.mode, "ready");
+    { objective: "power_rune", text: null, mode: "spawned", remaining: 0, patch_version: null });
+  assert.deepEqual(countdownLabel({ objective: "power_rune", occurrence_seconds: 600, last_occurrence_seconds: 480, lead_s: [] }, 483)?.mode, "spawned");
   assert.equal(countdownLabel({ objective: "power_rune", occurrence_seconds: 480, last_occurrence_seconds: 480, lead_s: [] }, 484), null,
-    "ready is brief and does not use wall-clock extrapolation");
+    "the full-colour spawned pulse is brief and does not use wall-clock extrapolation");
 });
 
 test("map markers use replay-normalised coordinates with recorded patch/build provenance", () => {
@@ -150,6 +167,33 @@ test("Roshan pit remains unknown without an admitted pit field or verified rule"
   assert.equal(canShowRoshanDeathControl(null), false);
   assert.equal(canShowRoshanDeathControl({ minSeconds: 480, maxSeconds: 660, patchVerified: false }), false);
   assert.equal(canShowRoshanDeathControl({ minSeconds: 480, maxSeconds: 660, patchVerified: true }), true);
+});
+
+test("Roshan switch countdown follows an explicit day/night rule across the boundary and stays unknown without one", () => {
+  const api = PinnedPanelsModelApi as unknown as Record<string, unknown>;
+  const derive = api.deriveRoshanSwitchCountdown as (clockSeconds: number | null, daytime: boolean | null, rule: Record<string, unknown> | null) => unknown;
+  assert.equal(typeof derive, "function", "Roshan switch countdown logic is part of the pure model");
+  const fixtureRule = {
+    patchVersion: "fixture-only",
+    patchVerified: true,
+    cycleStartSeconds: 0,
+    daySeconds: 300,
+    nightSeconds: 300,
+    dayPit: "radiant",
+    nightPit: "dire",
+  };
+  assert.deepEqual(derive(299, true, fixtureRule), {
+    state: "countdown", secondsUntilSwitch: 1, targetPit: "dire", patchVersion: "fixture-only",
+  });
+  assert.deepEqual(derive(300, false, fixtureRule), {
+    state: "countdown", secondsUntilSwitch: 300, targetPit: "radiant", patchVersion: "fixture-only",
+  });
+  assert.deepEqual(derive(299, true, null), {
+    state: "unknown", secondsUntilSwitch: null, targetPit: null, patchVersion: null,
+  });
+  assert.deepEqual(derive(299, false, fixtureRule), {
+    state: "unknown", secondsUntilSwitch: null, targetPit: null, patchVersion: null,
+  }, "a GSI day/night state that contradicts the recorded cycle stays unknown");
 });
 
 test("agent orb reports real output level when supplied, playback activity when no meter exists, and respects reduced motion", () => {

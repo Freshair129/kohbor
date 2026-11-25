@@ -307,7 +307,7 @@ export function MinimapPanel({
       className={`live-map-canvas${presentation.dimmed || paused || userInvalidated ? " is-stale" : ""}`}
       aria-hidden="true"
     />
-    {stackedPinned && gamePhase === "live" && minimap.hasFrame && !stageOverride && mapOverlay
+    {stackedPinned && (gamePhase === "pregame" || gamePhase === "live") && minimap.hasFrame && !stageOverride && mapOverlay
       && <div className="sm-map-overlay" style={{ width: "100%", height: "100%" }}>{mapOverlay}</div>}
     {pinnedAlerts}
   </MinimapStage>;
