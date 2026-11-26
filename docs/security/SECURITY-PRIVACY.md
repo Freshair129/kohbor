@@ -2,8 +2,8 @@
 title: "Security and Privacy Specification"
 doc_id: "SECURITY-PRIVACY"
 status: "draft"
-version: "0.3.8"
-updated: "2026-11-23"
+version: "0.3.9"
+updated: "2026-11-25"
 owner: "Product Owner"
 approval_status: "not_approved"
 ---
@@ -14,7 +14,7 @@ approval_status: "not_approved"
 
 This document specifies target behavior, not a verified implementation. Naming and visual identity are implementation choices. Subscription tier, provider choice, account session and friendship cannot expand a data permission.
 
-“Local” means processing and storage on the player's computer. A remotely reachable inference server is not local merely because the same software also runs locally. A controlled loopback provider is permitted only after its endpoint, process ownership, resource accounting and permitted data have been specified. Voice processing must remain on-device; no remote endpoint or automatic cloud fallback is allowed.
+“Local” means processing and storage on the player's computer. A remotely reachable inference server is not local merely because the same software also runs locally. For the Analytics assistant only, DEC-AI-PROVIDERS permits a user-run Ollama or LiteLLM at a validated literal loopback endpoint. Kohbor never starts or manages that process, never sends Analytics questions during draft, pregame or live match phases, and shows a loopback label that says Kohbor cannot know whether that program forwards data. The same bounded Analytics projection and per-provider consent apply; other local features remain subject to their own resource and process-ownership gates. Voice processing must remain on-device; no automatic cloud fallback is allowed.
 
 ## Data route matrix
 
@@ -32,6 +32,9 @@ This document specifies target behavior, not a verified implementation. Naming a
 | Diagnostic paths, logs and performance samples | Local diagnostics | Forbidden | Forbidden | No automatic upload | Forbidden |
 | Static persona and fixed instructions with no player data | Local configuration | Permitted | Unnecessary | Unnecessary | Forbidden |
 | Own hero ID from admitted GSI and optional manually chosen bracket for public hero statistics | Native public statistics adapter | Separate advice projection above | Separate relay projection below | Forbidden | Permitted only with separate explicit consent |
+| Selected replay hero ID for OpenDota benchmarks; optional parameterless public hero list for ID mapping | Native benchmark adapter; percentile comparison stays local | Forbidden | Forbidden | Forbidden | Permitted only with separate benchmarks consent; benchmark request contains only the hero ID, while `/api/heroes` has no parameters |
+
+Analytics assistant content is a separate provider route governed by UI-022 and DEC-AI-PROVIDERS. Its recipients are the selected provider from the closed list or the user-validated custom endpoint. Consent is per provider and current origin; a provider switch in an existing match chat warns that earlier messages, including previous-provider replies, will be sent to the new recipient. Only derived selected-match context and hero names, enabled scrubber/hero fields, the explicit question, earlier same-match messages and included document text are sent. Player names, Steam/account IDs, raw match IDs and paths are excluded. API keys are DPAPI-protected per provider, bound to origin, and sent only in the authentication header; the ledger records provider id and cloud/loopback class, never prompt, key, URL path or match id. Untested providers remain hidden until owner-side live verification; synthetic evidence does not set verification. Local requests are blocked during draft, pregame and live phases.
 
 Public-profile enrichment is a separate optional integration. Its request fields, caching, visibility and authorization must be specified before implementation. It cannot become a back door for uploading gameplay, memory, voice or private social data.
 
@@ -157,6 +160,7 @@ Inspect actual outbound payloads and filesystem writes during success, failure, 
 
 | Version | Date | Change |
 |---|---|---|
+| 0.3.9 | 2026-11-25 | DEC-AI-PROVIDERS records per-provider consent and DPAPI keys, fixed/loopback/custom routes, no redirects, match-phase blocking and loopback disclosure. |
 | 0.3.8 | 2026-11-23 | DEC-OVERVIEW adds the Kohbor news route (UPDATE-005) and the local own-match history (MEM-006). |
 | 0.3.6 | 2026-11-20 | DEC-PICK-STATS adds a separate public hero statistics route, opt-in and cache erasure rules (STATS-001–003). |
 | 0.1.0 | 2026-11-10 | Initial neutral privacy and security target, with separate permissions, authority and unresolved operational decisions. |

@@ -1,8 +1,8 @@
 //! Own-snapshot read model, contracts/own-snapshot.schema.json 2.2.0.
 
 use crate::admission::{
-    AbilityObservation, Admitted, Field, ItemObservation, Outcome, OwnLoadout, Ownership, Phase,
-    Team,
+    AbilityObservation, Admitted, Field, ItemObservation, ObjectiveMapFields, Outcome, OwnLoadout,
+    Ownership, Phase, Team,
 };
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -44,6 +44,37 @@ fn field_json<T: Serialize>(f: &Field<T>, observed: Availability) -> Value {
         Field::Missing => json!({"value": null, "availability": Availability::Unknown}),
         Field::Invalid => json!({"value": null, "availability": Availability::Invalid}),
     }
+}
+
+/// Serialize objective GSI fields for a dedicated read model without changing
+/// the versioned general own-snapshot contract.
+pub fn objective_map_fields(fields: Option<&ObjectiveMapFields>, age_ms: Option<u64>) -> Value {
+    let observed = age_ms.map(age_availability).unwrap_or(Availability::Unknown);
+    let missing_clock = Field::<i64>::Missing;
+    let missing_bool = Field::<bool>::Missing;
+    let missing_state = Field::<String>::Missing;
+    let clock = fields
+        .map(|fields| &fields.clock_time)
+        .unwrap_or(&missing_clock);
+    let daytime = fields
+        .map(|fields| &fields.daytime)
+        .unwrap_or(&missing_bool);
+    let nightstalker_night = fields
+        .map(|fields| &fields.nightstalker_night)
+        .unwrap_or(&missing_bool);
+    let roshan_state = fields
+        .map(|fields| &fields.roshan_state)
+        .unwrap_or(&missing_state);
+    let roshan_respawn_seconds = fields
+        .map(|fields| &fields.roshan_respawn_seconds)
+        .unwrap_or(&missing_clock);
+    json!({
+        "clock_time": field_json(clock, observed),
+        "daytime": field_json(daytime, observed),
+        "nightstalker_night": field_json(nightstalker_night, observed),
+        "roshan_state": field_json(roshan_state, observed),
+        "roshan_respawn_seconds": field_json(roshan_respawn_seconds, observed),
+    })
 }
 
 fn scalar_value<T: Serialize>(field: &Field<T>) -> Value {
@@ -129,6 +160,7 @@ pub fn build(outcome: &Outcome, src: SourceState) -> Value {
 pub fn build_with_loadout(outcome: &Outcome, loadout: &OwnLoadout, src: SourceState) -> Value {
     let base = |availability: Availability,
                 own: Value,
+                map: Value,
                 epoch: Option<u64>,
                 seq: Option<u64>,
                 age: Option<u64>| {
@@ -137,25 +169,26 @@ pub fn build_with_loadout(outcome: &Outcome, loadout: &OwnLoadout, src: SourceSt
             "session_epoch": epoch,
             "availability": availability,
             "source": {"kind": "gsi", "generation": src.generation, "sequence": seq, "age_ms": age},
+            "map": map,
             "own": own,
         })
     };
     let admitted: &Admitted = match outcome {
         Outcome::Admitted(a) => a,
         Outcome::Unsupported(_) => {
-            return base(Availability::Unsupported, Value::Null, None, None, None)
+            return base(Availability::Unsupported, Value::Null, Value::Null, None, None, None)
         }
-        Outcome::Rejected(_) => return base(Availability::Invalid, Value::Null, None, None, None),
-        Outcome::NotPlaying => return base(Availability::Unknown, Value::Null, None, None, None),
+        Outcome::Rejected(_) => return base(Availability::Invalid, Value::Null, Value::Null, None, None, None),
+        Outcome::NotPlaying => return base(Availability::Unknown, Value::Null, Value::Null, None, None, None),
     };
     if admitted.ownership != Ownership::Verified {
-        return base(Availability::Invalid, Value::Null, None, None, None);
+        return base(Availability::Invalid, Value::Null, Value::Null, None, None, None);
     }
     let (Some(epoch), Some(seq), Some(age)) = (src.session_epoch, src.sequence, src.age_ms) else {
-        return base(Availability::Unknown, Value::Null, None, None, None);
+        return base(Availability::Unknown, Value::Null, Value::Null, None, None, None);
     };
     if !matches!(admitted.phase, Phase::Pregame | Phase::Live) {
-        return base(Availability::Unknown, Value::Null, Some(epoch), None, None);
+        return base(Availability::Unknown, Value::Null, Value::Null, Some(epoch), None, None);
     }
     let observed = age_availability(age);
     let h = &admitted.hero;
@@ -183,5 +216,41 @@ pub fn build_with_loadout(outcome: &Outcome, loadout: &OwnLoadout, src: SourceSt
             "abilities": abilities_json(&loadout.abilities, observed),
         }
     });
-    base(observed, own, Some(epoch), Some(seq), Some(age))
+    let map = json!({
+        "radiant_score": field_json(&admitted.map.radiant_score, observed),
+        "dire_score": field_json(&admitted.map.dire_score, observed),
+        "clock_time": field_json(&admitted.map.clock_time, observed),
+    });
+    base(observed, own, map, Some(epoch), Some(seq), Some(age))
+}
+
+#[cfg(test)]
+mod objective_field_tests {
+    use super::objective_map_fields;
+    use crate::admission::{Field, ObjectiveMapFields};
+    use serde_json::json;
+
+    fn fields() -> ObjectiveMapFields {
+        ObjectiveMapFields {
+            clock_time: Field::Value(90),
+            daytime: Field::Value(true),
+            nightstalker_night: Field::Missing,
+            roshan_state: Field::Value("alive".to_owned()),
+            roshan_respawn_seconds: Field::Value(42),
+        }
+    }
+
+    #[test]
+    fn objective_fields_preserve_values_and_freshness_without_changing_general_snapshot() {
+        let fresh = objective_map_fields(Some(&fields()), Some(500));
+        assert_eq!(fresh["clock_time"], json!({"value":90,"availability":"fresh"}));
+        assert_eq!(fresh["daytime"], json!({"value":true,"availability":"fresh"}));
+        assert_eq!(fresh["roshan_respawn_seconds"], json!({"value":42,"availability":"fresh"}));
+
+        let stale = objective_map_fields(Some(&fields()), Some(2_001));
+        assert_eq!(stale["daytime"]["availability"], "stale");
+        let unknown = objective_map_fields(None, None);
+        assert_eq!(unknown["daytime"], json!({"value":null,"availability":"unknown"}));
+        assert_eq!(unknown["roshan_state"], json!({"value":null,"availability":"unknown"}));
+    }
 }

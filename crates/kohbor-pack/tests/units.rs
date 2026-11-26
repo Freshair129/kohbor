@@ -39,20 +39,20 @@ fn real_catalog_matches_source() {
         .join("../../contracts/event-catalog.json");
     let doc: serde_json::Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
     let catalog = Catalog::from_json(&doc).unwrap();
-    assert_eq!(catalog.taxonomy, TaxonomyVersion { major: 1, minor: 1 });
+    assert_eq!(catalog.taxonomy, TaxonomyVersion { major: 1, minor: 3 });
     assert_eq!(
         catalog.event("multi_kill").unwrap().tier_range,
         Some((2, 5))
     );
     assert_eq!(catalog.event("streak").unwrap().tier_range, Some((3, 10)));
-    let active: Vec<_> = doc["events"]
+    let available_to_map: Vec<_> = doc["events"]
         .as_array()
         .unwrap()
         .iter()
-        .filter(|e| e["status"] == "active")
+        .filter(|e| matches!(e["status"].as_str(), Some("active" | "proposed_unavailable")))
         .collect();
-    assert_eq!(catalog.events.len(), active.len());
-    for e in active {
+    assert_eq!(catalog.events.len(), available_to_map.len());
+    for e in available_to_map {
         let item = catalog.event(e["id"].as_str().unwrap()).unwrap();
         assert_eq!(item.media_mappable, e["media_mappable"].as_bool().unwrap());
     }

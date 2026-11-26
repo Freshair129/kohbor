@@ -83,16 +83,28 @@
 .ov-hero-ph { display: inline-block; background: var(--raised); }
 
 /* Best heroes (Dota Plus style): two panels, three cards each. */
+/* Two panels side by side and "today" on its own row: three panels in one row left each card about
+   110 px wide and cut off win rate and KDA (owner screenshot, 88f4276). */
 .ov-best-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.ov-best-row > .ov-best-today { grid-column: 1 / -1; }
 .ov-best-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .ov-hcard-n { display: flex; align-items: center; gap: 6px; }
 .ov-hcard-n > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ov-hcard-stats { display: grid; gap: 1px; margin: 4px 0; }
 .ov-hcard-stats div { display: flex; flex-wrap: wrap; justify-content: space-between; column-gap: 6px; }
 .ov-hcard-stats dt { color: var(--muted); font-size: var(--fs-caption); white-space: nowrap; }
-.ov-hcard-stats dd { margin: 0; color: var(--text); font: var(--fs-caption) var(--font-mono); white-space: nowrap; }
+.ov-hcard-stats dd { min-width: 0; margin: 0; color: var(--text); font: var(--fs-caption) var(--font-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ov-hcard-m > span:first-child { white-space: nowrap; }
 .ov-basis { overflow: hidden; color: var(--muted); font-family: var(--font-ui); text-overflow: ellipsis; white-space: nowrap; }
+.ov-best-today { min-width: 0; }
+.ov-today-rule { margin: -4px 0 10px; white-space: normal; line-height: var(--lh-thai); }
+.ov-today-card { display: flex; align-items: center; gap: 12px; min-height: 94px; }
+.ov-today-img { width: 112px; height: 72px; flex: none; border-radius: 8px; object-fit: cover; background: var(--raised); }
+.ov-today-body { display: grid; gap: 3px; min-width: 0; color: var(--text-2); font-size: var(--fs-caption); }
+.ov-today-body strong { overflow: hidden; color: var(--text); font-size: var(--fs-detail); text-overflow: ellipsis; white-space: nowrap; }
+.ov-today-body span:last-child { color: var(--muted); }
+.ov-today-empty { display: flex; align-items: center; gap: 12px; min-height: 94px; color: var(--muted); }
+.ov-today-empty strong { font: 700 28px/1 var(--font-mono); }
 /* Placeholders are never data: desaturated, dashed and chipped. */
 .ov-hcard.placeholder { border-style: dashed; }
 .ov-hcard.placeholder .ov-hcard-img { filter: grayscale(1); opacity: 0.45; }
@@ -100,7 +112,14 @@
 .ov-ph-chip { flex: none; padding: 0 6px; border: 1px dashed var(--warning); border-radius: 6px; color: var(--warning); font-size: var(--fs-caption); line-height: 18px; }
 .ov-row-empty td { color: var(--muted); opacity: 0.45; }
 
-.ov-table-wrap { overflow-x: auto; }
+.ov-table-wrap { max-height: 300px; overflow: auto; overscroll-behavior: contain; }
+.ov-table-wrap:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ov-history-dialog { width: min(1100px, 92vw); max-width: none; max-height: 88vh; padding: 16px; overflow: hidden;
+  border: 1px solid var(--glass-stroke); border-radius: 14px; background: var(--panel, var(--bg)); color: var(--text); }
+.ov-history-dialog::backdrop { background: rgb(0 0 0 / 62%); }
+.ov-dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.ov-dialog-head h3 { margin: 0; font-size: var(--fs-title); }
+.ov-history-dialog-table { max-height: min(76vh, 760px); }
 .ov-mt { width: 100%; border-collapse: collapse; font-size: var(--fs-detail); }
 .ov-mt th { padding: 4px 8px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: var(--fs-caption); font-weight: 400; text-align: left; }
 .ov-mt td { padding: 5px 8px; border-bottom: 1px solid var(--line-subtle); white-space: nowrap; }
@@ -115,6 +134,17 @@
 .ov-src { display: inline-flex; align-items: center; padding: 0 7px; border: 1px solid var(--line-strong); border-radius: 999px;
   background: var(--accent-surface); color: var(--text); font-size: var(--fs-caption); line-height: 18px; white-space: nowrap; }
 .ov-clear { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
+.ov-nemesis-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.ov-nemesis-list li { display: grid; grid-template-columns: 42px minmax(100px, 0.75fr) minmax(0, 1fr); align-items: center; gap: 10px;
+  padding: 5px 0; border-bottom: 1px solid var(--line-subtle); }
+.ov-nemesis-img { display: block; width: 42px; height: 24px; border-radius: 4px; object-fit: cover; background: var(--raised); }
+.ov-nemesis-name { overflow: hidden; font-size: var(--fs-detail); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.ov-nemesis-count { color: var(--text-2); font: var(--fs-caption) var(--font-mono); text-align: right; }
+.ov-nemesis-styles { display: grid; gap: 5px; margin-top: 12px; }
+.ov-nemesis-styles p { display: grid; gap: 2px; margin: 0; color: var(--muted); font-size: var(--fs-caption); }
+.ov-nemesis-styles strong { color: var(--text-2); font-weight: 500; }
+.ov-nemesis-low { margin-top: 10px; }
 
 .ov-filters { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; border: 1px solid var(--gv-well-stroke); border-radius: var(--gv-r-control); background: var(--gv-well-bar); }
 .ov-filters button { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 10px; border-color: transparent; border-radius: 8px;
@@ -141,7 +171,6 @@
   .ov-page { grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr); }
   .ov-heroes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .ov-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .ov-best-row { grid-template-columns: minmax(0, 1fr); }
   .ov-heroes .ov-hcard:nth-child(n + 4) { display: none; }
   .ov-val { font-size: 26px; }
   .ov-mt .opt { display: none; }
@@ -149,4 +178,5 @@
 @media (max-width: 1100px) {
   .ov-page { grid-template-columns: minmax(0, 1fr); }
   .ov-tiles { grid-template-columns: minmax(0, 1fr); }
+  .ov-best-row { grid-template-columns: minmax(0, 1fr); }
 }

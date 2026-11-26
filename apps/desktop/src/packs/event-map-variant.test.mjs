@@ -42,3 +42,15 @@ test("event-map variant parser still validates the rest of each payload", () => 
     assert.equal(parseEventMapVariant({ ...variant, ...fields }, "1.1.0"), null);
   }
 });
+
+test("event-map 1.3.0 exposes validated hero-only binding conditions", () => {
+  const row = {
+    ...variant, install_id: "ins_0000000001", package_id: "voice.sniper", equipped_slot: 0,
+    state: "ready", reason: "NONE", hero: "npc_dota_hero_sniper",
+  };
+  assert.deepEqual(parseEventMapVariant(row, "1.3.0"), row);
+  assert.equal(parseEventMapVariant(row, "1.2.0"), null);
+  for (const hero of ["sniper", "npc_dota_hero_", "npc_dota_hero_Sniper", null]) {
+    assert.equal(parseEventMapVariant({ ...variant, hero }, "1.3.0"), null);
+  }
+});

@@ -13,13 +13,13 @@ flowchart TB
   Core --> Act["Explicit local action"]
 
   Nav --> Match["Overview / Live"]
-  Nav --> Tools["Voice Packs / Insights / Settings"]
+  Nav --> Tools["Voice Packs / Analytics / Settings"]
   Nav --> Optional["Account / Store"]
   Nav --> Live["Live page: field and 10-slot draft strip in supported phases"]
   Nav --> Pick["Draft suggestions before own pick; pick card after own pick"]
   Core --> Orb["Separate edge orb: guarded status and per-app mixer"]
   Match --> Read["Admitted match view"]
-  Tools --> Manage["Packs, history and settings"]
+  Tools --> Manage["Packs, Analytics and settings"]
   Optional --> Service{"Requested service available?"}
   Service -->|Yes| Access["Authorized service action"]
   Service -->|No| Deferred["Unavailable or deferred"]
@@ -30,6 +30,18 @@ flowchart TB
 
   Read --> Truth["Show fresh, stale or unknown"]
   Overlay --> Truth
+  Tools --> Analytics["Analytics: three-column replay workspace"]
+  Analytics --> Documents["Left: read-only system note and AI Markdown tabs"]
+  Analytics --> Map["Centre: replay map, hero cards and playback"]
+  Analytics --> ChatPanel["Right: optional AI chat"]
+  ChatPanel --> AiGate{"Key, consent and AI on?"}
+  AiGate -->|No| Template["No-AI state and local coach templates"]
+  AiGate -->|Yes| Submit{"User submits a question?"}
+  Submit -->|Yes| Consent["Show first-use outbound disclosure"]
+  Submit -->|No| ChatPanel
+  Consent --> Request["Send selected context and same-match chat history with each question"]
+  Request --> Anthropic["Anthropic Claude API"]
+  Anthropic --> ChatPanel
   Deferred --> Nav
   Explain --> Nav
 

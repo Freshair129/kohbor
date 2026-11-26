@@ -6,18 +6,18 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
-use kohbor_audio::pcm::{decode_wav, Pcm};
+use kohbor_audio::pcm::{Pcm, decode_wav};
 use kohbor_events::{Event, EventId};
 use kohbor_pack::catalog::Catalog;
 use kohbor_pack::descriptor::Selection;
 use kohbor_pack::error::RejectReason;
 use kohbor_pack::media::inspect_wav;
-use kohbor_pack::store::{Hook, ResolveError, ResolvedVariant, Store};
+use kohbor_pack::store::{Hook, ResolveError, ResolvedBinding, ResolvedVariant, Store};
 use sha2::{Digest, Sha256};
 
 use crate::audio::resolve::{
-    Clip, Entry, PrewarmTable, SelectedClip, VariantMedia, VariantSelection, VariantSet,
-    PREWARM_CAP_REASON,
+    Clip, Entry, PREWARM_CAP_REASON, PrewarmTable, SelectedClip, VariantMedia, VariantSelection,
+    VariantSet,
 };
 
 /// Verified visual file metadata captured alongside the audio table.
@@ -32,8 +32,10 @@ pub struct VisualEntry {
 /// Renderer-visible files from the one revision represented by the table.
 #[derive(Debug, Clone, Default)]
 pub struct VisualIndex {
+    /// Legacy primary ID retained for the first-generation preview path.
     pub install_id: Option<Arc<str>>,
-    pub entries: HashMap<String, VisualEntry>,
+    pub install_ids: Vec<Arc<str>>,
+    pub entries: HashMap<(String, String), VisualEntry>,
     /// Exact verified routes published for drawer previews of non-active packs.
     pub preview_entries: HashMap<String, VisualEntry>,
     /// One verified card cover per installed revision, separate from playback.
@@ -46,7 +48,7 @@ pub fn new_visual_index_handle() -> VisualIndexHandle {
     Arc::new(Mutex::new(Arc::new(VisualIndex::default())))
 }
 
-const MAX_PREWARMED_SAMPLES: u64 = 40_000_000;
+pub const MAX_PREWARMED_SAMPLES: u64 = 40_000_000;
 const AUDIO_SAMPLE_RATE: u64 = 48_000;
 
 /// Return every voiced host event's tier-less key and catalog-defined tiers.
@@ -111,156 +113,482 @@ pub fn cabinet_key_space(catalog: &Catalog) -> Vec<(EventId, Option<u8>)> {
 /// The cap bounds retained samples across unique audio paths. Even at 15 seconds
 /// each, the 23 current event/tier keys need less than 17 million samples for
 /// their first variants. File I/O and decoding stay off the audio engine.
+#[derive(Debug)]
+struct PlannedVariant {
+    resolved: ResolvedVariant,
+    source: crate::audio::resolve::VariantSource,
+    hero: Option<String>,
+    authored_selection: Option<VariantSelection>,
+    ordinal: usize,
+    loaded: Option<Result<Clip, &'static str>>,
+}
+
+#[derive(Debug)]
+struct PlannedEntry {
+    id: EventId,
+    tier: Option<u8>,
+    critical: bool,
+    selection: Option<VariantSelection>,
+    variants: Vec<PlannedVariant>,
+}
+
+fn detector_event(id: &str) -> Option<EventId> {
+    crate::media::inventory::ALL_EVENTS
+        .iter()
+        .copied()
+        .find(|event| event.as_str() == id)
+}
+
+fn selection_mode(selection: Option<Selection>) -> Option<VariantSelection> {
+    selection.map(|selection| match selection {
+        Selection::Random => VariantSelection::Random,
+        Selection::Shuffle => VariantSelection::Shuffle,
+        Selection::Sequence => VariantSelection::Sequence,
+    })
+}
+
+/// Merge every equipped pack into one bounded, immutable table. Descriptor
+/// verification, file reads, SHA-256 deduplication and decoding all run here,
+/// before the engine receives the replacement table.
 pub fn build_table<H: Hook>(
     store: &Store<H>,
     catalog: &Catalog,
     pause: &mut dyn FnMut(),
 ) -> (Arc<PrewarmTable>, VisualIndex) {
-    let Some(active) = store.active() else {
-        return (PrewarmTable::empty(), VisualIndex::default());
-    };
+    let started = std::time::Instant::now();
+    let loadout = store.loadout();
+    if loadout.equipped.is_empty() {
+        let table = PrewarmTable::new_loadout(
+            loadout.generation,
+            Vec::new(),
+            loadout.match_consistency,
+            Vec::new(),
+        );
+        return (Arc::new(table), VisualIndex::default());
+    }
 
-    let install_id: Arc<str> = Arc::from(active.install_id.as_str());
-    let fence = install_number(&active.install_id);
-    let revision_root = store.root().join("revisions").join(&active.install_id);
+    let equipped_ids: Vec<Arc<str>> = loadout
+        .equipped
+        .iter()
+        .map(|pack| Arc::from(pack.install_id.as_str()))
+        .collect();
     let mut visual_index = VisualIndex {
-        install_id: Some(install_id.clone()),
+        install_id: equipped_ids.first().cloned(),
+        install_ids: equipped_ids.clone(),
         entries: HashMap::new(),
         preview_entries: HashMap::new(),
         covers: Default::default(),
     };
+
+    // Resolve each descriptor once. A revision that cannot be reverified is
+    // excluded as a whole; the table keeps the remaining equipped slots ordered.
+    let mut bindings_by_slot: Vec<Vec<ResolvedBinding>> =
+        Vec::with_capacity(loadout.equipped.len());
+    for pack in &loadout.equipped {
+        pause();
+        match store.resolve_installed_bindings(&pack.install_id) {
+            Ok(bindings) => bindings_by_slot.push(bindings),
+            Err(error) => {
+                crate::log_info!(
+                    "audio",
+                    "loadout_pack_unavailable",
+                    "an equipped announcer pack failed verification",
+                    install_id = &pack.install_id,
+                    reason = format!("{error:?}"),
+                );
+                bindings_by_slot.push(Vec::new());
+            }
+        }
+    }
+
+    let mut plans = Vec::<PlannedEntry>::new();
     let mut keys = key_space(catalog);
-    keys.sort_by_key(|(id, _)| !id.is_critical());
-    let mut entries = Vec::with_capacity(keys.len());
-    let mut deferred = Vec::new();
-    let mut remaining_samples = MAX_PREWARMED_SAMPLES;
-    let mut pcm_by_path: HashMap<PathBuf, Pcm> = HashMap::new();
-    let mut load_variant = |id: EventId, tier: Option<u8>, variant: ResolvedVariant| {
-        let weight = variant
-            .media
-            .as_ref()
-            .ok()
-            .and_then(|media| media.weight)
-            .unwrap_or(1);
-        let media = variant
-            .media
-            .map_err(|reason| reason.as_str())
-            .and_then(|media| {
-                if media.install_id != active.install_id {
-                    return Err(RejectReason::UnknownInstall.as_str());
-                }
-                let visual = media
-                    .silent_visual
-                    .as_deref()
-                    .map(|path| {
-                        visual_entry(&revision_root, path, "video/webm")
-                            .ok_or(RejectReason::VisualInvalid.as_str())
-                    })
-                    .transpose()?;
-                let pcm = if let Some(pcm) = pcm_by_path.get(&media.mixed_audio) {
-                    pcm.clone()
-                } else {
-                    let audio_bytes = fs::read(&media.mixed_audio)
-                        .map_err(|_| RejectReason::SourceUnavailable.as_str())?;
-                    let samples = inspect_wav(&audio_bytes, RejectReason::MixedAudioInvalid)
-                        .map_err(|reason| reason.as_str())?
-                        .samples;
-                    if samples > remaining_samples {
-                        return Err(PREWARM_CAP_REASON);
-                    }
-                    let pcm = decode_wav(&audio_bytes)
-                        .filter(|pcm| u64::try_from(pcm.len()).ok() == Some(samples))
-                        .ok_or(RejectReason::MixedAudioInvalid.as_str())?;
-                    remaining_samples -= samples;
-                    pcm_by_path.insert(media.mixed_audio, pcm.clone());
-                    pcm
-                };
-                let visual_url = visual.map(|(token, visual)| {
-                    let url = Arc::<str>::from(format!(
-                        "kohbor-media://localhost/v1/{}/{token}",
-                        active.install_id
-                    ));
-                    visual_index.entries.insert(token, visual);
-                    url
-                });
-                Ok(Clip {
-                    audio_ms: audio_duration_ms(u64::try_from(pcm.len()).unwrap_or(u64::MAX)),
-                    pcm,
-                    bound_tier: tier,
-                    visual_tail_ms: media.visual_tail_ms,
-                    visual_url,
+    keys.sort_by_key(|(id, tier)| (id.as_str(), tier.unwrap_or(0)));
+    for (id, tier) in keys {
+        pause();
+        let locked_package = loadout.event_locks.get(id.as_str());
+        let locked_slot = locked_package.and_then(|package_id| {
+            loadout
+                .equipped
+                .iter()
+                .position(|pack| &pack.package_id == package_id)
+                .filter(|slot| {
+                    bindings_by_slot
+                        .get(*slot)
+                        .into_iter()
+                        .flatten()
+                        .filter(|binding| binding.event_id == id.as_str())
+                        .any(|binding| binding.variants.iter().any(|variant| variant.media.is_ok()))
                 })
+        });
+        let candidate_slots: Vec<usize> = if let Some(slot) = locked_slot {
+            vec![slot]
+        } else {
+            (0..loadout.equipped.len()).collect()
+        };
+
+        // A tier-less binding cannot be selected if an equipped pack binds the
+        // event's minimum declared tier; do not spend PCM budget on it.
+        if tier.is_none() {
+            let impossible_tierless = catalog
+                .event(id.as_str())
+                .and_then(|event| event.tier_range)
+                .is_some_and(|(minimum, _)| {
+                    candidate_slots.iter().any(|slot| {
+                        bindings_by_slot
+                            .get(*slot)
+                            .into_iter()
+                            .flatten()
+                            .any(|binding| {
+                                binding.event_id == id.as_str() && binding.tier == Some(minimum)
+                            })
+                    })
+                });
+            if impossible_tierless {
+                continue;
+            }
+        }
+
+        let mut source_bindings = Vec::new();
+        for slot in candidate_slots {
+            let Some(pack) = loadout.equipped.get(slot) else {
+                continue;
+            };
+            let matching = bindings_by_slot
+                .get(slot)
+                .into_iter()
+                .flatten()
+                .filter(|binding| {
+                    binding.event_id == id.as_str()
+                        && binding.tier.and_then(|value| u8::try_from(value).ok()) == tier
+                });
+            for binding in matching {
+                source_bindings.push((slot, pack, binding));
+            }
+        }
+        if source_bindings.is_empty() {
+            continue;
+        }
+
+        let critical = catalog
+            .event(id.as_str())
+            .is_some_and(|event| event.critical_media_required);
+        if critical {
+            let chosen = source_bindings
+                .iter()
+                .find(|(_, _, binding)| {
+                    binding.variants.iter().any(|variant| variant.media.is_ok())
+                })
+                .or_else(|| source_bindings.first());
+            let Some((slot, pack, binding)) = chosen else {
+                continue;
+            };
+            let selected = binding
+                .variants
+                .iter()
+                .position(|variant| variant.media.is_ok())
+                .unwrap_or(0);
+            let variant = binding.variants.get(selected).cloned();
+            let Some(variant) = variant else { continue };
+            let mode = selection_mode(binding.selection);
+            plans.push(PlannedEntry {
+                id,
+                tier,
+                critical: true,
+                selection: mode,
+                variants: vec![PlannedVariant {
+                    resolved: variant,
+                    source: crate::audio::resolve::VariantSource {
+                        slot: u8::try_from(*slot).unwrap_or(u8::MAX),
+                        install_id: Arc::from(pack.install_id.as_str()),
+                        package_id: Arc::from(pack.package_id.as_str()),
+                    },
+                    hero: binding.hero.clone(),
+                    authored_selection: mode,
+                    ordinal: selected,
+                    loaded: None,
+                }],
             });
-        if matches!(media, Err(PREWARM_CAP_REASON)) {
+            continue;
+        }
+
+        let mixed = source_bindings.len() > 1;
+        let selection = if mixed {
+            Some(VariantSelection::Shuffle)
+        } else {
+            source_bindings
+                .first()
+                .and_then(|(_, _, binding)| selection_mode(binding.selection))
+        };
+        let mut variants = Vec::new();
+        for (slot, pack, binding) in source_bindings {
+            let authored_selection = selection_mode(binding.selection);
+            for (ordinal, resolved) in binding.variants.iter().cloned().enumerate() {
+                variants.push(PlannedVariant {
+                    resolved,
+                    source: crate::audio::resolve::VariantSource {
+                        slot: u8::try_from(slot).unwrap_or(u8::MAX),
+                        install_id: Arc::from(pack.install_id.as_str()),
+                        package_id: Arc::from(pack.package_id.as_str()),
+                    },
+                    hero: binding.hero.clone(),
+                    authored_selection,
+                    ordinal,
+                    loaded: None,
+                });
+            }
+        }
+        plans.push(PlannedEntry {
+            id,
+            tier,
+            critical,
+            selection,
+            variants,
+        });
+    }
+
+    // Build deterministic R0-R3 priority rounds. Duplicates are removed so
+    // every payload is considered once, even when it is shared by two packs.
+    let mut schedule = Vec::<(usize, usize)>::new();
+    let mut scheduled = std::collections::HashSet::<(usize, usize)>::new();
+    let mut push_schedule = |entry: usize, variant: usize| {
+        if scheduled.insert((entry, variant)) {
+            schedule.push((entry, variant));
+        }
+    };
+    for (entry_index, entry) in plans.iter().enumerate().filter(|(_, entry)| entry.critical) {
+        if !entry.variants.is_empty() {
+            push_schedule(entry_index, 0);
+        }
+    }
+    for entry_index in 0..plans.len() {
+        if plans[entry_index].critical {
+            continue;
+        }
+        let Some(first_slot) = plans[entry_index]
+            .variants
+            .iter()
+            .map(|variant| variant.source.slot)
+            .min()
+        else {
+            continue;
+        };
+        if let Some(first) = plans[entry_index]
+            .variants
+            .iter()
+            .position(|variant| variant.source.slot == first_slot)
+        {
+            push_schedule(entry_index, first);
+        }
+    }
+    for slot in 0..loadout.equipped.len() {
+        for entry_index in 0..plans.len() {
+            if plans[entry_index].critical {
+                continue;
+            }
+            let Some(first) = plans[entry_index]
+                .variants
+                .iter()
+                .position(|variant| usize::from(variant.source.slot) == slot)
+            else {
+                continue;
+            };
+            if plans[entry_index]
+                .variants
+                .get(first)
+                .is_some_and(|variant| {
+                    variant.source.slot
+                        != plans[entry_index]
+                            .variants
+                            .first()
+                            .map_or(variant.source.slot, |first| first.source.slot)
+                })
+            {
+                push_schedule(entry_index, first);
+            }
+        }
+    }
+    for ordinal in 1..16 {
+        for entry_index in 0..plans.len() {
+            if plans[entry_index].critical {
+                continue;
+            }
+            for slot in 0..loadout.equipped.len() {
+                if let Some(index) = plans[entry_index].variants.iter().position(|variant| {
+                    usize::from(variant.source.slot) == slot && variant.ordinal == ordinal
+                }) {
+                    push_schedule(entry_index, index);
+                }
+            }
+        }
+    }
+    drop(push_schedule);
+
+    let mut pcm_by_digest: HashMap<[u8; 32], Pcm> = HashMap::new();
+    let mut remaining_samples = MAX_PREWARMED_SAMPLES;
+    let mut used_samples = 0u64;
+    let mut skipped_variants = 0usize;
+    for (entry_index, variant_index) in schedule {
+        pause();
+        let Some(entry) = plans.get_mut(entry_index) else {
+            continue;
+        };
+        let Some(variant) = entry.variants.get_mut(variant_index) else {
+            continue;
+        };
+        let result = load_planned_variant(
+            &store
+                .root()
+                .join("revisions")
+                .join(variant.source.install_id.as_ref()),
+            entry.id,
+            entry.tier,
+            variant,
+            &mut remaining_samples,
+            &mut used_samples,
+            &mut pcm_by_digest,
+            &mut visual_index,
+        );
+        if result.as_ref().err().copied() == Some(PREWARM_CAP_REASON) {
+            skipped_variants = skipped_variants.saturating_add(1);
+        }
+        variant.loaded = Some(result);
+    }
+
+    let entries = plans
+        .into_iter()
+        .map(|plan| {
+            let variants: Vec<VariantMedia> = plan
+                .variants
+                .into_iter()
+                .map(|variant| VariantMedia {
+                    variant_id: variant.resolved.variant_id,
+                    clip_id: variant.resolved.clip_id,
+                    caption: variant.resolved.caption,
+                    hero: variant.hero,
+                    weight: variant
+                        .resolved
+                        .media
+                        .as_ref()
+                        .ok()
+                        .and_then(|media| media.weight)
+                        .unwrap_or(1),
+                    source: Some(variant.source),
+                    authored_selection: variant.authored_selection,
+                    media: variant
+                        .loaded
+                        .unwrap_or_else(|| match variant.resolved.media {
+                            Ok(_) => Err("prewarm_not_scheduled"),
+                            Err(reason) => Err(reason.as_str()),
+                        }),
+                })
+                .collect();
+            let entry = if variants.iter().any(|variant| variant.media.is_ok()) {
+                Entry::Variants(VariantSet {
+                    selection: plan.selection,
+                    variants,
+                })
+            } else {
+                Entry::Variants(VariantSet {
+                    selection: plan.selection,
+                    variants,
+                })
+            };
+            (plan.id, plan.tier, entry)
+        })
+        .collect();
+
+    let mut table = PrewarmTable::new_loadout(
+        loadout.generation,
+        equipped_ids,
+        loadout.match_consistency,
+        entries,
+    );
+    table.used_samples = used_samples;
+    table.skipped_variants = skipped_variants;
+    crate::log_info!(
+        "audio",
+        "loadout_prewarm_finished",
+        "merged announcer loadout prewarm finished",
+        used_samples = used_samples,
+        cap_samples = MAX_PREWARMED_SAMPLES,
+        skipped_variants = skipped_variants,
+        duration_ms = started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64,
+    );
+    (Arc::new(table), visual_index)
+}
+
+fn load_planned_variant(
+    revision_root: &Path,
+    event_id: EventId,
+    tier: Option<u8>,
+    variant: &PlannedVariant,
+    remaining_samples: &mut u64,
+    used_samples: &mut u64,
+    pcm_by_digest: &mut HashMap<[u8; 32], Pcm>,
+    visual_index: &mut VisualIndex,
+) -> Result<Clip, &'static str> {
+    let media = variant
+        .resolved
+        .media
+        .as_ref()
+        .map_err(|reason| reason.as_str())?;
+    if media.install_id != variant.source.install_id.as_ref() {
+        return Err(RejectReason::UnknownInstall.as_str());
+    }
+    let visual = media
+        .silent_visual
+        .as_deref()
+        .map(|path| {
+            visual_entry(revision_root, path, "video/webm")
+                .ok_or(RejectReason::VisualInvalid.as_str())
+        })
+        .transpose()?;
+    let audio_bytes =
+        fs::read(&media.mixed_audio).map_err(|_| RejectReason::SourceUnavailable.as_str())?;
+    let digest: [u8; 32] = Sha256::digest(&audio_bytes).into();
+    let pcm = if let Some(pcm) = pcm_by_digest.get(&digest) {
+        pcm.clone()
+    } else {
+        let samples = inspect_wav(&audio_bytes, RejectReason::MixedAudioInvalid)
+            .map_err(|reason| reason.as_str())?
+            .samples;
+        if samples > *remaining_samples {
             crate::log_info!(
                 "audio",
                 "clip_variant_skipped",
                 "announcer variant exceeds the prewarm budget",
-                event_id = id.as_str(),
+                event_id = event_id.as_str(),
                 tier = tier,
-                variant_id = &variant.variant_id,
+                variant_id = &variant.resolved.variant_id,
                 reason = PREWARM_CAP_REASON,
             );
+            return Err(PREWARM_CAP_REASON);
         }
-        VariantMedia {
-            variant_id: variant.variant_id,
-            clip_id: variant.clip_id,
-            weight,
-            media,
-        }
+        let pcm = decode_wav(&audio_bytes)
+            .filter(|pcm| u64::try_from(pcm.len()).ok() == Some(samples))
+            .ok_or(RejectReason::MixedAudioInvalid.as_str())?;
+        *remaining_samples -= samples;
+        *used_samples = (*used_samples).saturating_add(samples);
+        pcm_by_digest.insert(digest, pcm.clone());
+        pcm
     };
-
-    for (id, tier) in keys {
-        pause();
-        let resolved = match store.resolve_variants(id.as_str(), tier.map(u32::from)) {
-            Ok(variants) | Err(ResolveError::NoVerifiedVariants(variants)) => variants,
-            Err(ResolveError::Invalid(_)) => {
-                entries.push((id, tier, Entry::Invalid));
-                continue;
-            }
-            Err(ResolveError::Unmapped | ResolveError::Inert) => continue,
-        };
-        let selection = resolved
-            .iter()
-            .find_map(|variant| variant.media.as_ref().ok())
-            .and_then(|media| media.selection)
-            .map(|selection| match selection {
-                Selection::Random => VariantSelection::Random,
-                Selection::Shuffle => VariantSelection::Shuffle,
-                Selection::Sequence => VariantSelection::Sequence,
-            });
-        let mut variants = Vec::with_capacity(resolved.len());
-        let mut resolved = resolved.into_iter();
-        if let Some(first) = resolved.next() {
-            pause();
-            variants.push(load_variant(id, tier, first));
-        }
-        if resolved.len() > 0 {
-            deferred.push((entries.len(), resolved));
-        }
-        entries.push((
-            id,
-            tier,
-            Entry::Variants(VariantSet {
-                selection,
-                variants,
-            }),
-        ));
-    }
-
-    for (index, variants) in deferred {
-        if let Some((id, tier, Entry::Variants(binding))) = entries.get_mut(index) {
-            for variant in variants {
-                pause();
-                binding.variants.push(load_variant(*id, *tier, variant));
-            }
-        }
-    }
-
-    (
-        Arc::new(PrewarmTable::new(fence, Some(install_id), entries)),
-        visual_index,
-    )
+    let visual_url = visual.map(|(token, entry)| {
+        visual_index
+            .entries
+            .insert((media.install_id.clone(), token.clone()), entry);
+        Arc::<str>::from(format!(
+            "kohbor-media://localhost/v1/{}/{token}",
+            media.install_id
+        ))
+    });
+    Ok(Clip {
+        audio_ms: audio_duration_ms(u64::try_from(pcm.len()).unwrap_or(u64::MAX)),
+        pcm,
+        bound_tier: tier,
+        visual_tail_ms: media.visual_tail_ms,
+        visual_url,
+    })
 }
 
 pub struct PreviewVariant {
@@ -338,6 +666,8 @@ pub fn build_preview_variant<H: Hook>(
         variant_id: media.variant_id,
         clip_id: media.clip_id,
         selection,
+        source: None,
+        match_consistency: false,
         media: clip,
     };
     Ok(PreviewVariant {
@@ -402,8 +732,8 @@ pub(crate) mod test_support {
     use kohbor_pack::store::{
         ActivationPolicy, ActivationState, InstallRequest, InstallResult, Store,
     };
-    use kohbor_pack_author::{build_package, BuildOptions};
-    use serde_json::{json, Value};
+    use kohbor_pack_author::{BuildOptions, build_package};
+    use serde_json::{Value, json};
 
     static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
 
@@ -466,7 +796,16 @@ pub(crate) mod test_support {
     }
 
     pub fn package(temp: &TempDir, package_id: &str, bindings: &[BindingSpec]) -> Package {
-        package_with_options(temp, package_id, bindings, None, None, None)
+        package_with_options(temp, package_id, bindings, None, None, None, None)
+    }
+
+    pub fn package_with_hero(
+        temp: &TempDir,
+        package_id: &str,
+        binding: BindingSpec,
+        hero: &str,
+    ) -> Package {
+        package_with_options(temp, package_id, &[binding], None, None, None, Some(hero))
     }
 
     pub fn package_with_caption(
@@ -475,7 +814,7 @@ pub(crate) mod test_support {
         binding: BindingSpec,
         caption: &str,
     ) -> Package {
-        package_with_options(temp, package_id, &[binding], None, None, Some(caption))
+        package_with_options(temp, package_id, &[binding], None, None, Some(caption), None)
     }
 
     pub fn package_with_cover(
@@ -496,6 +835,7 @@ pub(crate) mod test_support {
             }),
             Some(cover_bytes.to_vec()),
             None,
+            None,
         )
     }
 
@@ -506,6 +846,7 @@ pub(crate) mod test_support {
         presentation: Option<kohbor_pack_author::PresentationOptions>,
         cover_bytes: Option<Vec<u8>>,
         caption: Option<&str>,
+        hero: Option<&str>,
     ) -> Package {
         let clips = temp.path().join("clips");
         fs::create_dir_all(&clips).expect("create generated input clip directory");
@@ -525,6 +866,9 @@ pub(crate) mod test_support {
             if let Some(tier) = binding.tier {
                 row["tier"] = json!(tier);
             }
+            if let Some(hero) = hero {
+                row["hero"] = json!(hero);
+            }
             if binding.visual {
                 let visual_name = format!("visual-{index}.webm");
                 fs::write(clips.join(&visual_name), webm())
@@ -537,7 +881,10 @@ pub(crate) mod test_support {
                 if let Some(tier) = binding.tier {
                     fields["tier"] = json!(tier);
                 }
-                for key in ["event_id", "tier"] {
+                if let Some(hero) = hero {
+                    fields["hero"] = json!(hero);
+                }
+                for key in ["event_id", "tier", "hero"] {
                     variant.as_object_mut().unwrap().remove(key);
                 }
                 variant["variant_id"] = json!("v1");
@@ -686,19 +1033,22 @@ mod tests {
 
     use kohbor_audio::CriticalMedia;
     use kohbor_events::EventId;
-    use kohbor_pack::error::RejectReason;
-    use kohbor_pack::store::{ResolveError, Store};
     use kohbor_pack::Limits;
+    use kohbor_pack::error::RejectReason;
+    use kohbor_pack::store::{
+        ActivationPolicy, ActivationState, LoadoutDesired, ResolveError, Store,
+    };
     use serde_json::Value;
     use sha2::{Digest, Sha256};
 
     use super::test_support::{
-        activate, catalog, install, package, pcm_wav, BindingSpec, Package, TempDir,
+        BindingSpec, Package, TempDir, activate, catalog, install, package, package_with_hero,
+        pcm_wav,
     };
     use super::{build_table, cabinet_key_space, key_space, new_visual_index_handle};
     use crate::audio::lanes::EngineShared;
     use crate::audio::resolve::{BindingLookup, Lookup};
-    use crate::media::inventory::{facts_from_table, media_status, ALL_EVENTS};
+    use crate::media::inventory::{ALL_EVENTS, facts_from_table, media_status};
     use crate::media::selection::VariantSelector;
 
     fn open_store(root: &TempDir) -> Store<kohbor_pack::store::NoHook> {
@@ -746,9 +1096,9 @@ mod tests {
         let temp = TempDir::new("prewarm-cap");
         let mut store = open_store(&temp);
         let wav = pcm_wav(SAMPLES);
-        let digest = format!("{:x}", Sha256::digest(&wav));
         let mut files = Vec::new();
         let mut paths = Vec::new();
+        let mut audio_files = Vec::new();
         let keys = [
             (EventId::MultiKill, Some(2)),
             (EventId::MultiKill, Some(3)),
@@ -764,13 +1114,18 @@ mod tests {
                     .map(|_| {
                         let index = files.len();
                         let path = format!("audio/clip-{index}.wav");
+                        let mut variant_wav = wav.clone();
+                        let sample_offset = 44 + index * 2;
+                        variant_wav[sample_offset] = u8::try_from(index + 1).unwrap();
+                        let digest = format!("{:x}", Sha256::digest(&variant_wav));
                         files.push(json!({
                             "path": path,
-                            "size_bytes": wav.len(),
+                            "size_bytes": variant_wav.len(),
                             "sha256": digest,
                             "role": "mixed_audio",
                         }));
                         paths.push(path.clone());
+                        audio_files.push((path.clone(), variant_wav));
                         json!({
                             "variant_id": format!("clip-{index}"), "mixed_audio_path": path,
                             "duration_ms": 15_000, "visual_tail_ms": 0,
@@ -794,7 +1149,7 @@ mod tests {
             "publisher_key_id": null, "files": files, "bindings": bindings,
         }))
         .unwrap();
-        let archive = fixture_zip(&descriptor, &paths, &wav);
+        let archive = fixture_zip(&descriptor, &audio_files);
         let package = Package {
             package_path: temp.path().join("prewarm-cap.zip"),
             digest: format!("{:x}", Sha256::digest(&archive)),
@@ -844,18 +1199,18 @@ mod tests {
             .filter(|log| log.event == "clip_variant_skipped")
             .collect();
         assert_eq!(skipped.len(), 2);
-        assert_eq!(skipped[0].fields["variant_id"], "clip-54");
+        assert_eq!(skipped[0].fields["variant_id"], "clip-41");
         assert_eq!(skipped[1].fields["variant_id"], "clip-55");
         assert!(skipped.iter().all(|log| log.module == "audio"
             && log.fields["event_id"] == "multi_kill"
-            && log.fields["tier"] == 5
             && log.fields["reason"] == "prewarm_cap"));
+        assert_eq!(skipped[0].fields["tier"], 4);
+        assert_eq!(skipped[1].fields["tier"], 5);
     }
 
-    /// Store the descriptor and reuse one raw DEFLATE stream under distinct
-    /// WAV paths so the real ZIP installer sees independent payloads.
-    fn fixture_zip(descriptor: &[u8], audio_paths: &[String], wav: &[u8]) -> Vec<u8> {
-        use flate2::{write::DeflateEncoder, Compression, Crc};
+    /// Store a descriptor and distinct audio payloads in one fixture archive.
+    fn fixture_zip(descriptor: &[u8], audio_files: &[(String, Vec<u8>)]) -> Vec<u8> {
+        use flate2::{Compression, Crc, write::DeflateEncoder};
         use std::io::Write;
 
         let crc = |bytes: &[u8]| {
@@ -863,9 +1218,6 @@ mod tests {
             crc.update(bytes);
             crc.sum()
         };
-        let mut encoder = DeflateEncoder::new(Vec::new(), Compression::fast());
-        encoder.write_all(wav).unwrap();
-        let compressed = encoder.finish().unwrap();
         let mut zip = Vec::new();
         let mut directory = Vec::new();
         let mut push_entry = |name: &str, raw_size: usize, bytes: &[u8], method: u16, crc: u32| {
@@ -898,15 +1250,17 @@ mod tests {
             0,
             crc(descriptor),
         );
-        let wav_crc = crc(wav);
         // The container requires byte-sorted payload entries after the descriptor.
-        let mut ordered_paths: Vec<_> = audio_paths.iter().collect();
-        ordered_paths.sort_unstable();
-        for name in ordered_paths {
-            push_entry(name, wav.len(), &compressed, 8, wav_crc);
+        let mut ordered_files: Vec<_> = audio_files.iter().collect();
+        ordered_files.sort_unstable_by_key(|(name, _)| name.as_str());
+        for (name, wav) in ordered_files {
+            let mut encoder = DeflateEncoder::new(Vec::new(), Compression::fast());
+            encoder.write_all(wav).unwrap();
+            let compressed = encoder.finish().unwrap();
+            push_entry(name, wav.len(), &compressed, 8, crc(wav));
         }
         let directory_start = zip.len() as u32;
-        let count = (audio_paths.len() + 1) as u16;
+        let count = (audio_files.len() + 1) as u16;
         zip.extend(&directory);
         zip.extend(0x06054b50_u32.to_le_bytes());
         for word in [0, 0, count, count] {
@@ -970,7 +1324,7 @@ mod tests {
             expected,
             "keys follow the independent catalog count"
         );
-        assert_eq!(expected, 23, "the independent count is 23 for this catalog");
+        assert_eq!(expected, 28, "the independent count is 28 for this catalog");
     }
 
     #[test]
@@ -1054,8 +1408,8 @@ mod tests {
         let unique: HashSet<_> = keys.iter().copied().collect();
         assert_eq!(
             keys.len(),
-            21,
-            "four multi-kill, eight streak and nine untiered tiles"
+            26,
+            "four multi-kill, eight streak and fourteen untiered tiles"
         );
         assert_eq!(
             unique.len(),
@@ -1133,8 +1487,8 @@ mod tests {
         let mut calls = 0;
         let _ = build_table(&store, &catalog(), &mut || calls += 1);
         assert_eq!(
-            calls, 24,
-            "pause callback runs once for 23 keys and once for the decoded variant"
+            calls, 30,
+            "pause callback runs once for 28 keys, the pack, and decoded variant"
         );
     }
 
@@ -1372,6 +1726,238 @@ mod tests {
                 panic!("tier three binding should serve tier four")
             }
         }
+    }
+
+    #[test]
+    fn merged_loadout_obeys_tier_lock_critical_source_and_loadout_order() {
+        let temp = TempDir::new("multi-pack-merge");
+        let mut store = open_store(&temp);
+        let pack_a = package(
+            &temp,
+            "voice.main",
+            &[
+                BindingSpec {
+                    event_id: "multi_kill",
+                    tier: Some(2),
+                    samples: 480,
+                    visual: false,
+                    visual_tail_ms: 0,
+                },
+                BindingSpec {
+                    event_id: "multi_kill",
+                    tier: Some(3),
+                    samples: 960,
+                    visual: false,
+                    visual_tail_ms: 0,
+                },
+                audio("health_danger", 480),
+                audio("hero_kill", 480),
+                audio("hero_death", 480),
+            ],
+        );
+        let pack_b = package(
+            &temp,
+            "voice.special",
+            &[
+                BindingSpec {
+                    event_id: "multi_kill",
+                    tier: Some(2),
+                    samples: 720,
+                    visual: false,
+                    visual_tail_ms: 0,
+                },
+                audio("health_danger", 720),
+                audio("hero_death", 720),
+            ],
+        );
+        let a = install(&mut store, &pack_a, "multi-a-install")
+            .record
+            .unwrap()
+            .install_id;
+        let b = install(&mut store, &pack_b, "multi-b-install")
+            .record
+            .unwrap()
+            .install_id;
+        let locks = [
+            ("hero_death".to_owned(), "voice.special".to_owned()),
+            ("hero_kill".to_owned(), "voice.special".to_owned()),
+        ]
+        .into_iter()
+        .collect();
+        let result = store
+            .set_loadout(
+                "multi-loadout",
+                &LoadoutDesired {
+                    install_ids: vec![a.clone(), b.clone()],
+                    event_locks: locks,
+                    match_consistency: false,
+                },
+                ActivationPolicy::NowIfIdle,
+                &ActivationState::default(),
+            )
+            .unwrap();
+        assert_eq!(result.status.as_str(), "active");
+        let (table, _) = build_table(&store, &catalog(), &mut || {});
+
+        let BindingLookup::Variants {
+            binding: tier_two, ..
+        } = table.lookup_binding(EventId::MultiKill, Some(2))
+        else {
+            panic!("tier 2 pool exists")
+        };
+        assert_eq!(
+            tier_two
+                .variants
+                .iter()
+                .filter_map(|variant| variant.source.as_ref().map(|source| source.slot))
+                .collect::<Vec<_>>(),
+            vec![0, 1]
+        );
+        let BindingLookup::Variants {
+            binding: tier_three,
+            ..
+        } = table.lookup_binding(EventId::MultiKill, Some(3))
+        else {
+            panic!("tier 3 resolves")
+        };
+        assert_eq!(
+            tier_three.variants.len(),
+            1,
+            "tier 3 excludes another pack's tier-2 line"
+        );
+        assert_eq!(tier_three.variants[0].source.as_ref().unwrap().slot, 0);
+        let BindingLookup::Variants {
+            binding: critical, ..
+        } = table.lookup_binding(EventId::HealthDanger, None)
+        else {
+            panic!("critical cue is ready")
+        };
+        assert_eq!(critical.variants.len(), 1, "critical cue has one source");
+        assert_eq!(critical.variants[0].source.as_ref().unwrap().slot, 0);
+        let BindingLookup::Variants {
+            binding: locked, ..
+        } = table.lookup_binding(EventId::HeroDeath, None)
+        else {
+            panic!("satisfied lock is ready")
+        };
+        assert_eq!(locked.variants.len(), 1);
+        assert_eq!(
+            locked.variants[0]
+                .source
+                .as_ref()
+                .unwrap()
+                .package_id
+                .as_ref(),
+            "voice.special"
+        );
+        let BindingLookup::Variants {
+            binding: fallback, ..
+        } = table.lookup_binding(EventId::HeroKill, None)
+        else {
+            panic!("unsatisfied lock falls back to the pool")
+        };
+        assert_eq!(fallback.variants.len(), 1);
+        assert_eq!(
+            fallback.variants[0]
+                .source
+                .as_ref()
+                .unwrap()
+                .package_id
+                .as_ref(),
+            "voice.main"
+        );
+
+        let reversed = store
+            .set_loadout(
+                "multi-reorder",
+                &LoadoutDesired {
+                    install_ids: vec![b, a],
+                    event_locks: Default::default(),
+                    match_consistency: false,
+                },
+                ActivationPolicy::NowIfIdle,
+                &ActivationState::default(),
+            )
+            .unwrap();
+        assert_eq!(reversed.status.as_str(), "active");
+        let (table, _) = build_table(&store, &catalog(), &mut || {});
+        let BindingLookup::Variants {
+            binding: critical, ..
+        } = table.lookup_binding(EventId::HealthDanger, None)
+        else {
+            panic!("critical cue is ready after reorder")
+        };
+        assert_eq!(critical.variants[0].source.as_ref().unwrap().slot, 0);
+        assert_eq!(
+            critical.variants[0]
+                .source
+                .as_ref()
+                .unwrap()
+                .package_id
+                .as_ref(),
+            "voice.special"
+        );
+    }
+
+    #[test]
+    fn merged_loadout_hero_binding_outranks_general_only_for_matching_hero() {
+        let temp = TempDir::new("hero-pack-merge");
+        let mut store = open_store(&temp);
+        let general = package(&temp, "voice.general", &[audio("hero_kill", 480)]);
+        let sniper = package_with_hero(
+            &temp,
+            "voice.sniper",
+            audio("hero_kill", 720),
+            "npc_dota_hero_sniper",
+        );
+        let general_id = install(&mut store, &general, "hero-general-install")
+            .record
+            .unwrap()
+            .install_id;
+        let sniper_id = install(&mut store, &sniper, "hero-sniper-install")
+            .record
+            .unwrap()
+            .install_id;
+        let result = store
+            .set_loadout(
+                "hero-loadout",
+                &LoadoutDesired {
+                    install_ids: vec![general_id, sniper_id],
+                    event_locks: Default::default(),
+                    match_consistency: false,
+                },
+                ActivationPolicy::NowIfIdle,
+                &ActivationState::default(),
+            )
+            .unwrap();
+        assert_eq!(result.status.as_str(), "active");
+
+        let (table, _) = build_table(&store, &catalog(), &mut || {});
+        let BindingLookup::Variants { binding, .. } =
+            table.lookup_binding(EventId::HeroKill, None)
+        else {
+            panic!("merged hero kill binding is available")
+        };
+        assert_eq!(binding.variants.len(), 2);
+        assert!(binding.variants.iter().any(|variant| {
+            variant.hero.as_deref() == Some("npc_dota_hero_sniper")
+        }));
+
+        let mut selector = VariantSelector::with_seed(13);
+        let sniper = selector
+            .select_for_hero(
+                &table,
+                EventId::HeroKill,
+                None,
+                1,
+                Some("npc_dota_hero_sniper"),
+            )
+            .unwrap();
+        assert_eq!(sniper.source.unwrap().package_id.as_ref(), "voice.sniper");
+        let unknown = selector
+            .select_for_hero(&table, EventId::HeroKill, None, 1, None)
+            .unwrap();
+        assert_eq!(unknown.source.unwrap().package_id.as_ref(), "voice.general");
     }
 
     #[test]

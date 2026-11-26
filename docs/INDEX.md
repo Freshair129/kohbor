@@ -1,6 +1,6 @@
 # Software Engineering Documentation Index
 
-**Baseline 0.3.8 · Draft · index revised 2026-11-21 · application evidence NOT_RUN**
+**Baseline 0.3.8 · Draft · index revised 2026-11-24 · application evidence NOT_RUN**
 
 Start with PRD and SRS. Read the design, interface and verification documents for each implementation slice. Agent workflow is defined in root AGENTS.md and PROMPT.md and in [Agent Workflow](delivery/AGENT-WORKFLOW.md). To find who owns an area, what is decided and what is open there, read the [domain registry](domains/README.md) and the card of the domain you will touch (see "Domains" below).
 
@@ -22,11 +22,25 @@ This is the only index of documents. Every Markdown file in the tree, is linked 
 | [Event and Audio Specification](design/EVENT-AUDIO-SPEC.md) | M2 canonical event catalog, health-danger proposal, audio priority/preemption, outcome reasons, media decode checks and install contracts | Engineering, media, QA |
 | [Visual Design Proposal](design/VISUAL-DESIGN-PROPOSAL.md) | DEC-VISUALS proposal: identity, tokens, Command Deck and overlay artboards | UX, engineering, product owner |
 | [Website prototype](../apps/website/README.md) | Scroll-driven marketing page prototype with a 3D stage and a rendered film; how to run and deploy it, design decisions, copy sources, what was checked, open owner decisions (agent design, not owner reviewed; a public website is not in the PRD scope) | Product owner, UX |
+| [Website hero images](../apps/website/assets/heroes/README.md) | The six hero portraits on the website hologram, copied from the bundled game-build 6989 icons (provenance in that folder) | Website |
+| [Website map image](../apps/website/assets/map/README.md) | The 256×256 field image the website stage reads, traced from the bundled build-6989 map overview | Website |
 | [Media Package Specification](design/MEDIA-PACK-SPEC.md) | Media formats, trust, installation and playback lifecycle | Media, engineering, QA |
 | [S3-5 Host Critical Warning Path](design/S3-5-HOST-CRITICAL-PATH.md) | Design and task breakdown of the host critical warning path (agent decision, not owner approved) | Engineering, media |
 | [S6 Overlay Slice](design/S6-OVERLAY-SLICE.md) | Plan of the in-game banner overlay window, placement, honest chip states and the no-game demo trigger (agent plan, not owner approved) | Engineering, UX, product owner |
 | [Kohbor Lab](design/KOHBOR-LAB.md) | Design of the dev-only event-logic studio: signal inspector, bounded profile schema, replay sandbox, clip pairing, export, embedded-default precedence (agent proposal, not owner approved) | Engineering, UX, product owner |
 | [Post-match Replay preview](design/POST-MATCH-REPLAY-PREVIEW.md) | Lab import format, offline replay controls, and post-match admission | Engineering, UX, QA |
+| [Alpha launch](design/ALPHA-LAUNCH.md) | Invite-gated alpha download, Supabase sign-in and Edge Function, release repository rules, conflicts to resolve (agent record of owner statements) | Product owner, engineering |
+| [In-app updater](design/UPDATER.md) | Signed GitHub-release updater design: channel, key handling, states, privacy and release slices | Engineering, release |
+| [Release runbook for updates](operations/RELEASE-UPDATES.md) | Owner steps to build, sign, verify and publish a Kohbor update: candidate build, latest.json, promotion check, publishing plan | Product owner, release |
+| [Derived stats](design/DERIVED-STATS.md) | Own-hero attributes and derived values from installed-game data: inputs, formulas, labels and limits | Engineering, UX |
+| [Replay Pipeline](design/REPLAY-PIPELINE.md) | Read-only replay intake, local library, pinned sidecar, Match Bundle validation and failure/privacy boundaries | Engineering, Lab, QA |
+| [Lane Expectation](design/LANE-EXPECTATION.md) | Lane score, expert-table expectation, verdict, local lane store, calibration and coach review (DEC-LANE-EXPECTATION) | Engineering, Analytics, QA |
+| [Analytics Host API](design/ANALYTICS-HOST-API.md) | Host and renderer boundaries for Analytics data, actions and local replay workflows | Engineering, Analytics, QA |
+| [Hero Benchmarks](design/HERO-BENCHMARKS.md) | Optional OpenDota hero benchmarks in the Analytics compare tab: switch, budget, hero-ID mapping, cache and unknown states (DEC-POSITIONING-20261125 item 2) | Engineering, Analytics, Privacy, QA |
+| [Analytics Design Implementation](design/DESIGN-IMPLEMENTATION.md) | Implementation notes and evidence limits for the Analytics layout and shared hero-card display setting | Engineering, Analytics, reviewers |
+| [Minimap Rune and Roshan Overlay](design/MINIMAP-RUNE-ROSHAN-OVERLAY.md) | Patch-labelled rune and Roshan map marks, timing, provenance and unknown states | Engineering, Live, QA |
+| [Minimap Hero ID Spike](../tools/spikes/minimap-hero-id/README.md) | Read-only installed-game hero-id feasibility notes and verification limits | Engineering, vision, QA |
+| [Replay Engine Provenance](design/REPLAY-ENGINE-PROVENANCE.md) | Pinned sidecar source, build, hash, dependency license inventory and rebuild procedure | Engineering, release review |
 | [Package Format Review](design/PACKAGE-FORMAT-REVIEW.md) | Agent review: whether a package needs its own file type, signature and encryption options | Engineering, product owner |
 | [S4 Observation Boundary](design/S4-OBSERVATION-BOUNDARY.md) | Sprint 4 no-hardware slice: capture admission, freshness, coverage and the enemy observation boundary (agent decision, not owner approved) | Engineering, QA |
 | [Draft Bar](design/DRAFT-BAR-SPEC.md) | MVP-2 slice 5: reading the top hero bar during hero selection (mirror, hero identification, player names) with projection 1.1.0 (owner approved the display change under DEC-PICK-STATS) | Engineering, QA, Privacy |

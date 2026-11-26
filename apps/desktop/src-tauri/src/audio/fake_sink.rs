@@ -108,6 +108,7 @@ pub fn tick(
         at_ms: 0,
         session_epoch: epoch,
         game_clock_seconds: None,
+        own_hero: None,
         generation,
         sequence,
         events: events
@@ -116,6 +117,7 @@ pub fn tick(
                 id: *id,
                 tier: *tier,
                 at_ms: 0,
+                payload: None,
             })
             .collect(),
     }

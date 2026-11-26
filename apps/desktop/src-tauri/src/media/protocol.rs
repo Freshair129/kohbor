@@ -33,8 +33,16 @@ pub fn serve(request: &ProtocolRequest, index: &VisualIndex) -> ProtocolResponse
     }
 
     let entry = if let Some((install_id, token)) = parse_media_path(&request.path) {
-        if index.install_id.as_deref() == Some(install_id) {
-            index.entries.get(token)
+        if index
+            .install_ids
+            .iter()
+            .any(|equipped| equipped.as_ref() == install_id)
+            || index.install_id.as_deref() == Some(install_id)
+        {
+            index
+                .entries
+                .get(&(install_id.to_owned(), token.to_owned()))
+                .or_else(|| index.entries.get(&(String::new(), token.to_owned())))
         } else {
             index.preview_entries.get(&request.path)
         }
@@ -281,11 +289,11 @@ mod tests {
     use std::collections::HashMap;
     use std::fs::{self, File};
     use std::path::{Path, PathBuf};
-    use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{Duration, SystemTime};
 
-    use super::{is_media_url_path, serve, ProtocolRequest, ProtocolResponse};
+    use super::{ProtocolRequest, ProtocolResponse, is_media_url_path, serve};
     use crate::media::prewarm::{VisualEntry, VisualIndex};
 
     const INSTALL_ID: &str = "ins_0000000001";
@@ -346,7 +354,8 @@ mod tests {
         };
         let index = VisualIndex {
             install_id: Some(Arc::from(INSTALL_ID)),
-            entries: HashMap::from([(TOKEN.to_owned(), entry)]),
+            install_ids: vec![Arc::from(INSTALL_ID)],
+            entries: HashMap::from([((INSTALL_ID.to_owned(), TOKEN.to_owned()), entry)]),
             covers: Default::default(),
             preview_entries: Default::default(),
         };
@@ -441,7 +450,10 @@ mod tests {
             "/v1/ins_0000000001/0123456789abcdef0123456789abcdef0123456789abcdef0123456789ABCDEf",
             "/v1/ins_0000000001/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef/extra",
         ] {
-            assert!(!is_media_url_path(path), "unexpected media path acceptance: {path}");
+            assert!(
+                !is_media_url_path(path),
+                "unexpected media path acceptance: {path}"
+            );
         }
     }
 
@@ -634,6 +646,7 @@ mod tests {
         let fixture = fixture(b"payload");
         let mut no_install = fixture.index.clone();
         no_install.install_id = None;
+        no_install.install_ids.clear();
         assert_eq!(serve(&media_request(), &no_install).status, 404);
 
         let mut unknown = media_request();
@@ -725,7 +738,7 @@ mod tests {
         let entry = fixture
             .index
             .entries
-            .get_mut(TOKEN)
+            .get_mut(&(INSTALL_ID.to_owned(), TOKEN.to_owned()))
             .expect("fixture index entry");
         entry.size_bytes = 32 * 1024 * 1024 + 1;
         assert_eq!(serve(&media_request(), &fixture.index).status, 404);
@@ -737,7 +750,7 @@ mod tests {
         let mut missing_file = fixture.index.clone();
         missing_file
             .entries
-            .get_mut(TOKEN)
+            .get_mut(&(INSTALL_ID.to_owned(), TOKEN.to_owned()))
             .expect("fixture index entry")
             .path = fixture.path.with_file_name("absent.webm");
         let mut wrong_id = media_request();
@@ -776,8 +789,10 @@ mod tests {
                 assert!(!value.contains(&fixture.path.to_string_lossy().to_string()));
             }
             assert!(!String::from_utf8_lossy(&response.body).contains(INSTALL_ID));
-            assert!(!String::from_utf8_lossy(&response.body)
-                .contains(&fixture.path.to_string_lossy().to_string()));
+            assert!(
+                !String::from_utf8_lossy(&response.body)
+                    .contains(&fixture.path.to_string_lossy().to_string())
+            );
         }
     }
 }

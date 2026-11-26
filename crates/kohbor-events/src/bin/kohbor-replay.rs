@@ -1,11 +1,11 @@
-use base64::{engine::general_purpose::STANDARD, Engine as _};
-use kohbor_events::{adapter::tick_from_admitted, arbitrate, Detector, Event, EventId, Phase};
+use base64::{Engine as _, engine::general_purpose::STANDARD};
+use kohbor_events::{Detector, Event, EventId, Phase, adapter::tick_from_admitted, arbitrate};
 use kohbor_gsi::{
     admission::{Admitted, Field, Outcome, Ownership},
     admit,
     session::{SessionChange, SessionTracker},
 };
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use std::{
     env, fs,
     io::{BufRead, BufReader, ErrorKind},
@@ -339,7 +339,7 @@ fn process_payload(
                 report.event_counts[event_index(event.id)] += 1;
             }
             let arbitration = arbitrate(&events);
-            match arbitration.winner {
+            match arbitration.winner.as_ref() {
                 Some(winner) => report.winner_counts[event_index(winner.id)] += 1,
                 None => report.no_winner_count += 1,
             }
@@ -350,7 +350,7 @@ fn process_payload(
                     phase: phase_name(tick.phase).to_owned(),
                     kills: tick.kills,
                     events,
-                    winner: arbitration.winner,
+                    winner: arbitration.winner.clone(),
                 });
             }
         }
@@ -406,8 +406,8 @@ struct TimelineEntry {
 }
 
 struct Report {
-    event_counts: [u64; 12],
-    winner_counts: [u64; 12],
+    event_counts: [u64; 17],
+    winner_counts: [u64; 17],
     no_winner_count: u64,
     admitted: u64,
     undecodable: u64,
@@ -420,8 +420,8 @@ struct Report {
 impl Report {
     fn new() -> Self {
         Self {
-            event_counts: [0; 12],
-            winner_counts: [0; 12],
+            event_counts: [0; 17],
+            winner_counts: [0; 17],
             no_winner_count: 0,
             admitted: 0,
             undecodable: 0,
@@ -485,7 +485,7 @@ impl Report {
                 entry
                     .events
                     .iter()
-                    .copied()
+                    .cloned()
                     .filter(|event| matches!(event.id, EventId::MultiKill | EventId::Streak))
                     .map(|event| TierEvent {
                         event,
@@ -601,7 +601,7 @@ impl GroundTruthComparison {
     }
 }
 
-const EVENT_IDS: [EventId; 12] = [
+const EVENT_IDS: [EventId; 17] = [
     EventId::MultiKill,
     EventId::Streak,
     EventId::FirstBlood,
@@ -614,6 +614,11 @@ const EVENT_IDS: [EventId; 12] = [
     EventId::MatchStarted,
     EventId::HeroRespawn,
     EventId::HealthDanger,
+    EventId::ClutchKill,
+    EventId::PosthumousKill,
+    EventId::ComebackKill,
+    EventId::UltimateFired,
+    EventId::UltimateKill,
 ];
 
 fn event_index(id: EventId) -> usize {
@@ -630,6 +635,11 @@ fn event_index(id: EventId) -> usize {
         EventId::MatchStarted => 9,
         EventId::HeroRespawn => 10,
         EventId::HealthDanger => 11,
+        EventId::ClutchKill => 12,
+        EventId::PosthumousKill => 13,
+        EventId::ComebackKill => 14,
+        EventId::UltimateFired => 15,
+        EventId::UltimateKill => 16,
     }
 }
 
@@ -640,13 +650,17 @@ fn timeline_json(entry: &TimelineEntry) -> Value {
         "seq": entry.sequence,
         "phase": entry.phase,
         "kills": entry.kills,
-        "events": entry.events.iter().map(|event| event_json(*event)).collect::<Vec<_>>(),
-        "arbitration_winner": entry.winner.map(event_json)
+        "events": entry.events.iter().map(event_json).collect::<Vec<_>>(),
+        "arbitration_winner": entry.winner.as_ref().map(event_json)
     })
 }
 
-fn event_json(event: Event) -> Value {
-    json!({"id": event.id.as_str(), "tier": event.tier})
+fn event_json(event: &Event) -> Value {
+    let mut value = json!({"id": event.id.as_str(), "tier": event.tier});
+    if let Some(payload) = &event.payload {
+        value["payload"] = json!({"hero": payload.hero, "ability": payload.ability});
+    }
+    value
 }
 
 fn tier_event_json(tier_event: &TierEvent) -> Value {

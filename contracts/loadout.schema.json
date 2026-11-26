@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kohbor.example/contracts/loadout.schema.json",
+  "title": "Local announcer pack loadout",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generation", "equipped", "event_locks", "match_consistency"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "generation": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+    "equipped": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {"$ref": "#/$defs/equippedPack"}
+    },
+    "event_locks": {
+      "type": "object",
+      "propertyNames": {"pattern": "^[a-z][a-z0-9_]{0,79}$"},
+      "additionalProperties": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_.-]{0,79}$"}
+    },
+    "match_consistency": {"type": "boolean"}
+  },
+  "$defs": {
+    "equippedPack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["install_id", "package_id", "revision", "container_sha256"],
+      "properties": {
+        "install_id": {"type": "string", "pattern": "^ins_[0-9]{10}$"},
+        "package_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_.-]{0,79}$"},
+        "revision": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+        "container_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    }
+  }
+}

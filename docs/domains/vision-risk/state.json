@@ -2,10 +2,19 @@
   "schema_version": "1.0.0",
   "domain": "vision-risk",
   "tier": "B",
-  "verified_at_commit": "0997546",
-  "verified_on": "2026-11-13",
-  "verified_by": "claude-code subagent draft (read-only), integrated by the governance lead; agent work, not human review",
-  "write_areas": [],
+  "verified_at_commit": "a8b636b",
+  "verified_on": "2026-11-25",
+  "verified_by": "Codex; reviewed source references, not human or owner approval",
+  "write_areas": [
+    "crates/kohbor-capture/**",
+    "crates/kohbor-capture-native/**",
+    "crates/kohbor-vision/**",
+    "crates/kohbor-risk/**",
+    "crates/kohbor-minimap-cv/**",
+    "crates/kohbor-game-assets/**",
+    "apps/desktop/src-tauri/src/capture_host.rs",
+    "apps/desktop/src-tauri/src/minimap_recorder/**"
+  ],
   "requirement_ids": [
     "VISION-001",
     "VISION-002",
@@ -19,7 +28,8 @@
     "DATA-005",
     "DATA-006",
     "QUALITY-004",
-    "QUALITY-005"
+    "QUALITY-005",
+    "LAB-001"
   ],
   "proposed_requirement_ids": [],
   "decision_ids": [
@@ -29,7 +39,9 @@
     "DEC-NATIVE-EVIDENCE",
     "DEC-CRITICAL-MEDIA",
     "DEC-SESSION-MONITOR",
-    "DEC-RESOURCE-BUDGET"
+    "DEC-RESOURCE-BUDGET",
+    "DEC-POSITIONING-20261125",
+    "DEC-REPLAY-INTEGRATION"
   ],
   "task_id_prefixes": [],
   "artefacts": [
@@ -37,13 +49,13 @@
       "path": "docs/design/REMAINING-SYSTEM-DESIGN.md",
       "type": "spec",
       "role": "reference",
-      "reviewed_sha256": "85ed331560c4f2cf8d484591eb00c0c84b6c93e9f10985147a73fc8d4fc1ba9a"
+      "reviewed_sha256": "54f9a24fbd97926de812f5b565e68bc34e987795667c9906d373da4dc81d6887"
     },
     {
       "path": "docs/delivery/SPRINT-ROADMAP.md",
       "type": "registry",
       "role": "reference",
-      "reviewed_sha256": "73a046327b50a6a41c6083754870b919ac7f8fd560bca41270c8d9d8b4ee6c80"
+      "reviewed_sha256": "1998e844650b06125fd18912cf140ab02b896c80f57b7b42502d01c1daa8b64b"
     },
     {
       "path": "docs/design/SDD.md",
@@ -81,15 +93,48 @@
       "role": "reference"
     },
     {
-      "path": "spikes/capture",
-      "type": "code",
-      "role": "reference",
-      "exists": false
-    },
-    {
       "path": "crates/kohbor-minimap-cv",
       "type": "code",
       "role": "reference"
+    },
+    {
+      "path": "crates/kohbor-game-assets",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "crates/kohbor-game-assets/SPIKE-REPORT.txt",
+      "type": "report",
+      "role": "reference",
+      "reviewed_sha256": "66431418164911fcccac8b01dd0088b26c4b4c3ffe015d711473281dca5a60c5"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/capture_host.rs",
+      "type": "code",
+      "role": "source-of-truth",
+      "reviewed_sha256": "dc22e4fb8480219c497e77e41b65ca2de85bd0daf9b0ef66bd4aac239e80c19e"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/minimap_recorder",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "tools/spikes/minimap-hero-id",
+      "type": "spike",
+      "role": "reference"
+    },
+    {
+      "path": "docs/design/KOHBOR-LAB.md",
+      "type": "design",
+      "role": "neighbour:events-audio",
+      "reviewed_sha256": "1ca42df97b9a46abfad468594d44ace391b00b113b26c87f3f07fa2d470ea938"
+    },
+    {
+      "path": "docs/design/MINIMAP-RUNE-ROSHAN-OVERLAY.md",
+      "type": "design",
+      "role": "neighbour:ui-overlay",
+      "reviewed_sha256": "8e020ed5179037ce58d383eb5edf2ec5dccf3abb36e80e7652f112eec778820f"
     }
   ],
   "open_questions": [
@@ -109,15 +154,16 @@
     }
   ],
   "last_handoff": {
-    "task_id": null,
-    "on": "2026-11-13",
-    "summary": "Refreshed after PR #10 merged: S3 roadmap rows, S3-5 design section 13 and requirement implementation refs reviewed in the diff; no card fact outside the lines changed."
+    "task_id": "domain-cards-refresh-2",
+    "on": "2026-11-25",
+    "summary": "Refreshed domain maps from current source documents and assigned existing requirements and crates; source and requirement records were not edited."
   },
   "crates": [
     "kohbor-capture",
     "kohbor-capture-native",
     "kohbor-vision",
     "kohbor-risk",
-    "kohbor-minimap-cv"
+    "kohbor-minimap-cv",
+    "kohbor-game-assets"
   ]
 }

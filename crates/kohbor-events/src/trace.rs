@@ -6,8 +6,8 @@
 //! tests/trace_parity.rs checks `fired == all guards pass` on every tick of the golden
 //! traces and several synthetic walks.
 
-use crate::{percent_at_or_below, Config, Detector, Event, EventId, Tick};
-use serde_json::{json, Value};
+use crate::{Config, Detector, Event, EventId, Tick, UltimateContext, percent_at_or_below};
+use serde_json::{Value, json};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) enum Status {
@@ -64,6 +64,11 @@ pub(crate) struct Scratch {
     pub kill_delta: Option<u32>,
     pub kills_regressed: bool,
     pub died: bool,
+    pub special_kill_delta: Option<u32>,
+    pub special_alive: Option<bool>,
+    pub special_session_deaths: Option<u32>,
+    pub special_deaths_since_kill: Option<u32>,
+    pub clutch_min_hp_percent: Option<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -157,6 +162,17 @@ impl Detector {
         (events, trace)
     }
 
+    /// Same as [`Detector::observe_traced`] with the GSI own-hero ultimate fields.
+    pub fn observe_traced_with_ultimate(
+        &mut self,
+        tick: &Tick,
+        context: &UltimateContext,
+    ) -> (Vec<Event>, Trace) {
+        let events = self.observe_with_ultimate(tick, context);
+        let trace = self.build_trace(tick.at_ms, &events);
+        (events, trace)
+    }
+
     /// The parameters in force (read-only), for display next to live values.
     pub fn config(&self) -> &Config {
         &self.config
@@ -166,6 +182,24 @@ impl Detector {
         let scratch = &self.scratch;
         let fired = |id: EventId| events.iter().any(|event| event.id == id);
         let config = &self.config;
+        let special_kill = guard(
+            "kill counter increased",
+            scratch.special_kill_delta.map(f64::from),
+            ">",
+            Some(0.0),
+            "kills",
+            scratch
+                .special_kill_delta
+                .map(|delta| delta > 0 && !scratch.kills_regressed),
+        );
+        let special_phase = guard(
+            "phase is live",
+            Some(if scratch.phase_live { 1.0 } else { 0.0 }),
+            "==",
+            Some(1.0),
+            "bool",
+            Some(scratch.phase_live),
+        );
         let alive = guard(
             "hero alive",
             flag(scratch.alive),
@@ -375,6 +409,74 @@ impl Detector {
                 note: Some("native chain/state logic; guards not exposed in L1 (EVENT-AUDIO-SPEC section 2)"),
             });
         }
+
+        rows.push(EventTrace {
+            id: EventId::ClutchKill.as_str(),
+            fired: fired(EventId::ClutchKill),
+            guards: vec![
+                special_phase.clone(),
+                special_kill.clone(),
+                guard(
+                    "hero alive",
+                    flag(scratch.special_alive),
+                    "==",
+                    Some(1.0),
+                    "bool",
+                    scratch.special_alive,
+                ),
+                guard(
+                    "minimum hp in previous 3000 ms",
+                    scratch.clutch_min_hp_percent,
+                    "<=",
+                    Some(10.0),
+                    "%",
+                    scratch.clutch_min_hp_percent.map(|percent| percent <= 10.0),
+                ),
+            ],
+            note: None,
+        });
+        rows.push(EventTrace {
+            id: EventId::PosthumousKill.as_str(),
+            fired: fired(EventId::PosthumousKill),
+            guards: vec![
+                special_phase.clone(),
+                special_kill.clone(),
+                guard(
+                    "hero dead",
+                    flag(scratch.special_alive.map(|alive| !alive)),
+                    "==",
+                    Some(1.0),
+                    "bool",
+                    scratch.special_alive.map(|alive| !alive),
+                ),
+                guard(
+                    "counted deaths in session",
+                    scratch.special_session_deaths.map(f64::from),
+                    ">",
+                    Some(0.0),
+                    "deaths",
+                    scratch.special_session_deaths.map(|deaths| deaths > 0),
+                ),
+            ],
+            note: None,
+        });
+        rows.push(EventTrace {
+            id: EventId::ComebackKill.as_str(),
+            fired: fired(EventId::ComebackKill),
+            guards: vec![
+                special_phase,
+                special_kill,
+                guard(
+                    "deaths since previous kill",
+                    scratch.special_deaths_since_kill.map(f64::from),
+                    ">=",
+                    Some(3.0),
+                    "deaths",
+                    scratch.special_deaths_since_kill.map(|deaths| deaths >= 3),
+                ),
+            ],
+            note: None,
+        });
 
         Trace {
             at_ms,

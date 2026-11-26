@@ -1,20 +1,35 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import type { Locale } from "../copy";
+import { copy, type Locale } from "../copy";
+import type { AnalyticsReplayDetailsRoute } from "../analytics/analyticsModel";
 import { CoachPanel } from "./CoachPanel";
 import { MatchViewPanel } from "./MatchViewPanel";
+import { matchViewerCopy } from "./matchViewerCopy.mjs";
 import { MAX_REPORT_BYTES, readPostMatchReplay, type PostMatchReplay } from "./report";
 import { mountReplay } from "./viewer.mjs";
 import markup from "./viewer.html?raw";
 import style from "./viewer.css?raw";
 
-export function ReplayPanel({ locale, available }: { locale: Locale; available: boolean }) {
-  const th = locale === "th";
+export function ReplayPanel({ locale, available, detail, onBack }: {
+  locale: Locale;
+  available: boolean;
+  detail?: AnalyticsReplayDetailsRoute | null;
+  onBack?: () => void;
+}) {
+  const text = matchViewerCopy[locale].panel;
+  if (detail) return (
+    <div className="shell-screen shell-replay-detail" style={{ display: "grid", gridTemplateRows: "auto minmax(0, 1fr)", gap: 8, minWidth: 0, minHeight: 0, overflow: "hidden" }}>
+      <header className="shell-replay-detail__header">
+        <button type="button" onClick={onBack}>{copy(locale).analyticsPlayer.back}</button>
+      </header>
+      <MatchViewPanel locale={locale} initialBundle={detail.bundle} initialMatchId={detail.matchId}
+        initialTime={detail.initialTime} detailOnly />
+    </div>
+  );
   return available ? <LocalReplay locale={locale} /> : (
     <div className="shell-screen" style={{ overflow: "auto" }}>
       <section className="card">
-        <h1>{th ? "รีเพลย์หลังเกม" : "Post-match replay"}</h1>
-        <p role="status">{th ? "เปิดได้เมื่อ Dota 2 ปิดอยู่ หรือ Kohbor ยืนยันว่าจบแมตช์แล้ว"
-          : "Available once Dota 2 is closed or Kohbor confirms the match has ended."}</p>
+        <h1>{text.title}</h1>
+        <p role="status">{text.availability}</p>
       </section>
     </div>
   );
@@ -23,14 +38,14 @@ export function ReplayPanel({ locale, available }: { locale: Locale; available: 
 type ReplayView = "report" | "match";
 
 function LocalReplay({ locale }: { locale: Locale }) {
-  const th = locale === "th";
+  const text = matchViewerCopy[locale].panel;
   const [view, setView] = useState<ReplayView>("report");
   const views: [ReplayView, string][] = [
-    ["report", th ? "รายงาน DEM" : "DEM report"],
-    ["match", th ? "มุมมองแมตช์ (ต้นแบบ)" : "Match view (prototype)"],
+    ["report", text.reportTab],
+    ["match", text.matchTab],
   ];
   const switcher = (
-    <div role="group" aria-label={th ? "รูปแบบรีเพลย์" : "Replay view"} style={{ display: "flex", gap: 8 }}>
+    <div role="group" aria-label={text.viewGroup} style={{ display: "flex", gap: 8 }}>
       {views.map(([id, label]) => (
         <button key={id} type="button" aria-pressed={view === id} onClick={() => setView(id)}>{label}</button>
       ))}
@@ -39,7 +54,7 @@ function LocalReplay({ locale }: { locale: Locale }) {
   return view === "match" ? (
     <div className="shell-screen" style={{ overflow: "auto" }}>
       <section className="card">
-        <h1>{th ? "รีเพลย์หลังเกม" : "Post-match replay"}</h1>
+        <h1>{text.title}</h1>
         {switcher}
       </section>
       <MatchViewPanel locale={locale} />
@@ -48,7 +63,7 @@ function LocalReplay({ locale }: { locale: Locale }) {
 }
 
 function ReportReplay({ locale, switcher }: { locale: Locale; switcher: ReactNode }) {
-  const th = locale === "th";
+  const text = matchViewerCopy[locale].panel;
   const [report, setReport] = useState<PostMatchReplay | null>(null);
   const [invalid, setInvalid] = useState(false);
   const [reading, setReading] = useState(false);
@@ -84,19 +99,18 @@ function ReportReplay({ locale, switcher }: { locale: Locale; switcher: ReactNod
   return (
     <div className="shell-screen" style={{ overflow: "auto" }}>
       <section className="card">
-        <h1>{th ? "รีเพลย์หลังเกม" : "Post-match replay"}</h1>
+        <h1>{text.title}</h1>
         {switcher}
         <label>
-          {th ? "เปิดรายงาน DEM (.json)" : "Open DEM report (.json)"}
+          {text.openReport}
           <input type="file" accept=".json,application/json" onChange={event => {
             const file = event.currentTarget.files?.[0];
             event.currentTarget.value = "";
             if (file) void openFile(file);
           }} />
         </label>
-        {reading && <p role="status">{th ? "กำลังอ่านรายงาน…" : "Reading report…"}</p>}
-        {invalid && <p role="alert">{th ? "เปิดไม่ได้ กรุณาเลือกไฟล์รายงาน DEM สำหรับ Kohbor ขนาดไม่เกิน 16 MB"
-          : "Choose a Kohbor DEM report of up to 16 MB."}</p>}
+        {reading && <p role="status">{text.readingReport}</p>}
+        {invalid && <p role="alert">{text.invalidReport}</p>}
       </section>
       {report && <CoachPanel report={report} locale={locale} />}
       <div ref={target} />

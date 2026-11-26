@@ -4,7 +4,7 @@
   "status": "PASS",
   "scope": "Mermaid parse/render and structural SVG validation only. No application execution, visual acceptance or standards conformance claim.",
   "renderer": {
-    "engine": "Mermaid with jsdom DOM and svgdom SVG metrics; no browser",
+    "engine": "Mermaid with jsdom DOM and svgdom SVG metrics; direct renderer, no browser",
     "versions": {
       "mermaid": "12.3.0",
       "jsdom": "31.0.0",
@@ -18,15 +18,14 @@
       "DejaVuSans-Oblique.ttf": "e2f09289f4276309a36b9a93e5a0ac64957ef3eb7158151b243d41f667151ee4",
       "DejaVuSans-BoldOblique.ttf": "c35383d5e56add5cc9cdc9f4e4a899f9e540f7c7e49f1901074c2d03af194eff"
     },
-    "core_sha256": "c674cfb9917628c7b9ee6a192380684177396ed4861a894db5c4c82bf2ebe0ae",
-    "exit_code": 0
+    "core_sha256": "c674cfb9917628c7b9ee6a192380684177396ed4861a894db5c4c82bf2ebe0ae"
   },
   "diagrams": [
     {
       "id": "DGM-001",
       "status": "PASS",
       "source_sha256": "92572da9b8a7809ca5a77fda7b8655906f44af5cd76d2033c21caad9ae5f0143",
-      "svg_sha256": "9ce281a016762a3493f11a8a8524b2d17d8fdf1896b804bf04794b97b8753380",
+      "svg_sha256": "2b17c6344640c92deb4f2097ed12f3f523f6f1023db0d5271e7a43ea77e7425f",
       "width": 1694.9396362304688,
       "height": 414.8046875,
       "text_nodes": 18
@@ -35,7 +34,7 @@
       "id": "DGM-002",
       "status": "PASS",
       "source_sha256": "af27fdc3c66cb92e26174237a8cd68376921c162755b9c6f86dbfad2896b31d6",
-      "svg_sha256": "a6bd2e0e2b4087739b78448aa4f384514f72a2a662c9c89f390b0932642af5a2",
+      "svg_sha256": "f9b42adcb1576d2a579bbf3427f45cc0ccf139a14b50c510e50dc9386d2a7776",
       "width": 2299.960693359375,
       "height": 676.7265625,
       "text_nodes": 22
@@ -44,34 +43,34 @@
       "id": "DGM-003",
       "status": "PASS",
       "source_sha256": "bcef65e30901f193eaf3f5efd0782dc839f156fc9c5739d1430158ed2a27986a",
-      "svg_sha256": "777baf1491ef16c95e1bbd5f93ee549615914196927ece74696a29abe1e4a83f",
+      "svg_sha256": "c135a1abdb27310b695fd22ea1f3b73bffdc18663c5b2a9308093d4a01eb53ff",
       "width": 1708.0535888671875,
       "height": 653.765625,
-      "text_nodes": 18
+      "text_nodes": 16
     },
     {
       "id": "DGM-004",
       "status": "PASS",
-      "source_sha256": "a79044068610e9016a6c36d30fd185122f3b4dcaaf7353f7a8c0fd6ee2eab229",
-      "svg_sha256": "536a92f917e062ed09f523866c7f8bf1f8ff4b36e77efa626dbe29a4a1e7b884",
-      "width": 2091.9080810546875,
-      "height": 1041.6875,
-      "text_nodes": 40
+      "source_sha256": "e90ce6de4e7fcd834d3849c8c72310b3bbc16d11e6c7aae82a5ff8d39fab5cea",
+      "svg_sha256": "9f548c590ea3c59d5d4fb510817df37ee602a01185b6dc94653949e1551f099a",
+      "width": 3425.9080810546875,
+      "height": 2162.3359375,
+      "text_nodes": 50
     },
     {
       "id": "DGM-005",
       "status": "PASS",
-      "source_sha256": "4a990db41f43b3129a3cbfb96f507f92647f134a51e04e1bc274c4e67548dde3",
-      "svg_sha256": "55b273c08fafbe9ec798a93e3a96199f157368996a417b8d7dae444fc1397efc",
-      "width": 1307.1685791015625,
-      "height": 878.1875,
-      "text_nodes": 27
+      "source_sha256": "d4772cd9154ce0d537ae779ae227580d6b9fdf0b5d9aed1905d6cf60bb02232c",
+      "svg_sha256": "faf31028e4e8b38dd9d122428904645e86b6aa4398bf58c8e1c51fdc65a0102b",
+      "width": 2383.6688842773438,
+      "height": 1310.1484375,
+      "text_nodes": 38
     },
     {
       "id": "DGM-006",
       "status": "PASS",
       "source_sha256": "f3db105451fab273eeaaebabbe1acdfe5980dbaf6ead7bed113cc461db04b2f8",
-      "svg_sha256": "dba94c386150c7c3483cc9b8fc09619aa0fe6e0622279e4240f1cfd77908ca43",
+      "svg_sha256": "2a42b8d44d965d3c3664e765e940d75a05881cc2c3de8f58b1061ce8aee25903",
       "width": 616.7542724609375,
       "height": 484.3046875,
       "text_nodes": 11
@@ -81,8 +80,8 @@
       "status": "PASS",
       "source_sha256": "834ce9505a8c0f662f30553921fb73d3836f70b24c31ea477b3e34557b644d8c",
       "svg_sha256": "53f66eab08f1b863f65e37735c382e1a7d3a52cda7bcacbd112292579582577c",
-      "width": 974,
-      "height": 882,
+      "width": 974.0,
+      "height": 882.0,
       "text_nodes": 27
     },
     {
@@ -90,71 +89,71 @@
       "status": "PASS",
       "source_sha256": "e0b2f53f75b73ed8cf2d163b7af23b1c2e84cbcca5948ebddcd5f813e48ed8e1",
       "svg_sha256": "b83fbb30078bc332271a8f9d3e9f8c3b294dd70ecc2ce0bc7bcc3d3dcf0d3935",
-      "width": 974,
-      "height": 1931,
+      "width": 974.0,
+      "height": 1931.0,
       "text_nodes": 61
     },
     {
       "id": "DGM-009",
       "status": "PASS",
       "source_sha256": "3e3a3be5928e7703b124fe642eff25b6eea56a909ee9586b90dff8f5b3509a50",
-      "svg_sha256": "27d9fd29f0a88b3e4aabf33249bb746bf5e2b7989940845a9267e79ae7923474",
+      "svg_sha256": "40a39e5b07c9b9ec5f2094850f31faf7cb1c0beac2fdfe7be7ba132dae99efd6",
       "width": 1622.29638671875,
       "height": 2089.953125,
-      "text_nodes": 29
+      "text_nodes": 21
     },
     {
       "id": "DGM-010",
       "status": "PASS",
       "source_sha256": "c7c0ee4514ec3e552f6481e4001bdc534f66c191142bb37c667ae4995f85e889",
-      "svg_sha256": "22bf4af7477cb3d7b8d55548373b7bef3dd2396e1f1af54c2a9fd7be53154d8b",
+      "svg_sha256": "644f28d294507679cb29794990d514722c7160d39e6bd5e693717cddee90dafc",
       "width": 725.0172729492188,
       "height": 2300.23291015625,
-      "text_nodes": 33
+      "text_nodes": 29
     },
     {
       "id": "DGM-011",
       "status": "PASS",
       "source_sha256": "f794c558831e40ca79c2911519a8c12309a296a3957664cc076360fc44dcc6cf",
       "svg_sha256": "7bb71b34722a8860f8609773648077686559291beac0bf11be191ee3764b44f6",
-      "width": 974,
-      "height": 2461,
+      "width": 974.0,
+      "height": 2461.0,
       "text_nodes": 86
     },
     {
       "id": "DGM-012",
       "status": "PASS",
       "source_sha256": "96f4fa2ddba720d35ed30b9c8f13666553e6b962af464ec5100e50655f07747f",
-      "svg_sha256": "a093fab72b57ec7f708e97f53b2734b6c8af562dd2e8b2c9293cdcde23922283",
+      "svg_sha256": "58bccec8f54990e147a3cbd541dd0245cb5179e4ceee01b322d191843d315b2c",
       "width": 866.699462890625,
       "height": 1545.709375,
-      "text_nodes": 22
+      "text_nodes": 14
     },
     {
       "id": "DGM-013",
       "status": "PASS",
-      "source_sha256": "e0066dd6be4c51e825043cafcaf7ccb134765dc1ae545cd485ead395041d01bd",
-      "svg_sha256": "dbabd1b982defec386d13cc3dda93301304e15fa0bd497d26f387dda87604383",
-      "width": 1317.82958984375,
-      "height": 1227.765625,
-      "text_nodes": 17
+      "source_sha256": "a95442e0d596cd51f509b780aca73a985a5a6d3efc8f30b061f33c31de471e3c",
+      "svg_sha256": "fed9eac86bc5c99c73a8feef3cea2a14cc8191b3f12570a0e5fb809f43875e80",
+      "width": 1396.6597900390625,
+      "height": 1556.2265625,
+      "text_nodes": 14
     },
     {
       "id": "DGM-014",
       "status": "PASS",
       "source_sha256": "d132e8d971eee2e5eb258eb1df203faf6a9ffc7dbcdaaa2b0bc88786990df8f9",
-      "svg_sha256": "54e07334a5da339fd7910a4d5e5f9508feee199e10983f415251fe34f30219d3",
+      "svg_sha256": "2b00f63ef3f0c5e0aef6cc760e8148961a886e8693bec1c130c551b7407266c3",
       "width": 1313.3723388671874,
       "height": 1353.8374999999999,
-      "text_nodes": 21
+      "text_nodes": 15
     },
     {
       "id": "DGM-015",
       "status": "PASS",
       "source_sha256": "3ef6bff9163a21a0f71b981b5cd9f6b557f24b3a914b4bfa47596c5f1c7290e1",
       "svg_sha256": "4844fd126cf7ee683a03aa05d1fa9332b2a38ce3ce274853474987817ad66e72",
-      "width": 981,
-      "height": 1411,
+      "width": 981.0,
+      "height": 1411.0,
       "text_nodes": 43
     },
     {
@@ -162,49 +161,39 @@
       "status": "PASS",
       "source_sha256": "8e119af5943ce12d848aa6f0a67b7dd690fdd0a5da5fc3f5d9c38ecd6cbebe8e",
       "svg_sha256": "c327622031d1d7f08803894fb2333e45dea41f8ccf9159e0f2c133d22119aa9e",
-      "width": 974,
-      "height": 1647,
+      "width": 974.0,
+      "height": 1647.0,
       "text_nodes": 48
     },
     {
       "id": "DGM-017",
       "status": "PASS",
-      "source_sha256": "cd462fb7224fa0e37e9bc27b4dc5a9ce585ce511c7c1c35566f3769712767116",
-      "svg_sha256": "9156a3ec603b3916d4208351a560b7570db60b9bcadbfca7e9a12355d5f3fb1d",
-      "width": 1454.021240234375,
-      "height": 1707.453125,
-      "text_nodes": 54
+      "source_sha256": "c1c6d6063ea1a2966b2332b94c14f08896b709aba20a761e5431dd50489a2d97",
+      "svg_sha256": "1ff56df43c03021350caa0ea722fe232a9b60ea6a823166cbf3466afa1c420e4",
+      "width": 2179.4364013671875,
+      "height": 2655.6796875,
+      "text_nodes": 49
     },
     {
       "id": "DGM-018",
       "status": "PASS",
       "source_sha256": "36c0de17a965f25b06c8fd8622e35b9617381c31cb8b93bfd64ee8e35da4ce85",
-      "svg_sha256": "b17b03403b0064704b2c4a3123e9043f8e46165fdfd822ab325c6b29b9235fcd",
+      "svg_sha256": "f0d0c09b4349830232dc3f1e48fffb815ac0b75101f3167fb5f3eb161cf85964",
       "width": 966.5640869140625,
       "height": 2584.2578125,
-      "text_nodes": 40
+      "text_nodes": 31
     },
     {
       "id": "DGM-019",
       "status": "PASS",
       "source_sha256": "99754d69ceb8c26cdf92956220197fa7dcb9956dfc0bfa6a8b6037006f771e96",
-      "svg_sha256": "e7c839b2cefdb4428cb1847db28b1d49c24328e69706d4608692f55f42c084d3",
+      "svg_sha256": "a543da8f8a1bbd238c8f8d0b1acf1d0504de89d6d687cace8135ef2f17c39385",
       "width": 2363.8435180664064,
       "height": 1467.6875,
-      "text_nodes": 32
+      "text_nodes": 23
     }
   ],
-  "visual_inspection": {
-    "status": "NOT_RUN",
-    "reason": "Updated SVG geometry and text were structurally validated; independent raster inspection remains unqualified."
-  },
+  "visual_inspection": "NOT_RUN",
   "application_native_live_acoustic_resource_tests": "NOT_RUN",
-  "checks": [
-    "Mermaid parse and SVG generation by pinned diagram_dom_renderer.mjs (wrapper child-process launch unavailable: EPERM)",
-    "source and output SHA-256",
-    "well-formed SVG XML",
-    "finite geometry and positive viewBox",
-    "no foreignObject",
-    "nonempty text nodes"
-  ]
+  "error": null
 }

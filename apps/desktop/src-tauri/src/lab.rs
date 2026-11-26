@@ -3,7 +3,11 @@
 //! also needs `KOHBOR_LAB=1`. Release builds compile only `current_config` and `observe`,
 //! which return the embedded default and the plain detector result.
 
-use kohbor_events::{Config, Detector, Event, Tick};
+use kohbor_events::{Config, Detector, Event, Tick, UltimateContext};
+
+#[cfg(feature = "lab")]
+#[path = "minimap_recorder/mod.rs"]
+pub(crate) mod minimap_recorder;
 
 #[cfg(any(feature = "lab", debug_assertions))]
 pub mod dev {
@@ -127,6 +131,17 @@ pub mod dev {
 
     pub fn observe(detector: &mut Detector, tick: &Tick) -> Vec<Event> {
         let (events, trace) = detector.observe_traced(tick);
+        let json = trace.to_json();
+        with_slot(|s| s.last_trace = Some(json));
+        events
+    }
+
+    pub fn observe_with_ultimate(
+        detector: &mut Detector,
+        tick: &Tick,
+        context: &UltimateContext,
+    ) -> Vec<Event> {
+        let (events, trace) = detector.observe_traced_with_ultimate(tick, context);
         let json = trace.to_json();
         with_slot(|s| s.last_trace = Some(json));
         events
@@ -891,6 +906,114 @@ pub mod dev {
                 .unwrap_or_else(|error| error.into_inner()) = None;
         }
     }
+
+    fn require_control_window(window: &tauri::WebviewWindow) -> Result<(), String> {
+        if window.label() == "control" {
+            Ok(())
+        } else {
+            Err("CAPABILITY_UNAVAILABLE".to_owned())
+        }
+    }
+
+    #[cfg(feature = "lab")]
+    fn minimap_recorder_service(
+        app: &tauri::AppHandle,
+    ) -> Result<std::sync::Arc<super::minimap_recorder::RecorderService>, String> {
+        require()?;
+        let data_dir = data_dir_path(app)?;
+        let key = crate::secrets::load_or_create(&data_dir.join("install-key.bin"), || {
+            crate::secrets::random::<32>().map(|key| key.to_vec())
+        })
+            .filter(|key| key.len() == 32)
+            .ok_or_else(|| "INSTALL_KEY_UNAVAILABLE".to_owned())?;
+        super::minimap_recorder::initialize(data_dir, key)
+    }
+
+    #[tauri::command(async)]
+    pub fn lab_minimap_recorder_status(
+        app: tauri::AppHandle,
+        window: tauri::WebviewWindow,
+    ) -> Result<Value, String> {
+        require_control_window(&window)?;
+        #[cfg(feature = "lab")]
+        {
+            minimap_recorder_service(&app)?.status_value()
+        }
+        #[cfg(not(feature = "lab"))]
+        {
+            let _ = app;
+            Err("CAPABILITY_UNAVAILABLE".to_owned())
+        }
+    }
+
+    #[tauri::command(async)]
+    pub fn lab_minimap_recorder_set(
+        app: tauri::AppHandle,
+        window: tauri::WebviewWindow,
+        enabled: bool,
+        sampling_rate_fps: u8,
+        total_cap_bytes: u64,
+    ) -> Result<Value, String> {
+        require_control_window(&window)?;
+        #[cfg(feature = "lab")]
+        {
+            let service = minimap_recorder_service(&app)?;
+            service.set_config(super::minimap_recorder::RecorderConfig {
+                enabled,
+                sampling_rate_fps,
+                total_cap_bytes,
+            })?;
+            service.status_value()
+        }
+        #[cfg(not(feature = "lab"))]
+        {
+            let _ = (app, enabled, sampling_rate_fps, total_cap_bytes);
+            Err("CAPABILITY_UNAVAILABLE".to_owned())
+        }
+    }
+
+    #[tauri::command(async)]
+    pub fn lab_minimap_recorder_delete(
+        app: tauri::AppHandle,
+        window: tauri::WebviewWindow,
+        match_hash: String,
+    ) -> Result<Value, String> {
+        require_control_window(&window)?;
+        #[cfg(feature = "lab")]
+        {
+            let service = minimap_recorder_service(&app)?;
+            service.delete_match(&match_hash)?;
+            service.status_value()
+        }
+        #[cfg(not(feature = "lab"))]
+        {
+            let _ = (app, match_hash);
+            Err("CAPABILITY_UNAVAILABLE".to_owned())
+        }
+    }
+
+    #[tauri::command(async)]
+    pub fn lab_minimap_recorder_open_folder(
+        app: tauri::AppHandle,
+        window: tauri::WebviewWindow,
+    ) -> Result<(), String> {
+        require_control_window(&window)?;
+        #[cfg(feature = "lab")]
+        {
+            let service = minimap_recorder_service(&app)?;
+            service.ensure_folder()?;
+            std::process::Command::new("explorer.exe")
+                .arg(service.folder())
+                .spawn()
+                .map(|_| ())
+                .map_err(|_| "MINIMAP_RECORDING_FOLDER_OPEN_FAILED".to_owned())
+        }
+        #[cfg(not(feature = "lab"))]
+        {
+            let _ = app;
+            Err("CAPABILITY_UNAVAILABLE".to_owned())
+        }
+    }
 }
 
 /// Demo-only release builds (`--features demo` without `lab`, no debug assertions) still register
@@ -964,6 +1087,38 @@ pub mod dev {
     pub fn lab_reference_image() -> Result<Option<String>, String> {
         Err(UNAVAILABLE.to_owned())
     }
+    #[tauri::command(async)]
+    pub fn lab_minimap_recorder_status(
+        _app: tauri::AppHandle,
+        _window: tauri::WebviewWindow,
+    ) -> Result<Value, String> {
+        Err(UNAVAILABLE.to_owned())
+    }
+    #[tauri::command(async)]
+    pub fn lab_minimap_recorder_set(
+        _app: tauri::AppHandle,
+        _window: tauri::WebviewWindow,
+        _enabled: bool,
+        _sampling_rate_fps: u8,
+        _total_cap_bytes: u64,
+    ) -> Result<Value, String> {
+        Err(UNAVAILABLE.to_owned())
+    }
+    #[tauri::command(async)]
+    pub fn lab_minimap_recorder_delete(
+        _app: tauri::AppHandle,
+        _window: tauri::WebviewWindow,
+        _match_hash: String,
+    ) -> Result<Value, String> {
+        Err(UNAVAILABLE.to_owned())
+    }
+    #[tauri::command(async)]
+    pub fn lab_minimap_recorder_open_folder(
+        _app: tauri::AppHandle,
+        _window: tauri::WebviewWindow,
+    ) -> Result<(), String> {
+        Err(UNAVAILABLE.to_owned())
+    }
 }
 
 /// The banner layout the overlay uses at show time in dev/test builds. The host lead wires this
@@ -1013,9 +1168,27 @@ pub fn observe(detector: &mut Detector, tick: &Tick) -> Vec<Event> {
     dev::observe(detector, tick)
 }
 
+#[cfg(any(feature = "lab", debug_assertions))]
+pub fn observe_with_ultimate(
+    detector: &mut Detector,
+    tick: &Tick,
+    context: &UltimateContext,
+) -> Vec<Event> {
+    dev::observe_with_ultimate(detector, tick, context)
+}
+
 #[cfg(not(any(feature = "lab", debug_assertions)))]
 pub fn observe(detector: &mut Detector, tick: &Tick) -> Vec<Event> {
     detector.observe(tick)
+}
+
+#[cfg(not(any(feature = "lab", debug_assertions)))]
+pub fn observe_with_ultimate(
+    detector: &mut Detector,
+    tick: &Tick,
+    context: &UltimateContext,
+) -> Vec<Event> {
+    detector.observe_with_ultimate(tick, context)
 }
 
 #[cfg(test)]

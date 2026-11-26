@@ -121,9 +121,9 @@ test("host minimap values own the state; capture-only fallback never invents a p
   assert.equal(deriveMinimapState(null, null), "unsupported");
 });
 
-test("every placeholder has honest Thai copy and waiting states are calm", () => {
-  const messages = { not_running: "Dota 2 ยังไม่เปิด — กดเริ่ม Dota 2", launching: "กำลังเปิด Dota 2…",
-    hero_selection: "กำลังเลือกฮีโร่ — แผนที่จะปรากฏเมื่อเกมเริ่ม", loading: "กำลังโหลดเกม — รอแผนที่" };
+test("each no-image minimap state has one short Thai status line", () => {
+  const messages = { not_running: "Dota 2 ปิดอยู่ — กดเริ่ม", launching: "กำลังเปิด Dota 2…",
+    hero_selection: "กำลังเลือกฮีโร่", loading: "กำลังโหลดเกม" };
   for (const [state, text] of Object.entries(messages)) assert.equal(minimapPlaceholderText(state as MinimapState, "th"), text);
 });
 
@@ -191,17 +191,19 @@ test("the right rail reserves a friends slot that says no friends system exists 
   assert.match(css, /\.shell-rail-friends \{[^}]*pointer-events: none/);
 });
 
-test("the shell starts on Live, keeps the original Live content, and returns there from Account", () => {
+test("the shell starts on Live, keeps the field-only Live page, and returns there from Account", () => {
   const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
   assert.match(app, /useState<ShellPage>\(DEFAULT_SHELL_DESTINATION\)/);
   // Overview variant D (owner decision 2026-11-23): the page replaces the empty state, and the
   // shell's GSI/game status chips are hidden on the Overview only.
   assert.match(app, /activePage === "overview" && <OverviewPage locale=\{displayLocale\} \/>/);
   assert.match(app, /\{activePage !== "overview" && <StatusLine /);
+  const header = app.match(/<header className="shell-page-header"[^>]*>([\s\S]*?)<\/header>/)?.[1] ?? "";
+  assert.match(header, /<StatusLine/);
   const livePage = app.match(/activePage === "live" && \(([\s\S]*?)\n\s*\)\}/)?.[1] ?? "";
-  for (const component of ["GsiSetupCard", "StartDotaBar", "Deck"]) {
-    assert.ok(livePage.includes("<" + component + " "), component);
-  }
+  assert.match(livePage, /<Deck /);
+  assert.doesNotMatch(livePage, /<GsiSetupCard|<StartDotaBar/);
+  assert.match(app, /activePage === "status" && \([\s\S]*?setupNeeded && <div className="shell-status-setup"><GsiSetupCard/);
   assert.match(app, /<AccountPage[^>]*back=\{\(\) => navigate\(DEFAULT_SHELL_DESTINATION\)\}/);
 });
 

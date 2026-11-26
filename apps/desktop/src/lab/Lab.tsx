@@ -17,6 +17,9 @@ import {
 import { labApplyEdits, labExport, labLastTrace, labStatus, stopLabHudMockEvents } from "./labRuntime";
 import { OverlayEditor } from "./OverlayEditor";
 import { HudLayoutEditor } from "./HudLayoutEditor";
+import { MinimapRecorderPanel } from "./MinimapRecorderPanel";
+import { LaneReviewPage } from "../analytics/LaneReviewPage";
+import type { Locale } from "../copy";
 import "./lab.css";
 
 const POLL_MS = 1000;
@@ -50,7 +53,7 @@ function LabStudio({
   const [message, setMessage] = useState<string | null>(null);
   const [profileExport, setProfileExport] = useState<ProfileExport | null>(null);
   const exportResult = useRef<HTMLDivElement>(null);
-  const [tab, setTab] = useState<"events" | "overlay" | "hud">("events");
+  const [tab, setTab] = useState<"events" | "overlay" | "hud" | "coach">("events");
 
   useEffect(() => {
     let active = true;
@@ -124,6 +127,9 @@ function LabStudio({
           <button type="button" role="tab" aria-selected={tab === "hud"} onClick={() => { setTab("hud"); setHudVisited(true); }}>
             HUD layout{hudUnsaved ? " •" : ""}
           </button>
+          <button type="button" role="tab" aria-selected={tab === "coach"} onClick={() => setTab("coach")}>
+            ทบทวนโค้ช
+          </button>
         </div>
         <button
           type="button"
@@ -144,6 +150,7 @@ function LabStudio({
       </header>
 
       <div className="lab-scroll" tabIndex={0} aria-label="Kohbor Lab content">
+      <MinimapRecorderPanel />
       {profileExport !== null && profileExport.status !== "exporting" && (
         <div ref={exportResult}>
           {profileExport.status === "exported" ? (
@@ -277,6 +284,8 @@ function LabStudio({
         </>
       ) : tab === "overlay" ? (
         <OverlayEditor />
+      ) : tab === "coach" ? (
+        <LaneReviewPage locale={(document.querySelector<HTMLElement>(".app")?.lang === "th" ? "th" : "en") as Locale} />
       ) : null}
       {(hudVisited || tab === "hud") && (
         <div hidden={tab !== "hud"}>

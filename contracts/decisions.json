@@ -99,6 +99,57 @@
       ]
     },
     {
+      "id": "DEC-MULTI-PACK",
+      "status": "decided",
+      "milestone": "M2",
+      "blocks": "multi-pack announcer loadout, mapped-aware arbitration, and the approved first special-event set",
+      "owner_role": "product owner",
+      "safe_interim": "Use the approved loadout and arbitration rules. Keep the three new detectors proposed_unavailable until live captures confirm true positives. Store category is design only.",
+      "closure_evidence": "Owner decision relayed by the lead and recorded by an agent on 2026-11-25; native, live, acoustic and resource acceptance remain separate.",
+      "decided_on": "2026-11-25",
+      "decided_by": "product owner (relayed by the lead; recorded by an agent)",
+      "decision_source": {
+        "owner_words": "Approve D1?D7",
+        "source": "F:\\kohbor-coord\\design\\multi-pack-20261125\\README.th.md",
+        "design": "F:\\kohbor-coord\\design\\multi-pack-20261125\\DESIGN.md",
+        "relayed_by": "lead",
+        "recorded_by": "agent"
+      },
+      "approved_decisions": {
+        "D1": "Skip every event without ready sound in the equipped loadout before ordinary arbitration; try the next-ranked mapped event.",
+        "D2": "Equip at most four packs. Keep the 40,000,000-sample PCM budget and fill it in priority rounds. Report skipped clips; revisit the budget after the first real measurement.",
+        "D3": "Same voice is sticky per event for one match and disabled by default.",
+        "D4": "First special events are clutch_kill (rank 75), posthumous_kill (rank 65), and comeback_kill (rank 62), using DESIGN 6.3 rules and cited admitted GSI fields.",
+        "D5": "Derive pack kind from its bindings; do not change pack manifest or signature.",
+        "D6": "Replay-only events are outside voice packs for now.",
+        "D7": "An unsatisfied event lock falls back to the mix and is disclosed on the Packs page."
+      },
+      "additional_owner_decision": "Choose randomly from the union of variants by default, allow a per-event lock, and key selection history by (pack, variant)."
+    },
+    {
+      "id": "DEC-HERO-PACK-SNIPER-ULT",
+      "status": "decided",
+      "milestone": "M2",
+      "blocks": "GSI own-hero ultimate event registration and Sniper-only pack bindings",
+      "owner_role": "product owner",
+      "decided_on": "2026-11-25",
+      "decided_by": "product owner (relayed by the lead; recorded by an agent)",
+      "decision_source": {
+        "owner_words": "Add a special voice pack. This pack works with Sniper only: if Sniper uses his ultimate, play this sound. It's an internet meme. GSI cannot see the cast start, so start the GSI part first; I'll record a clip.",
+        "relayed_by": "lead",
+        "recorded_by": "agent"
+      },
+      "decision": "Add active own-hero events ultimate_fired and ultimate_kill. ultimate_fired requires the own active hero alive at level 1 or higher and an ultimate ability identified only by the GSI ultimate flag or local Dota 2 6989/stats.json ultimate metadata; it fires only on cooldown zero or absent to positive between admitted payloads in the same session and generation. A first payload after start or resume establishes baseline only; hero swaps, level-ups, an already-running baseline cooldown and death emit nothing; refresher-style repeats emit again. Carry hero and ability. ultimate_kill is an additional own hero_kill within 4.0 seconds after ultimate_fired and does not replace hero_kill. Hero-scoped pack bindings are eligible only for a matching observed own hero, and a matching scoped binding outranks a general binding for the same event.",
+      "safe_interim": "The event IDs and GSI detector are registered and covered by synthetic sequences only. No live, native or acoustic timing evidence is available. GSI cooldown transition does not establish cast start; owner-recorded clip timing remains pending. Keep the provisional 4.0-second correlation window unchanged until the owner checks it in play.",
+      "closure_evidence": "Synthetic GSI sequences for baseline, start/resume, cooldown transition, death, hero swap, level-up, unknown ultimate, repeated ultimate and kill-window boundaries. The owner-recorded clip and timing review remain pending. GSI does not expose cast start; later screen-capture timing is separate. No native, live, acoustic, rights or shipped-pack acceptance is implied.",
+      "related": [
+        "DEC-MULTI-PACK",
+        "DEC-VOICE-VARIANTS",
+        "MEDIA-001",
+        "MEDIA-002"
+      ]
+    },
+    {
       "id": "DEC-HEALTH-DANGER",
       "status": "decided",
       "milestone": "M2",
@@ -1428,7 +1479,7 @@
       "decided_on": "2026-11-23",
       "channel": "Owner reply \"As recommended\" to the seven recommendations in coord:reports/2026-11-23-coach-analytics-design.md section 7, relayed by the coordinating session on 2026-11-23 and recorded by an agent.",
       "owner_statement_th": "“As recommended”.",
-      "decision": "1. Analyse the owner's own hero only; teammates appear only as hero + roster slot, and per-person analysis of a friend needs that friend's consent later. 2. Bring gem-dota 0.14.0 into tools/ as a pinned Lab/dev tool (version and file hashes pinned), using the copy already installed on the owner's machine and downloading nothing; the parser for the product is decided after a feasibility spike. 3. Coach comparisons use the owner's own local history only; no OpenDota or STRATZ. DEC-OVERVIEW revision 4 (2026-11-24) permits the separate opt-in OpenDota own-match history path only; it does not permit OpenDota or STRATZ coach analytics. 4. Thresholds such as ganked and lane lost use draft values labelled provisional; the owner confirms them after 3-5 matches and they are not changed after seeing a result. 5. Coach text comes from evidence-citing templates, at most 3 per match; no language model. 6. Slice 1 stores no multi-match trends; reports stay import-only. 7. The user picks replay files; the app never downloads replays.",
+      "decision": "1. Amended by DEC-ANALYTICS-V2 (2026-11-25): post-match hero-level coaching may analyse observed data for all ten heroes; player names and claims about people are excluded. Per-person analysis of a friend still needs that friend's consent later. 2. Bring gem-dota 0.14.0 into tools/ as a pinned Lab/dev tool (version and file hashes pinned), using the copy already installed on the owner's machine and downloading nothing; the parser for the product is decided after a feasibility spike. 3. Coach comparisons use the owner's own local history only; no OpenDota or STRATZ. DEC-OVERVIEW revision 4 (2026-11-24) permits the separate opt-in OpenDota own-match history path only; it does not permit OpenDota or STRATZ coach analytics. amended by DEC-POSITIONING-20261125 item 2 (owner \"Approve all 5\", 2026-11-25, relayed by the lead, recorded by an agent): Comparisons may also show OpenDota hero benchmarks under the DEC-PICK-STATS rules (a separate off-by-default switch, only the hero ID or a parameterless hero list sent, at most four counted requests per 24 h, attribution, cache deleted on withdrawal); everything else in item 3 is unchanged. 4. Thresholds such as ganked and lane lost use draft values labelled provisional; the owner confirms them after 3-5 matches and they are not changed after seeing a result. 5. Coach text comes from evidence-citing templates, at most 3 per match; no language model. 6. Slice 1 stores no multi-match trends; reports stay import-only. Amended by DEC-LANE-EXPECTATION (2026-11-25): the Analytics lane corpus stores up to 1,500 local hero-level rows for all three lanes without player or match identifiers and is deleted by clear-history; the viewer's own lane average stays separate and excluded from expectations. 7. The user picks replay files; the app never downloads replays.",
       "reason": "Give the owner coach-style post-match analysis from local DEM replays while keeping other players' identities, network use and model narrative out of scope.",
       "alternatives_considered": [
         "Analyse all five teammates",
@@ -1506,6 +1557,388 @@
           "decision": "1. The Overview is a player data dashboard plus community news; no readiness or GSI content on the page. Variant D: statistics in the main column, news in the side column with a type filter at its head and an \"all news\" link (an in-page expanded list until a full feed page exists). 2. Statistics source \"both\": Kohbor records its own local match history from GSI from now on; OpenDota opt-in history is slice 2 and is shown as a disabled, labelled coming-soon card until then. 3. Win rate counts real matches only: ranked and unranked public matches; bot, custom and lobby games are recorded but excluded; a quit, abandoned or unknown outcome shows an em dash, never a loss; a match whose type GSI cannot tell is recorded as unknown and excluded, and the UI says so. 4. News: news.json in the public repository Freshair129/kohbor-updates, loaded by default at app start; the first-run state and Settings disclose that it contacts GitHub (which sees the IP address and time) and offer an off switch; Kohbor-written patch notes with a link to Valve and no Valve text. 5. The shell's GSI and game status chips are hidden on the Overview page only. 6. Rollout in two slices; slice 1 is local history, news and the page. Amends DEC-COACH-REVIEW item 6 only for the Overview's own-history win rate; DEC-COACH-REVIEW item 3 (no OpenDota) is amended later by slice 2."
         }
       ]
+    },
+    {
+      "id": "DEC-ANALYTICS",
+      "status": "decided",
+      "milestone": "M6",
+      "blocks": "The Analytics page, its optional Claude assistant and replay storage policy only.",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-24",
+      "channel": "decided by the product owner 2026-11-24, relayed by the lead, recorded by an agent",
+      "decision": "1. Rename \"สรุปผล\" to Analytics while retaining the route. The page has left analysis and Markdown notes, a centre replay minimap and ten hero cards, and an IDE-style chat on the right. 2. This is a feature-specific exception to the AGENTS.md default against cloud data and paid services. The Analytics chat may call Anthropic Claude Messages API only with the user own API key, after explicit consent, while AI is enabled; AI starts off, can be revoked, and sends nothing automatically. The only content sent is derived selected-match context, hero names, the user question, the earlier user and assistant messages of the same match chat (resent unchanged with each question; owner 2026-11-24: \"Yes, resend them\") and open-document text. Player names, Steam/account IDs, raw match ID and file paths are never sent. The API key is never content: it goes only to api.anthropic.com in the HTTPS x-api-key authentication header. The user pays Anthropic directly; Kohbor adds no account, server, telemetry or billing. Without key, consent or AI enablement, no request occurs and local template fallback remains available. 3. Automatically analyse discovered replays only outside matches, one at a time under existing engine admission. Keep newest 20 analysed bundles plus every pinned \"เก็บไว้\" bundle by default, with a 2 GiB size cap. Eviction never deletes source .dem files, notes or chat. 4. Amendment DEC-AI-PROVIDERS (owner decision 2026-11-24, owner words “Approve 1–7”): the Analytics chat supports Anthropic, OpenAI Platform API key, OpenRouter, Google Gemini, xAI Grok, DeepSeek, Qwen (DashScope compatible mode), user-run Ollama, LiteLLM, and a user-entered OpenAI-compatible endpoint, using API keys only and no ChatGPT subscription login. Unverified providers are hidden by default until an owner-side verified flag is set after a recorded live test; an off-by-default Developer-mode toggle reveals unverified rows without verifying them. Provider consent is per provider and origin; keys are DPAPI-protected per provider and bound to origin. User endpoints are HTTPS or HTTP loopback only, redirects are never followed, and local providers are never started by Kohbor. AI questions are blocked during draft, pregame and live phases. Switching providers in an existing match chat warns that earlier messages and old-provider answers will be sent to the new company. Anthropic keeps its closed three-model list; other providers allow typed model IDs and explicit fetch. A user-pressed “บันทึกเป็นโน้ต” fallback is used when tools are unavailable. No ChatGPT subscription sign-in is supported.",
+      "reason": "Provide the Analytics replay workspace and optional user-authorized cloud assistance without a Kohbor service or disclosure of replay identifiers, while bounding derived storage and preserving notes.",
+      "alternatives_considered": [
+        "Keep only template answers",
+        "Use a local language model",
+        "Use a Kohbor-operated cloud service",
+        "Keep every analysed bundle",
+        "Delete notes and chat on eviction"
+      ],
+      "affected_need_ids": [
+        "PN-008"
+      ],
+      "affected_requirement_ids": [
+        "UI-021",
+        "UI-022",
+        "MEM-007"
+      ],
+      "related": [
+        "DEC-COACH-REVIEW",
+        "DEC-REPLAY-INTEGRATION",
+        "DEC-NATIVE-EVIDENCE"
+      ],
+      "safe_interim": "No request occurs without key, consent, AI enabled and an explicit submit. Template fallback remains local. Dota replay files remain read-only and bundle eviction preserves notes and chat.",
+      "closure_evidence": "Product-owner decision 2026-11-24, relayed by the lead and recorded by an agent. Synthetic fake-transport and policy tests only; native DPAPI and app acceptance remain NOT_RUN."
+    },
+    {
+      "id": "DEC-AI-PROVIDERS",
+      "status": "decided",
+      "milestone": "M6",
+      "blocks": "The optional Analytics chat provider set, provider consent and provider-specific request routing only.",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-24",
+      "channel": "decided by the product owner 2026-11-24, relayed by the lead, recorded by an agent",
+      "owner_words": "Approve 1–7",
+      "decision": "Amends DEC-ANALYTICS items 1 and 2 for the Analytics chat only. 1. The Analytics chat may call Anthropic, OpenAI using a Platform API key, OpenRouter, Google Gemini, xAI Grok, DeepSeek, Qwen in DashScope compatible mode, Ollama, LiteLLM and a user-entered OpenAI-compatible endpoint, using the user's API key where required; no ChatGPT subscription sign-in is supported. 2. A provider not tested live with a real key remains hidden from the picker until an owner-side action sets its verified flag after a live test is recorded. The off-by-default toggle “แสดงผู้ให้บริการที่ยังไม่ทดสอบ” reveals untested rows but does not mark them verified. Anthropic remains unverified until a live test is recorded. 3. The user may run Ollama or LiteLLM on loopback; the user starts that program and Kohbor never does. Kohbor sends no questions during draft, pregame or live match phases and shows a clear blocked message. 4. When tool calling is unavailable or fails, the user may press “บันทึกเป็นโน้ต”; no note is written automatically by the fallback. 5. Switching providers in a same-match chat requires a clear warning that earlier messages, including replies from the previous provider, will be sent to the new company. 6. Model IDs may be typed or fetched for every provider except Anthropic, which keeps its closed list of three. 7. Authentication is API key only; there is no Sign in with ChatGPT or subscription login. Existing content projection and direct provider payment in DEC-ANALYTICS remain. Consent is per provider and endpoint origin. Fixed providers use compiled HTTPS hosts; Qwen uses its closed host list; user-entered endpoints allow HTTPS or HTTP only to 127.0.0.1, [::1] or localhost, contain no credentials, query or fragment, and never follow redirects. Keys are stored in per-provider current-user DPAPI records bound to origin and sent only in the provider authentication header; loopback endpoints may omit a key. The app never starts a local model process. A loopback label appears only for loopback endpoints and says Kohbor cannot know whether that local program forwards data. Providers without live evidence stay unverified; synthetic tests never set verified.\nAmendment by DEC-UX-REVIEW-20261125 (owner words \"Approve all 11\"), decision 8: the untested-provider toggle is available only in Developer mode. Other users see that AI is unavailable in this release and the chat stays collapsed.",
+      "reason": "Allow owner-controlled provider choice while preserving explicit consent, key isolation, local-match resource protection and honest verification state.",
+      "alternatives_considered": [
+        "Keep Anthropic only",
+        "Show unverified providers without gating",
+        "Start local models from Kohbor",
+        "Send AI questions during matches",
+        "Automatically write model notes",
+        "Start a separate chat on every provider switch",
+        "Support ChatGPT subscription login"
+      ],
+      "affected_need_ids": [
+        "PN-008"
+      ],
+      "affected_requirement_ids": [
+        "UI-022"
+      ],
+      "related": [
+        "DEC-ANALYTICS",
+        "DEC-NATIVE-EVIDENCE",
+        "DEC-UX-REVIEW-20261125"
+      ],
+      "safe_interim": "AI remains off by default; no question is sent without explicit submit and current-provider consent. All ten providers remain hidden until an owner-side live-verification action sets their flag. No live provider call has been recorded in this task.",
+      "closure_evidence": "Owner decision 2026-11-24, relayed by the lead and recorded by an agent; owner words Approve 1–7. Fake transport and pure fixture checks do not establish live provider verification."
+    },
+    {
+      "id": "DEC-ANALYTICS-V2",
+      "status": "decided",
+      "milestone": "M6",
+      "blocks": "Analytics renderer slices S1, S2 and S6, and their stated request and consent interfaces.",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-25",
+      "channel": "decided by the product owner 2026-11-25, relayed by the lead, recorded by an agent",
+      "owner_words": "Approve all 13",
+      "decision": "The product owner approved all 13 decisions (“Approve all 13”).\nApproved 1. Scope of AI analysis: hero-level analysis may use observed data for all ten heroes; do not use player names or make claims about people. Per-person analysis still requires that player's consent.\nApproved 2. Card labels: use text labels in Analytics and icons on Live.\nApproved 3. Hero-card font floor: exempt the card from the 12 px minimum so it matches the reference sizes, 9–13.5 px.\nApproved 4. Ten cards at 1440×900: uniformly scale all ten cards by 0.88 without rearranging their structure.\nApproved 5. Lane, NW/min and XPM: put them in the matchup strip and keep the card layout at the reference; add no hero-damage cell until the engine provides real data.\nApproved 6. Lane and teamfight thresholds: accept the provisional values in B.5 and B.7 and label them “เกณฑ์ชั่วคราว”; review after 3–5 matches.\nApproved 7. Phase boundaries: use 10:00 and 25:00.\nApproved 8. Request the replay-engine change now for attacker-side damage and gold earned; include draft and winner in that engine release if inexpensive.\nApproved 9. Amend UI-021 and UI-022 for removed context chips, #doc= links, and the always-sent/read-tool disclosure; show the consent screen once again.\nApproved 10. Cache the match digest for one hour and revisit the lifetime using ledger data.\nApproved 11. Generate the AI report only after the user clicks, with a cost note.\nApproved 12. Use built-in charts from fenced “kohbor-chart” blocks and open documents in the left panel; do not add Mermaid or another dependency.\nApproved 13. Use the Settings model for chat and the one-time report (default claude-opus-5-5); a model switch starts a cold cache.\nAmendment (owner 2026-11-25, relayed by the lead, recorded by an agent; owner words “Start re-pin”). In response to decision 8, re-pin replay-engine-rs 0.3.0 and update the Match Bundle contract and provenance for schema 3.1 fields: match.meta.winner / winner_reason, match.meta.draft / draft_reason, match.heroes[].gold_earned / gold_earned_final, and attacker-side hero damage match.heroes[].dmg_out (total, p, m, u). Keep schema 3.0 library bundles readable; Analytics knowledge-digest use is phase 2 after the analytics owner merges.\nAmendment by DEC-UX-REVIEW-20261125 (owner words \"Approve all 11\"), decisions 6 and 7: Analytics follows measured page width, has four tabs (สรุป, เทียบ, AI, โน้ต), a one-row matchup strip with score, and reading mode that widens the left panel while preserving 423 px and 289 px chat widths; Coach Review moves to Lab or Developer mode.",
+      "reason": "Approve the Analytics v2 renderer, card, consent and chat presentation choices while preserving honest unknowns and the existing privacy boundary.",
+      "alternatives_considered": [
+        "The alternatives listed in F:\\kohbor-coord\\design\\analytics-v2-20261125\\DESIGN.md section H; owner selected each recommendation."
+      ],
+      "affected_need_ids": [
+        "PN-008"
+      ],
+      "affected_requirement_ids": [
+        "UI-021",
+        "UI-022"
+      ],
+      "related": [
+        "DEC-ANALYTICS",
+        "DEC-AI-PROVIDERS",
+        "DEC-COACH-REVIEW",
+        "DEC-REPLAY-INTEGRATION",
+        "DEC-NATIVE-EVIDENCE",
+        "DEC-UX-REVIEW-20261125"
+      ],
+      "safe_interim": "Renderer changes do not establish host transcript retrieval, request projection, consent-version migration, chart-tool behavior or native/visual acceptance; those retain their existing gates.",
+      "closure_evidence": "Owner decision recorded as relayed. Renderer source and synthetic tests only; host, native, live-provider and visual acceptance remain NOT_RUN."
+    },
+    {
+      "id": "DEC-ANALYTICS-LAYOUT",
+      "status": "decided",
+      "milestone": "M5",
+      "blocks": "Analytics layout D1-D8 and the shared Replay/Analytics hero-card display setting.",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-25",
+      "channel": "decided by the product owner 2026-11-25, relayed by the lead, recorded by an agent",
+      "owner_words": "Approve D1–D8",
+      "decision": "The product owner approved the recommended choices (ก) for D1–D8 in F:\\kohbor-coord\\design\\analytics-layout-20261125\\README.th.md; the detailed implementation reference is DESIGN.md sections 2–8.\n1. D1: Put Analytics controls in one 48 px shell-header row. Remove complete picker segments by the approved order or move controls into a menu; do not truncate labels.\n2. D2: Put the summary above the assistant in the right pane, make the centre map square and large, put the timeline below it, and remove the lane strip from the replay stage.\n3. D3: At compact sizes, reduce non-selected cards to compact rows while the selected hero retains every setting-visible row.\n4. D4: Request permanent, aura and stack-buff fields from the replay-engine owner for bundle schema 3.2. Until that schema arrives, show “บัฟถาวร ออร่า และจำนวนสแต็ก ยังไม่มีในข้อมูลรีเพลย์”; the renderer must not derive Duel-win or tower buffs.\n5. D5: Provide one shared 13-checkbox hero-card display setting, default every field on, remove hidden cells and reflow rows without gaps, and expose the setting in Settings and through quick access.\n6. D6: Keep the hero-card minimum scale at 85 percent; the typography exception applies only inside the card.\n7. D7: A selected text passage creates one note per selection. The Ask action places a source/time quote chip in the composer without changing tabs; Go to time is offered only when a timestamp is known.\n8. D8: Provide Ctrl+\\\\ for the side pane, Ctrl+Shift+\\\\ for both card columns, Ctrl+J for the assistant, Ctrl+0 for reset, F6/Shift+F6 for regions, I for status effects, and Ctrl+Shift+A/N for Ask/Note. The implementation uses Ctrl+Alt+0 as a defensive alternative because Ctrl+0 may be consumed by WebView zoom; packaged Windows ownership remains to be checked.",
+      "reason": "Apply the owner-approved Analytics layout and card-display choices while preserving unknown replay fields and the existing consent boundary.",
+      "alternatives_considered": [
+        "Recommended choices (?) documented in the 2026-11-25 Analytics layout decision sheet."
+      ],
+      "affected_need_ids": [
+        "PN-008"
+      ],
+      "affected_requirement_ids": [
+        "UI-021"
+      ],
+      "related": [
+        "DEC-ANALYTICS-V2",
+        "DEC-UX-REVIEW-20261125"
+      ],
+      "safe_interim": "The replay-engine schema 3.2 request is pending. Keep permanent buffs, auras and stack counts unknown, show the approved note, and do not derive Duel-win or tower buffs. Use Ctrl+Alt+0 until packaged Windows shortcut handling is confirmed.",
+      "closure_evidence": "Owner words ?Approve D1?D8?, relayed by the lead and recorded by an agent on 2026-11-25. Pure logic checks do not establish rendered, native, live-match or packaged WebView acceptance; those remain NOT_RUN."
+    },
+    {
+      "id": "DEC-MATCH-SUMMARY",
+      "status": "decided",
+      "milestone": "M5",
+      "blocks": "UI-023 Analytics match summary tab.",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-26",
+      "channel": "decided by the product owner 2026-11-26 in the lead session, recorded by an agent",
+      "owner_words": "Approve as recommended",
+      "decision": "The product owner approved CR-MATCH-SUMMARY (F:\\kohbor-coord\\design\\match-summary-cr-20261126\\CR.md, decision sheet OWNER-QUESTIONS.md) as recommended.\n1. Add UI-023 as a new requirement for the Analytics match summary tab instead of amending UI-021.\n2. UI-023 is P1, milestone M5, like UI-021.\n3. Native evidence is the owner opening the summary tab of a real match they played in a release build bound to a commit and exe hash, recorded in a receipt like ALERT-008's (build, keyed match hash, which sections showed values or unknown, and whether seeking worked); a screenshot alone is not PASS.\nThe page itself follows the owner's 2026-11-26 request for a post-match summary modelled on Dotabuff and STRATZ screenshots (owner choice \"Combine both\"); the references are layout inspiration only, with no names, logos, colours, rank badges or data from those services.",
+      "reason": "The summary page shipped without a requirement saying what it shows or how it treats missing data, so a regression had nothing to fail.",
+      "alternatives_considered": [
+        "Amend UI-021 with the summary content (rejected: UI-021 is already long and one PASS would need everything).",
+        "Leave the page as a loose trace under UI-021 (rejected: the behaviour stays ungoverned)."
+      ],
+      "affected_need_ids": [
+        "PN-008"
+      ],
+      "affected_requirement_ids": [
+        "UI-023",
+        "UI-021"
+      ],
+      "related": [
+        "DEC-ANALYTICS-LAYOUT",
+        "DEC-LANE-EXPECTATION",
+        "DEC-NATIVE-EVIDENCE"
+      ],
+      "safe_interim": "Until the native receipt exists, UI-023 stays NOT_RUN; unit fixtures are synthetic evidence only.",
+      "closure_evidence": "Owner words “Approve as recommended” in the lead session on 2026-11-26, recorded by an agent. Synthetic unit checks do not establish rendered, native or live-match acceptance; those remain NOT_RUN."
+    },
+    {
+      "id": "DEC-REPLAY-AUTO-PARSE",
+      "status": "decided",
+      "milestone": "M5",
+      "blocks": "Automatic parsing of newly detected watched Dota replay files and its Settings control only.",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-25",
+      "channel": "decided by the product owner 2026-11-25, relayed by the lead, recorded by an agent",
+      "owner_words": "Make the automatic replay-parsing switch now.",
+      "decision": "Owner words, translated in the brief from Thai: “Make the automatic replay-parsing switch now.” Extend the existing persisted `auto_analyse` preference in Analytics Settings (default on) with the label “แยกรีเพลย์อัตโนมัติ” / “Parse replays automatically”; it remains the single source of truth, with no second preference, and the owner may reverse the default. Only newly detected watched Dota .dem files are automatically queued; manual picks remain explicit parse requests. Automatic requests share the existing queue and match barrier, run one at a time at low priority after the player leaves the match, and queue newest first. Do not auto-queue removed watched entries, failed entries, needs_pack entries, manual picks, or anything while the switch is off. Turning off cancels queued automatic jobs but lets a running parse finish. Turning on queues existing Available watched entries once, newest first, bounded by retention. Show ready only after bundle validation. Make no network request or Dota write and add no match IDs or replay paths to logs. This amends the “user parse request” step in docs/design/REPLAY-PIPELINE.md. Amendment (owner 2026-11-25, relayed by the lead, recorded by an agent). Owner words, translated in the brief: “Make a re-parse button too.” Add a manual re-parse action to each ready Lab replay row. It reads the source .dem path from the entry meta.json, uses the existing single queue and match barrier, and never enters the automatic parse queue. If the source is missing, return source_missing without changing the entry or current bundle. Keep the old bundle until the new bundle passes staging validation, then swap it atomically; failed re-parses leave the old bundle available. Display the current bundle schema (3.0 or 3.1) and disable re-parse when the source is absent. Re-parse never writes to Dota folder or logs a match ID or path.\nAmendment by DEC-UX-REVIEW-20261125 (owner words \"Approve all 11\"), decisions 2 and 3: (2) interrupted parse jobs and jobs stopped by a match start return to Available/not parsed and are auto-queued again; genuine parse failures remain manual. (3) queue order and eviction use match end time; evicted matches remain as light rows; retention edits require an explicit Save that previews the number of matches to remove.",
+      "reason": "Reduce clicks for newly watched replays while retaining the existing match barrier, explicit manual picks, bounded retention and local-only privacy boundary.",
+      "alternatives_considered": [
+        "Keep every replay parse as an explicit user request.",
+        "Default the switch off.",
+        "Queue all existing watched files without a retention bound."
+      ],
+      "affected_need_ids": [
+        "PN-008"
+      ],
+      "affected_requirement_ids": [
+        "MEM-007"
+      ],
+      "related": [
+        "DEC-ANALYTICS",
+        "DEC-REPLAY-INTEGRATION",
+        "DEC-NATIVE-EVIDENCE",
+        "DEC-UX-REVIEW-20261125"
+      ],
+      "safe_interim": "Parsing remains local and uses the existing validated engine path; the default-on choice may be reversed by the product owner.",
+      "closure_evidence": "Product-owner decision 2026-11-25, relayed by the lead and recorded by an agent. Rust and Node source/synthetic checks do not establish native app acceptance."
+    },
+    {
+      "id": "DEC-LANE-EXPECTATION",
+      "status": "decided",
+      "milestone": "M5",
+      "blocks": "Analytics lane expectation, calibration and coach-review behavior in slices L0-L5; L6 public-source work remains separately gated by the owner.",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-25",
+      "channel": "decided by the product owner 2026-11-25, relayed by the lead, recorded by an agent",
+      "owner_words": "Approve all 12",
+      "decision": "The product owner approved all 12 decisions (\"Approve all 12\").\n1. (a) Add \"against expectation\" as a second reading. The approved raw lane result stays unchanged.\n2. (a) Expert table plus role baseline first; statistics later. No AI-estimated expectations.\n3. (a) No public matchup fetch now. L6 is a later spike, only on the owner's word. 3.1. The consent and privacy rules for any future fetch are confirmed in advance (same as DEC-PICK-STATS).\n4. (a) The coach writes the expert table and the owner reviews it each patch. Credit is by role (\"coach\", \"owner\"), with no real names. Unreviewed rows are never used.\n5. (a) Keep a local hero-level lane store for all three lanes. No player names or IDs, at most 1,500 rows, deleted by clear-history. This amends DEC-COACH-REVIEW item 6.\n6. (a) The player's own history is not mixed into the expectation. It shows separately as \"ค่าเฉลี่ยของคุณ\".\n7. (a) Constants v0 are provisional. Freeze them as v1 after one calibration on at least 30 lanes. After v1, change only by a recorded decision.\n8. (a) Turbo lane boundaries stay unknown until measured.\n9. Exit criteria for the \"ทดลอง\" label: R1, R2 and R3 as written. Never lowered after seeing results.\n10. Match result order: engine, then local GSI history (match hash), then own OpenDota history if enabled, then unknown. If sources disagree, show unknown and log a warning.\n11. Words \"เกินคาด / ตามคาด / ต่ำกว่าคาด\" (+ \"มาก\"). Show them on the lane card and the matchup strip; fall back to the lane card only if the strip is too crowded.\n12. (a) Send expected-versus-actual, with its source, to the AI. Add the rules: the AI cites the source, never invents an expectation, and never states a match result when it is unknown.\nAmendment by DEC-UX-REVIEW-20261125 (owner words \"Approve all 11\"), decisions 4 and 5: (4) lane dedup uses a separate irreversible token file containing HMAC(install key, bundle hash); clear-history deletes it and performs a one-time clear of the existing lane store. (5) \"ค่าเฉลี่ยของคุณ\" is screen-only and is excluded from every AI request and digest.",
+      "reason": "Add a source-backed trial reading against expected lane performance while preserving the raw result, consent and privacy boundaries, and explicit unknown states.",
+      "alternatives_considered": [
+        "Keep only raw lane results",
+        "Estimate expectations with AI",
+        "Fetch public matchup statistics now",
+        "Mix personal history into the expectation"
+      ],
+      "affected_need_ids": [
+        "PN-008"
+      ],
+      "affected_requirement_ids": [
+        "UI-021",
+        "UI-022"
+      ],
+      "related": [
+        "DEC-ANALYTICS-V2",
+        "DEC-COACH-REVIEW",
+        "DEC-PICK-STATS",
+        "DEC-NATIVE-EVIDENCE",
+        "DEC-UX-REVIEW-20261125"
+      ],
+      "proposal_ref": "F:/kohbor-coord/design/lane-expectation-20261125/DESIGN.md",
+      "safe_interim": "Keep the shipped expert table empty. Every new reading remains labelled \"ทดลอง · เกณฑ์ชั่วคราว\"; no R1-R3 criterion passes by this decision or this implementation. Do not run L6 without the owner's word.",
+      "closure_evidence": "Owner decision \"Approve all 12\" on 2026-11-25, relayed by the lead and recorded by an agent. Source and synthetic checks only; native, live-match, acoustic and acceptance evidence remain NOT_RUN."
+    },
+    {
+      "id": "DEC-UX-REVIEW-20261125",
+      "status": "decided",
+      "milestone": "M3-M6",
+      "blocks": "Post-game Live summary, rune-chip presentation, replay job lifecycle, and Analytics layout/privacy presentation covered by decisions 1-11.",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-25",
+      "channel": "decided by the product owner 2026-11-25, relayed by the lead, recorded by an agent",
+      "owner_words": "Approve all 11",
+      "decision": "The product owner approved all 11 decisions (\"Approve all 11\").\n1. R-01 / decision 1: Live shows a three-step post-game panel with live watcher and parse state, a manual replay-file pick, and clear instructions to download the replay in Dota; Kohbor never controls Dota. The host persists the last finished match and the renderer can reopen its panel after the match and after restart.\n2. Decision 2 amends DEC-REPLAY-AUTO-PARSE: interrupted parse jobs and jobs stopped by match start return to available/not parsed and are automatically queued again; real failures remain manual.\n3. Decision 3 amends DEC-REPLAY-AUTO-PARSE: order and evict by match end time, retain evicted matches as light rows, and require Save for retention changes with a removal-count preview.\n4. Decision 4 amends DEC-LANE-EXPECTATION: deduplicate lane rows with a separate irreversible token file containing HMAC(install key, bundle hash), delete it with clear-history, and clear the existing lane store once.\n5. Decision 5 amends DEC-LANE-EXPECTATION: show \"???????????????\" on screen only and never send it to AI.\n6. Decision 6 amends DEC-ANALYTICS-V2: use measured page width, four tabs (????, ?????, AI, ????), a one-row matchup strip with score, and reading mode that widens the left panel; preserve chat widths 423 px and 289 px.\n7. Decision 7 amends DEC-ANALYTICS-V2: move Coach Review to Lab or Developer mode.\n8. Decision 8 amends DEC-AI-PROVIDERS: show the untested-provider toggle only in Developer mode; other users see AI unavailable in this release and the chat collapsed.\n9. R-19 / decision 9: rune chips follow D.4: map mark and time, names in a legend under the map, full chip only within its alert lead threshold, distinct shapes, and a dashed ring when source and schedule patch differ.\n10. Decision 10: use \"แยกรีเพลย์\" and the states ยังไม่แยก, รอคิว, กำลังแยก, พร้อมดู, แยกไม่สำเร็จ; reserve \"วิเคราะห์\" for analysis and AI.\n11. Decision 11: allow deleting per-match chat, notes and reports even when that match no longer has a replay; \"ค่าเฉลี่ยของคุณ\" stays screen-only and is not sent to AI.",
+      "reason": "Record the product owner-approved UX review decisions and align the controlled requirements with them.",
+      "alternatives_considered": [
+        "The alternatives and recommended options documented in the 2026-11-25 UX pipeline review."
+      ],
+      "affected_need_ids": [
+        "PN-005",
+        "PN-008"
+      ],
+      "affected_requirement_ids": [
+        "UI-002",
+        "UI-018",
+        "UI-021",
+        "UI-022",
+        "MEM-007"
+      ],
+      "related": [
+        "DEC-REPLAY-AUTO-PARSE",
+        "DEC-LANE-EXPECTATION",
+        "DEC-ANALYTICS-V2",
+        "DEC-AI-PROVIDERS"
+      ],
+      "safe_interim": "Missing watcher-status capability remains unknown. Source and synthetic checks do not establish native or live acceptance.",
+      "closure_evidence": "Product owner decision \"Approve all 11\" on 2026-11-25, relayed by the lead and recorded by an agent. Native, visual, live-match and acceptance evidence remain NOT_RUN."
+    },
+    {
+      "id": "DEC-ROSHAN-PIT-SWITCH-20261125",
+      "status": "decided",
+      "milestone": "M3",
+      "blocks": "Live second-monitor Roshan pit marker and switch countdown",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-25",
+      "channel": "owner 2026-11-25, relayed by the lead, recorded by an agent",
+      "owner_words": "Roshan pit-switch countdown",
+      "decision": "Show a compact Roshan pit mark and switch countdown on the second-monitor minimap. Derive the 7.41f rule from admitted schema 3.2 replay data: pit X by day and pit Y by night after the first switch at 15:00; use fresh GSI map.daytime and clock_time, show the measured median walk countdown after a switch, and keep the mark unknown when daytime is stale or contradicts the measured cycle. Tooltip provenance includes the replay patch and sample count. A differing ALERT-008 patch label is disclosed as a schedule-label mismatch because the current GSI read model has no live game-patch field.",
+      "reason": "The owner requested the Roshan pit-switch countdown, and the newly admitted replay data supplies a patch-labelled day/night mapping and measured walk duration.",
+      "alternatives_considered": [
+        "Keep the Roshan pit and switch unknown on the minimap.",
+        "Show a patch-independent fixed pit schedule without replay provenance."
+      ],
+      "affected_need_ids": [
+        "PN-005"
+      ],
+      "affected_requirement_ids": [
+        "UI-016",
+        "UI-018"
+      ],
+      "related": [
+        "DEC-UX-REVIEW-20261125",
+        "DEC-REPLAY-INTEGRATION"
+      ],
+      "safe_interim": "Stale or contradictory daytime stays unknown. The historical 7.41f mapping is not a verified current game-patch mapping; a live patch field is still absent.",
+      "closure_evidence": "Owner request 2026-11-25, relayed by the lead and recorded by an agent. The measured n=8 rule and source method are recorded in docs/design/MINIMAP-RUNE-ROSHAN-OVERLAY.md."
+    },
+    {
+      "id": "DEC-REPLAY-INTEGRATION",
+      "status": "decided",
+      "milestone": "M3-M6",
+      "blocks": "Replay engine sidecar packaging, local replay library and viewer, and the Live card layout reuse only.",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-23",
+      "channel": "Owner answer \"As recommended\" to the 13 recommendations in coord:reports/2026-11-23-replay-integration-design.md section 12, relayed by the lead session and recorded by an agent. Amendments were relayed and recorded on 2026-11-24 and 2026-11-25.",
+      "owner_words": "As recommended",
+      "decision": "1. Engine packaging: keep the Rust replay engine in its own repository and consume it as a pinned sidecar behind a versioned JSON contract; keep gem-dota Lab/dev only. Amendment (owner 2026-11-25): keep the engine source in its own repository, backed up to a private GitHub repository with no CI; its technical specification is that repository's docs/ENGINE-SPEC.md. 2. Post-match views may use observed data for all ten heroes; player names and claims about people remain excluded, and per-person analysis of a friend still needs that friend's consent. 3. Bundled game images may be built from the owner's installed game without download; rights review is required before public release. 4. Raw match IDs may appear only inside the local replay library and never in logs. 5. Acquisition uses a read-only Dota replay-folder watcher and manual file pick; Kohbor does not write Dota configuration. 6. OpenDota replay download is later, opt-in, off by default, on demand, and gated on measured limits, retention and size. 7. The pseudonymous encounter table stays off until privacy text is reviewed; names remain memory-only. 8. Real-time OpenDota lookup for other players is deferred until the encounter table is reviewed and legal review is complete. 9. Use a JSON index and per-match folders without a new dependency; revisit SQLite only with owner approval. 10. Live reuses the replay card layout: own hero full, nine compact cards, no path traces and no unobserved enemy stats. The 2026-11-24 owner amendments put ten stable cards in two non-scrolling columns around the minimap, with the own hero in its team slot and 12 px minimum Live text. 11. Phase R1 to the Lab Replay tab first; R2-R4 follow a tagged Rust engine, R5 follows M3 close and the M4a demo, and R3/R6 and R7/R8 follow M5/M6. 12. One owner match ID may be sent once to OpenDota to measure limits, retention and replay size; the owner may play one match so server_log.txt can be checked. 13. Read-only observation of the Dota replay folder and server_log.txt is not game automation.",
+      "reason": "Integrate user-selected local replays and a pinned, versioned engine while preserving local data boundaries and the existing Live card structure.",
+      "alternatives_considered": [
+        "Keep replay analysis outside the desktop app.",
+        "Use the Python gem-dota engine in production.",
+        "Download replays automatically after every match.",
+        "Show unobserved enemy information in Live cards."
+      ],
+      "affected_need_ids": [
+        "PN-005",
+        "PN-008"
+      ],
+      "affected_requirement_ids": [],
+      "related": [
+        "DEC-ANALYTICS",
+        "DEC-ANALYTICS-V2",
+        "DEC-LANE-EXPECTATION",
+        "DEC-NATIVE-EVIDENCE",
+        "DEC-PICK-STATS"
+      ],
+      "proposal_ref": "F:/kohbor-coord/reports/2026-11-23-replay-integration-design.md section 12; docs/governance/DECISION-LOG.md",
+      "safe_interim": "Use only the pinned local sidecar and validated bundle contract. Replay files stay read-only, raw IDs stay within the local replay library, and unobserved enemy values remain unknown.",
+      "closure_evidence": "Owner decision recorded as relayed. This record does not establish current-engine native acceptance, rights clearance, OpenDota download readiness or Live acceptance."
+    },
+    {
+      "id": "DEC-POSITIONING-20261125",
+      "status": "decided",
+      "milestone": "M3-M6 / alpha",
+      "blocks": "Replay acquisition guidance, optional bracket benchmarks, normal-user AI availability, alpha revenue position and the rights-review process.",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-25",
+      "channel": "decided by the product owner 2026-11-25, relayed by the lead, recorded by an agent",
+      "owner_words": "Approve all 5",
+      "decision": "1. Replay acquisition uses the merged three-step in-app guidance: download in Dota, let Kohbor find and parse the replay, then open the analysis. Later OpenDota download remains opt-in under DEC-REPLAY-INTEGRATION item 6, after limits, retention and size are measured. 2. Bracket benchmarks may use OpenDota with only a hero ID under DEC-PICK-STATS: a separate off-by-default switch, no user or match data, local filtering, at most four requests per 24 hours, attribution, and cache deletion on withdrawal. Not built yet; scheduled after the Analytics layout merge. 3. AI for normal users stays in Developer mode until a provider passes a live test with a real key; that test is an owner action. 4. The alpha is free; revenue is decided together with the rights-review outcome and DEC-COMMERCE-INTENT remains in force. 5. Start rights review now; the reported inventory and competitor-study questions are input for the owner's rights team. This decision records no legal conclusion or rights clearance.",
+      "reason": "Record the owner's five positioning choices and start the rights team's review from the supplied material inventory.",
+      "alternatives_considered": [
+        "The five recommendations in F:/kohbor-coord/design/competitive-20261125/README.th.md, as summarized in the owner-decision report."
+      ],
+      "affected_need_ids": [
+        "PN-008"
+      ],
+      "affected_requirement_ids": [],
+      "related": [
+        "DEC-REPLAY-INTEGRATION",
+        "DEC-PICK-STATS",
+        "DEC-COMMERCE-INTENT",
+        "DEC-ANALYTICS",
+        "DEC-ANALYTICS-V2"
+      ],
+      "proposal_ref": "F:/kohbor-coord/reports/2026-11-25-positioning-decisions-and-rights-inventory.md",
+      "safe_interim": "No OpenDota replay downloads, benchmark requests or normal-user AI are enabled by this record. Rights remain unreviewed until the owner's rights team reports back.",
+      "closure_evidence": "Owner words \"Approve all 5\" on 2026-11-25, relayed by the lead and recorded by an agent. No provider live test or rights clearance is claimed."
+    },
+    {
+      "id": "DEC-STAT-ICONS",
+      "status": "decided",
+      "milestone": "M3-M6 / alpha",
+      "blocks": "Stat labels on Live and replay hero cards and the overlay layout switch.",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-24",
+      "channel": "decided by the product owner 2026-11-24, relayed by the lead, recorded by an agent",
+      "owner_words": "The stat text (STR, AGI, INT, DMG, REG, ARM, MR, AMP, AS, MS, EV, SR, LS, GPM, XPM): change it to icons like Dota shows ... The layout switch shows the words ปิด / ซ้าย / ขวา. Make them icons (translated in the brief; full text in DECISION-LOG).",
+      "decision": "Replace Live and replay stat text labels with Dota 2's own stat icons wherever those exist; use original SVGs for GPM, XPM and stats with no game icon. The layout switch uses monitor icons (one monitor for off, a pair with the left or right one accented). Preserve all values and unknown states, and keep Thai/English accessible names and tooltips. Presentation only.",
+      "reason": "Owner request for Dota-style stat presentation; the JSON mirror was missing this DECISION-LOG entry (reported by the domain-card refresh, 2026-11-25).",
+      "alternatives_considered": [
+        "Keep the text abbreviations."
+      ],
+      "affected_need_ids": [],
+      "affected_requirement_ids": [],
+      "related": [
+        "DEC-REPLAY-INTEGRATION"
+      ],
+      "proposal_ref": "docs/governance/DECISION-LOG.md (DEC-STAT-ICONS)",
+      "safe_interim": "Dota art rights review remains required before public release under DEC-REPLAY-INTEGRATION item 3.",
+      "closure_evidence": "Owner words on 2026-11-24, relayed by the lead and recorded by an agent in DECISION-LOG; this entry mirrors that record and adds no approval."
     }
   ]
 }

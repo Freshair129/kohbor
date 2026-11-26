@@ -4,13 +4,937 @@
 use crate::audio_prefs::{AudioPrefs, AudioPrefsService};
 use crate::hotkeys::{StartFailure, VolumeStep};
 use crate::intake::lock;
-use crate::{settings, status, AppState};
-use serde_json::{json, Map, Value};
+use crate::{AppState, settings, status};
+use serde_json::{Map, Value, json};
+use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::{self, Receiver, Sender};
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::{Emitter as TauriEmitter, Manager};
+
+#[tauri::command]
+pub(crate) fn replay_library_list(
+    webview: tauri::Webview,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    state: tauri::State<'_, AppState>,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    let replay_list = library.list().map_err(str::to_owned)?;
+    let mut list = serde_json::to_value(&replay_list)
+        .map_err(|_| "library_serialization_failed".to_owned())?;
+    let history = state.match_history.entries();
+    if let Some(rows) = list.get_mut("matches").and_then(Value::as_array_mut) {
+        for (row, replay) in rows.iter_mut().zip(&replay_list.matches) {
+            let match_id = replay.match_id.as_str();
+            // The install-keyed hash is used for cross-view correlation; match_id stays the
+            // local replay-library key and is not displayed by the renderer.
+            let match_key = analytics.store().match_key(match_id).ok();
+            let local = match_key
+                .as_deref()
+                .and_then(|key| history.iter().find(|entry| entry.match_key == key));
+            row["match_key"] = match_key.map_or(Value::Null, Value::String);
+            if let Some(entry) = local {
+                row["own_hero"] = entry.hero.clone().map_or(Value::Null, Value::String);
+                row["local_history"] = json!({
+                    "result": entry.result.map(|result| match result { crate::match_history::MatchResult::Win => "win", crate::match_history::MatchResult::Loss => "loss" }),
+                    "kills": entry.kills,
+                    "deaths": entry.deaths,
+                    "assists": entry.assists,
+                    "ended_at_unix_s": entry.ended_at
+                });
+            } else {
+                row["own_hero"] = analytics
+                    .store()
+                    .own_hero(match_id)
+                    .map_or(Value::Null, Value::String);
+                row["local_history"] = Value::Null;
+            }
+        }
+    }
+    Ok(list)
+}
+
+#[tauri::command]
+pub(crate) fn replay_library_pick_file(
+    webview: tauri::Webview,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+) -> Result<Option<String>, String> {
+    require_control(&webview)?;
+    #[cfg(windows)]
+    {
+        return replay_file_dialog::pick_dem_file().map(|path| {
+            path.map(|path| library.register_picked_file(std::path::PathBuf::from(path)))
+        });
+    }
+    #[cfg(not(windows))]
+    {
+        Ok(None)
+    }
+}
+
+#[cfg(windows)]
+mod replay_file_dialog {
+    use std::ffi::c_void;
+    use windows::Win32::System::Com::{
+        CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED, CoCreateInstance, CoInitializeEx,
+        CoTaskMemFree, CoUninitialize,
+    };
+    use windows::Win32::UI::Shell::Common::COMDLG_FILTERSPEC;
+    use windows::Win32::UI::Shell::{
+        FOS_FILEMUSTEXIST, FOS_FORCEFILESYSTEM, FOS_PATHMUSTEXIST, FileOpenDialog, IFileOpenDialog,
+        SIGDN_FILESYSPATH,
+    };
+    use windows::core::w;
+
+    struct ComApartment;
+
+    impl Drop for ComApartment {
+        fn drop(&mut self) {
+            unsafe { CoUninitialize() };
+        }
+    }
+
+    pub(super) fn pick_dem_file() -> Result<Option<String>, String> {
+        std::thread::Builder::new()
+            .name("replay-file-dialog".to_owned())
+            .spawn(pick_dem_file_sta)
+            .map_err(|_| "file_dialog_thread_unavailable".to_owned())?
+            .join()
+            .map_err(|_| "file_dialog_thread_failed".to_owned())?
+    }
+
+    fn pick_dem_file_sta() -> Result<Option<String>, String> {
+        let initialized = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) };
+        if initialized.is_err() {
+            return Err("file_dialog_com_unavailable".to_owned());
+        }
+        let _apartment = ComApartment;
+        let dialog: IFileOpenDialog =
+            unsafe { CoCreateInstance(&FileOpenDialog, None, CLSCTX_INPROC_SERVER) }
+                .map_err(|_| "file_dialog_unavailable".to_owned())?;
+        let filters = [COMDLG_FILTERSPEC {
+            pszName: w!("Dota replay files"),
+            pszSpec: w!("*.dem"),
+        }];
+        unsafe {
+            dialog
+                .SetFileTypes(&filters)
+                .map_err(|_| "file_dialog_filter_failed".to_owned())?;
+            dialog
+                .SetFileTypeIndex(1)
+                .map_err(|_| "file_dialog_filter_failed".to_owned())?;
+            dialog
+                .SetDefaultExtension(w!("dem"))
+                .map_err(|_| "file_dialog_filter_failed".to_owned())?;
+            dialog
+                .SetOptions(FOS_FILEMUSTEXIST | FOS_FORCEFILESYSTEM | FOS_PATHMUSTEXIST)
+                .map_err(|_| "file_dialog_options_failed".to_owned())?;
+        }
+        if let Err(error) = unsafe { dialog.Show(None) } {
+            if error.code().0 as u32 == 0x8007_04c7 {
+                return Ok(None);
+            }
+            return Err("file_dialog_failed".to_owned());
+        }
+        let item = unsafe { dialog.GetResult() }
+            .map_err(|_| "file_dialog_result_unavailable".to_owned())?;
+        let display_name = unsafe { item.GetDisplayName(SIGDN_FILESYSPATH) }
+            .map_err(|_| "file_dialog_path_unavailable".to_owned())?;
+        let path = unsafe { display_name.to_string() }
+            .map_err(|_| "file_dialog_path_unavailable".to_owned())?;
+        unsafe { CoTaskMemFree(Some(display_name.0 as *const c_void)) };
+        if !path.to_ascii_lowercase().ends_with(".dem") {
+            return Err("invalid_dem_extension".to_owned());
+        }
+        Ok(Some(path))
+    }
+}
+
+#[tauri::command]
+pub(crate) fn replay_library_open(
+    webview: tauri::Webview,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+    match_id: String,
+) -> Result<crate::replay_library::ReplayBundle, String> {
+    require_control(&webview)?;
+    library.open_bundle(&match_id).map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn replay_library_parse(
+    webview: tauri::Webview,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+    id_or_path: String,
+) -> Result<crate::replay_library::ReplayJob, String> {
+    require_control(&webview)?;
+    library.parse(&id_or_path).map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn replay_library_reparse(
+    webview: tauri::Webview,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+    match_id: String,
+) -> Result<crate::replay_library::ReplayJob, String> {
+    require_control(&webview)?;
+    library.reparse(&match_id).map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn replay_library_remove(
+    webview: tauri::Webview,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+    match_id: String,
+) -> Result<(), String> {
+    require_control(&webview)?;
+    library.remove(&match_id).map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn replay_library_clear(
+    webview: tauri::Webview,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+) -> Result<(), String> {
+    require_control(&webview)?;
+    library.clear().map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn replay_library_pin(
+    webview: tauri::Webview,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+    match_id: String,
+    pinned: bool,
+) -> Result<(), String> {
+    require_control(&webview)?;
+    library.set_pinned(&match_id, pinned).map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn replay_library_open_folder(
+    webview: tauri::Webview,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+    match_id: String,
+) -> Result<(), String> {
+    require_control(&webview)?;
+    let folder = library.bundle_folder(&match_id).map_err(str::to_owned)?;
+    open_local_folder(&folder)
+}
+
+#[tauri::command]
+pub(crate) fn replay_library_watcher_state(
+    webview: tauri::Webview,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+) -> Result<crate::replay_library::ReplayWatcherState, String> {
+    require_control(&webview)?;
+    Ok(library.watcher_state())
+}
+
+#[tauri::command]
+pub(crate) fn replay_library_retention_preview(
+    webview: tauri::Webview,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+    keep_newest: usize,
+    max_bytes: u64,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    let evicted_matches = library
+        .preview_retention(crate::replay_library::ReplayLibraryLimits {
+            max_matches: keep_newest,
+            max_bytes,
+        })
+        .map_err(str::to_owned)?;
+    Ok(json!({ "evicted_matches": evicted_matches }))
+}
+
+#[tauri::command]
+pub(crate) fn replay_library_retention_save(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+    keep_newest: usize,
+    max_bytes: u64,
+    expected_evictions: usize,
+) -> Result<crate::analytics::AnalyticsPreferences, String> {
+    require_control(&webview)?;
+    let limits = crate::replay_library::ReplayLibraryLimits {
+        max_matches: keep_newest,
+        max_bytes,
+    };
+    let actual = library.preview_retention(limits).map_err(str::to_owned)?;
+    if actual != expected_evictions {
+        return Err("retention_preview_stale".to_owned());
+    }
+    let old = analytics.preferences().map_err(str::to_owned)?;
+    let next = analytics
+        .patch_preferences(&json!({ "keep_newest": keep_newest, "max_bytes": max_bytes }))
+        .map_err(str::to_owned)?;
+    if let Err(error) = library.set_limits_previewed(limits, expected_evictions) {
+        let _ = analytics.store().write_preferences(&old);
+        return Err(error.to_owned());
+    }
+    Ok(next)
+}
+
+fn require_control(webview: &tauri::Webview) -> Result<(), String> {
+    if webview.label() == "control" {
+        Ok(())
+    } else {
+        Err("window_not_allowed".to_owned())
+    }
+}
+
+fn open_local_folder(path: &std::path::Path) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        std::process::Command::new("explorer.exe")
+            .arg(path)
+            .spawn()
+            .map(|_| ())
+            .map_err(|_| "folder_open_failed".to_owned())
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = path;
+        Err("folder_open_unavailable".to_owned())
+    }
+}
+
+#[tauri::command]
+pub(crate) fn analytics_provider_list(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    let settings = analytics.preferences().map_err(str::to_owned)?;
+    let mut providers = Vec::new();
+    let mut untested_count = 0_usize;
+    for spec in crate::analytics::providers::registry::PROVIDERS {
+        if spec.id == "custom" {
+            continue;
+        }
+        let verified = settings.verified_providers.contains_key(spec.id) || spec.verified;
+        if !verified {
+            untested_count += 1;
+        }
+        if !verified && !settings.show_untested {
+            continue;
+        }
+        let endpoint = analytics.store().provider_endpoint(spec.id, &settings).ok();
+        let loopback = endpoint
+            .as_ref()
+            .is_some_and(|endpoint| endpoint.is_loopback());
+        providers.push(serde_json::json!({
+            "id":spec.id,"label":spec.label,"verified":verified,"selected":settings.provider == spec.id,
+            "endpoint":endpoint.map(|endpoint| endpoint.origin()),"loopback":loopback,"requires_key":!loopback,
+            "endpoint_kind":format!("{:?}",spec.kind).to_ascii_lowercase(),
+            "configured_endpoint":settings.provider_endpoints.get(spec.id).cloned().unwrap_or_else(|| spec.default_endpoint.to_owned()),
+            "models":crate::analytics::providers::registry::known_models(spec.id),"model_list_fetch":spec.id != "anthropic",
+        }));
+    }
+    for (provider, raw_endpoint) in &settings.provider_endpoints {
+        if !provider.starts_with("custom-") {
+            continue;
+        }
+        let verified = settings.verified_providers.contains_key(provider);
+        if !verified {
+            untested_count += 1;
+        }
+        if !verified && !settings.show_untested {
+            continue;
+        }
+        let endpoint = analytics
+            .store()
+            .provider_endpoint(provider, &settings)
+            .ok();
+        let loopback = endpoint
+            .as_ref()
+            .is_some_and(|endpoint| endpoint.is_loopback());
+        providers.push(serde_json::json!({
+            "id":provider,"label":"OpenAI-compatible custom endpoint","verified":verified,"selected":settings.provider == *provider,
+            "endpoint":endpoint.map(|endpoint| endpoint.origin()),"loopback":loopback,"requires_key":!loopback,
+            "models":[],"model_list_fetch":true,"endpoint_kind":"user","configured_endpoint":raw_endpoint,
+        }));
+    }
+    Ok(
+        serde_json::json!({"providers":providers,"untested_count":untested_count,"show_untested":settings.show_untested}),
+    )
+}
+
+#[tauri::command]
+pub(crate) fn analytics_provider_endpoint_set(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    provider_id: String,
+    endpoint: String,
+) -> Result<crate::analytics::AnalyticsPreferences, String> {
+    require_control(&webview)?;
+    analytics
+        .set_provider_endpoint(&provider_id, &endpoint)
+        .map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_custom_endpoint_register(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    endpoint: String,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    let (provider_id, settings) = analytics
+        .register_custom_endpoint(&endpoint)
+        .map_err(str::to_owned)?;
+    Ok(serde_json::json!({"provider_id":provider_id,"settings":settings}))
+}
+
+#[tauri::command]
+pub(crate) fn analytics_provider_verified_set(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    provider_id: String,
+    evidence_sha256: String,
+) -> Result<crate::analytics::AnalyticsPreferences, String> {
+    require_control(&webview)?;
+    if !cfg!(any(debug_assertions, feature = "lab")) {
+        return Err("verification_action_requires_developer_build".into());
+    }
+    analytics
+        .set_provider_verified(&provider_id, &evidence_sha256)
+        .map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_provider_models_fetch(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    state: tauri::State<'_, AppState>,
+    provider_id: String,
+) -> Result<Vec<String>, String> {
+    require_control(&webview)?;
+    if (state.match_active)() {
+        return Err("match_active".into());
+    }
+    analytics.fetch_models(&provider_id).map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_key_status(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    analytics.key_status().map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_key_set(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    key: String,
+) -> Result<(), String> {
+    require_control(&webview)?;
+    analytics.set_key(&key).map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_key_delete(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+) -> Result<(), String> {
+    require_control(&webview)?;
+    analytics.delete_key().map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_provider_key_status(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    provider_id: String,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    analytics
+        .store()
+        .key_status_for(&provider_id)
+        .map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_provider_key_set(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    provider_id: String,
+    key: String,
+) -> Result<(), String> {
+    require_control(&webview)?;
+    analytics
+        .set_provider_key(&provider_id, &key)
+        .map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_provider_key_delete(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    provider_id: String,
+) -> Result<(), String> {
+    require_control(&webview)?;
+    analytics
+        .delete_provider_key(&provider_id)
+        .map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_settings_get(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+) -> Result<crate::analytics::AnalyticsPreferences, String> {
+    require_control(&webview)?;
+    analytics.preferences().map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_settings_patch(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+    patch: Value,
+) -> Result<crate::analytics::AnalyticsPreferences, String> {
+    require_control(&webview)?;
+    let old = analytics.preferences().map_err(str::to_owned)?;
+    let next = analytics.patch_preferences(&patch).map_err(str::to_owned)?;
+    if old.keep_newest != next.keep_newest || old.max_bytes != next.max_bytes {
+        if let Err(error) = library.set_limits(crate::replay_library::ReplayLibraryLimits {
+            max_matches: next.keep_newest,
+            max_bytes: next.max_bytes,
+        }) {
+            let _ = analytics.store().write_preferences(&old);
+            return Err(error.to_owned());
+        }
+    }
+    if old.auto_analyse != next.auto_analyse {
+        library.set_auto_analyse(next.auto_analyse);
+    }
+    Ok(next)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_consent_set(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    consent: bool,
+) -> Result<crate::analytics::AnalyticsPreferences, String> {
+    require_control(&webview)?;
+    analytics.set_consent(consent).map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_ledger_list(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+) -> Result<Vec<crate::analytics::LedgerRow>, String> {
+    require_control(&webview)?;
+    analytics.store().ledger().map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_notes_list(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+    state: tauri::State<'_, AppState>,
+    match_id: Option<String>,
+) -> Result<Vec<crate::analytics::NoteRow>, String> {
+    require_control(&webview)?;
+    match match_id {
+        Some(match_id) => analytics
+            .list_notes(
+                &library,
+                &match_id,
+                &state.match_history.entries(),
+                &state.opendota.entries(),
+            )
+            .map_err(str::to_owned),
+        None => Ok(Vec::new()),
+    }
+}
+
+#[tauri::command]
+pub(crate) fn analytics_note_read(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+    state: tauri::State<'_, AppState>,
+    match_id: String,
+    note_id: String,
+) -> Result<String, String> {
+    require_control(&webview)?;
+    let _ = analytics
+        .list_notes(
+            &library,
+            &match_id,
+            &state.match_history.entries(),
+            &state.opendota.entries(),
+        )
+        .map_err(str::to_owned)?;
+    analytics
+        .store()
+        .read_note(&match_id, &note_id)
+        .map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_note_delete(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    match_id: String,
+    note_id: String,
+) -> Result<(), String> {
+    require_control(&webview)?;
+    analytics
+        .store()
+        .delete_note(&match_id, &note_id)
+        .map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_note_open_folder(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    match_id: String,
+) -> Result<(), String> {
+    require_control(&webview)?;
+    let folder = analytics
+        .store()
+        .open_note_folder(&match_id)
+        .map_err(str::to_owned)?;
+    open_local_folder(&folder)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_own_hero_set(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+    match_id: String,
+    hero: String,
+) -> Result<String, String> {
+    require_control(&webview)?;
+    let bundle = library.open_bundle(&match_id).map_err(str::to_owned)?;
+    let normalized = if hero.starts_with("npc_dota_hero_") {
+        hero
+    } else {
+        format!("npc_dota_hero_{hero}")
+    };
+    let present = bundle
+        .match_data
+        .get("heroes")
+        .and_then(Value::as_array)
+        .is_some_and(|heroes| {
+            heroes
+                .iter()
+                .any(|item| item.get("id").and_then(Value::as_str) == Some(normalized.as_str()))
+        });
+    if !present {
+        return Err("invalid_hero".to_owned());
+    }
+    analytics
+        .store()
+        .set_own_hero(&match_id, &normalized)
+        .map_err(str::to_owned)?;
+    Ok(normalized)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_chat_submit(
+    webview: tauri::Webview,
+    app: tauri::AppHandle,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+    state: tauri::State<'_, AppState>,
+    match_id: String,
+    question: String,
+    selected_hero: Option<String>,
+    scrubber_time_s: Option<f64>,
+) -> Result<String, String> {
+    require_control(&webview)?;
+    if (state.match_active)() {
+        return Err("match_active".into());
+    }
+    let prepared = analytics
+        .prepare_chat(
+            &library,
+            &state.match_history.entries(),
+            &state.opendota.entries(),
+            crate::analytics::ChatOptions {
+                match_id,
+                question,
+                selected_hero,
+                scrubber_time_s,
+            },
+        )
+        .map_err(str::to_owned)?;
+    let request_id = prepared.request_id().to_owned();
+    analytics.spawn_chat(prepared, app);
+    Ok(request_id)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_chat_transcript(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    match_id: String,
+) -> Result<Vec<Value>, String> {
+    require_control(&webview)?;
+    analytics
+        .store()
+        .chat_transcript(&match_id)
+        .map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_chat_start_from_summary(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    match_id: String,
+    summary: String,
+) -> Result<String, String> {
+    require_control(&webview)?;
+    analytics
+        .start_new_chat_from_summary(&match_id, &summary)
+        .map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_knowledge_get(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+    state: tauri::State<'_, AppState>,
+    match_id: String,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    analytics
+        .knowledge_snapshot(
+            &library,
+            &match_id,
+            &state.match_history.entries(),
+            &state.opendota.entries(),
+        )
+        .map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_match_data_delete(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    match_id: Option<String>,
+    orphan_key: Option<String>,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    let deleted = match (match_id, orphan_key) {
+        (Some(match_id), None) => analytics
+            .delete_match_data_for_match(&match_id)
+            .map_err(str::to_owned)?,
+        (None, Some(orphan_key)) => analytics
+            .delete_orphan_match_data(&orphan_key)
+            .map_err(str::to_owned)?,
+        _ => return Err("match_data_target_invalid".into()),
+    };
+    Ok(json!({"deleted":deleted}))
+}
+
+#[tauri::command]
+pub(crate) fn analytics_orphans_list(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    let orphan_keys = analytics
+        .orphan_analysis_keys(&library)
+        .map_err(str::to_owned)?;
+    Ok(json!({"orphan_keys":orphan_keys}))
+}
+
+#[tauri::command]
+pub(crate) fn analytics_lane_calibration_get(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    analytics.lane_calibration_report().map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_lane_calibration_run(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+    state: tauri::State<'_, AppState>,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    analytics
+        .run_lane_calibration(
+            &library,
+            &state.match_history.entries(),
+            &state.opendota.entries(),
+        )
+        .map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_lane_review_start(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+    state: tauri::State<'_, AppState>,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    analytics
+        .start_lane_coach_review(
+            &library,
+            &state.match_history.entries(),
+            &state.opendota.entries(),
+        )
+        .map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_lane_review_current(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    analytics.lane_coach_review_current().map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_lane_review_submit_blind(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    tier: i32,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    analytics
+        .lane_coach_review_submit_blind(tier)
+        .map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_lane_review_submit_half_blind(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    verdict: String,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    analytics
+        .lane_coach_review_submit_half_blind(&verdict)
+        .map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_lane_review_next(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    analytics.lane_coach_review_next().map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_lane_review_export(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    analytics.lane_coach_review_export().map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_saved_analysis_read(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    match_id: String,
+    id: String,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    analytics
+        .read_saved_analysis(&match_id, &id)
+        .map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_report_generate(
+    webview: tauri::Webview,
+    app: tauri::AppHandle,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+    state: tauri::State<'_, AppState>,
+    match_id: String,
+    selected_hero: Option<String>,
+    scrubber_time_s: Option<f64>,
+    regenerate: Option<bool>,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    if (state.match_active)() {
+        return Err("match_active".into());
+    }
+    let prepared = analytics
+        .prepare_report(
+            &library,
+            &state.match_history.entries(),
+            &state.opendota.entries(),
+            match_id,
+            selected_hero,
+            scrubber_time_s,
+            regenerate.unwrap_or(false),
+        )
+        .map_err(str::to_owned)?;
+    match prepared {
+        crate::analytics::ReportPreparation::Cached(report) => {
+            Ok(json!({"cached":true,"report":report,"request_id":null}))
+        }
+        crate::analytics::ReportPreparation::Request(prepared) => {
+            let request_id = prepared.request_id().to_owned();
+            analytics.spawn_chat(prepared, app);
+            Ok(json!({
+                "cached":false,
+                "request_id":request_id,
+                "report":null,
+                "cost_estimate_usd":null,
+                "cost_reason":"provider token pricing is not verified in this build"
+            }))
+        }
+    }
+}
+
+#[tauri::command]
+pub(crate) fn analytics_note_save_text(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    match_id: String,
+    title: String,
+    markdown: String,
+) -> Result<String, String> {
+    require_control(&webview)?;
+    analytics
+        .store()
+        .write_note(&match_id, &title, &markdown)
+        .map_err(str::to_owned)
+}
+
+#[tauri::command]
+pub(crate) fn analytics_chat_cancel(
+    webview: tauri::Webview,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    request_id: String,
+) {
+    if require_control(&webview).is_err() {
+        return;
+    }
+    analytics.cancel(&request_id);
+}
 
 #[tauri::command]
 pub(crate) fn app_version() -> Value {
@@ -48,6 +972,42 @@ pub(crate) fn draft_column_view(
     state: tauri::State<'_, AppState>,
 ) -> Result<crate::hero_stats::DraftColumnView, String> {
     state.hero_stats.view(webview.label())
+}
+
+#[tauri::command]
+pub(crate) fn hero_benchmarks_state_get(
+    webview: tauri::Webview,
+    state: tauri::State<'_, AppState>,
+) -> Result<crate::hero_stats::benchmarks::BenchmarksView, String> {
+    if webview.label() != "control" {
+        return Err("BENCHMARKS_CONTROL_WINDOW_ONLY".to_owned());
+    }
+    Ok(state.benchmarks.view())
+}
+
+#[tauri::command]
+pub(crate) fn hero_benchmarks_set(
+    webview: tauri::Webview,
+    state: tauri::State<'_, AppState>,
+    enabled: bool,
+) -> Result<crate::hero_stats::benchmarks::BenchmarksView, String> {
+    let prefs = state
+        .hero_stats
+        .prefs_set(webview.label(), serde_json::json!({"benchmarks_on": enabled}))?;
+    state.benchmarks.set_enabled(prefs.benchmarks_on)
+}
+
+/// The only renderer input is the selected canonical hero key; transport receives only its numeric ID.
+#[tauri::command(async)]
+pub(crate) fn hero_benchmarks_get(
+    webview: tauri::Webview,
+    state: tauri::State<'_, AppState>,
+    hero_key: String,
+) -> Result<crate::hero_stats::benchmarks::BenchmarksView, String> {
+    if webview.label() != "control" {
+        return Err("BENCHMARKS_CONTROL_WINDOW_ONLY".to_owned());
+    }
+    Ok(state.benchmarks.get_for_hero(&hero_key))
 }
 
 #[tauri::command]
@@ -289,6 +1249,11 @@ pub(crate) fn own_snapshot(state: tauri::State<'_, AppState>) -> Value {
     own_snapshot_value(state.runtime.as_ref())
 }
 
+#[tauri::command(async)]
+pub(crate) fn objective_read_model(state: tauri::State<'_, AppState>) -> Value {
+    state.runtime.objective_read_model()
+}
+
 /// Shared read-model builder used by the command and the passive HUD.
 pub(crate) fn own_snapshot_value(runtime: &crate::intake::Runtime) -> Value {
     lock(&runtime.shared).snapshot()
@@ -481,6 +1446,20 @@ pub(crate) fn media_activate(
 }
 
 #[tauri::command(async)]
+pub(crate) fn media_uninstall(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    install_id: String,
+) -> Result<Value, String> {
+    let result = state.host.commands.media_uninstall(&install_id);
+    log_media_result("uninstall", &result);
+    if result.is_ok() {
+        let _ = app.emit("media://library-changed", json!({ "install_id": install_id }));
+    }
+    result
+}
+
+#[tauri::command(async)]
 pub(crate) fn media_cancel_pending_activation(
     state: tauri::State<'_, AppState>,
     install_id: String,
@@ -491,6 +1470,26 @@ pub(crate) fn media_cancel_pending_activation(
         .media_cancel_pending_activation(&install_id);
     log_media_result("cancel_pending_activation", &result);
     result
+}
+
+#[tauri::command(async)]
+pub(crate) fn media_loadout_get(state: tauri::State<'_, AppState>) -> Result<Value, String> {
+    state.host.commands.media_loadout()
+}
+
+#[tauri::command(async)]
+pub(crate) fn media_loadout_set(
+    state: tauri::State<'_, AppState>,
+    request: Value,
+) -> Result<Value, String> {
+    let result = state.host.commands.media_set_loadout(&request);
+    log_media_result("loadout_set", &result);
+    result
+}
+
+#[tauri::command(async)]
+pub(crate) fn media_loadout_cancel(state: tauri::State<'_, AppState>) -> Result<Value, String> {
+    state.host.commands.media_cancel_loadout()
 }
 
 #[tauri::command(async)]
@@ -1011,19 +2010,41 @@ pub(crate) fn match_history_get(
         .view_with_opendota(&state.opendota.entries(), month_start)
 }
 
+/// Overview nemesis: exact-bundle local replay lane facts, projected without player identities.
+#[tauri::command(async)]
+pub(crate) fn overview_nemesis_get(
+    webview: tauri::Webview,
+    library: tauri::State<'_, crate::replay_library::ReplayLibrary>,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+    state: tauri::State<'_, AppState>,
+) -> Result<Value, String> {
+    require_control(&webview)?;
+    crate::overview_insights::local_lane_samples(
+        &library,
+        analytics.store(),
+        &state.match_history.entries(),
+    )
+    .map_err(str::to_owned)
+}
+
 /// Deletes both local and OpenDota match history (user action on the Overview).
 #[tauri::command(async)]
-pub(crate) fn match_history_clear(state: tauri::State<'_, AppState>) -> Result<Value, String> {
+pub(crate) fn match_history_clear(
+    state: tauri::State<'_, AppState>,
+    analytics: tauri::State<'_, crate::analytics::AnalyticsService>,
+) -> Result<Value, String> {
     let local = state.match_history.clear();
     let remote = state.opendota.clear_cache();
+    let lanes = analytics.clear_lane_history();
     if let Err(error) = local {
         return Err(error);
     }
     remote?;
+    lanes.map_err(str::to_owned)?;
     crate::log_info!(
         "history",
         "match_history_cleared",
-        "local and OpenDota match histories cleared"
+        "local, OpenDota and lane histories cleared"
     );
     Ok(json!({"cleared": true}))
 }
@@ -1033,7 +2054,7 @@ pub(crate) fn opendota_prefs_get(state: tauri::State<'_, AppState>) -> Value {
     state.opendota.prefs()
 }
 
-/// The renderer supplies consent only. The account ID comes from the current verified GSI owner.
+/// The renderer supplies consent only. A verified GSI account ID is stored when one becomes available.
 #[tauri::command]
 pub(crate) fn opendota_prefs_set(
     state: tauri::State<'_, AppState>,
@@ -1052,12 +2073,16 @@ pub(crate) fn opendota_view_get(state: tauri::State<'_, AppState>) -> Value {
     state.opendota.view()
 }
 
-/// The Overview performs one automatic fetch per app start; a user retry is explicitly marked.
+/// The Overview polls while waiting for an account; the first verified account is bound and fetched once.
 #[tauri::command(async)]
 pub(crate) fn opendota_refresh(state: tauri::State<'_, AppState>, retry: bool) -> Value {
     if state.opendota.prefs()["enabled"] == true {
         if let Some(account_id) = state.runtime.current_own_account_id() {
-            if state.opendota.set_enabled(true, Some(account_id)).is_err() {
+            if state
+                .opendota
+                .update_account_if_enabled(account_id)
+                .is_err()
+            {
                 return json!({
                     "state": "unavailable", "enabled": true, "cached_entries": 0,
                     "fetched_at": null, "last_attempt_at": null, "retry_available": false
@@ -1410,7 +2435,7 @@ mod audio_volume_tests {
     };
     use crate::audio_prefs::{AudioPrefs, AudioPrefsService, AudioPrefsStore};
     use crate::hotkeys::VolumeStep;
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
     use std::sync::{Arc, Mutex};
 
     struct FakeStore(Mutex<AudioPrefs>);
@@ -1542,7 +2567,7 @@ mod audio_volume_tests {
 
 #[cfg(test)]
 mod audition_result_tests {
-    use super::{wait_for_audition_result, AuditionSignal};
+    use super::{AuditionSignal, wait_for_audition_result};
     use crate::overlay::{VideoDiagnostic, VideoDiagnosticOutcome};
     use std::sync::mpsc;
 

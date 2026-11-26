@@ -1,0 +1,28 @@
+{
+  "schema": "kohbor.dota-stat-icons/1",
+  "gameBuild": "6993",
+  "source": {
+    "install": "installed Dota 2 on the owner's machine, read only, no download",
+    "vpk": "game/dota/pak01_dir.vpk"
+  },
+  "tool": { "name": "kohbor-asset-export", "commit": "15ca531fd082256f6c6e3d9354fa5ffe41a3be50" },
+  "date": "2026-11-24",
+  "authority": "DEC-REPLAY-INTEGRATION item 3",
+  "rights": "Valve game art. Rights review required before public release.",
+  "totalBytes": 37859,
+  "files": [
+    { "path": "stat-icons/primary_strength.png", "sourcePath": "panorama/images/primary_attribute_icons/primary_attribute_icon_strength_psd.vtex_c", "bytes": 3215, "sha256": "e768109ed6b151008ccb90c88f49b949faf9b20f234a354f988b45a2b40251ab" },
+    { "path": "stat-icons/primary_agility.png", "sourcePath": "panorama/images/primary_attribute_icons/primary_attribute_icon_agility_psd.vtex_c", "bytes": 3051, "sha256": "bbfc440aa970f0111e7b24ac54f7d1db09eda80f8bf0bfd35d776ab70372a62e" },
+    { "path": "stat-icons/primary_intelligence.png", "sourcePath": "panorama/images/primary_attribute_icons/primary_attribute_icon_intelligence_psd.vtex_c", "bytes": 3932, "sha256": "274820918df29c39647626f30afcb9f778c1253428ae064b2e725da71d435bd0" },
+    { "path": "stat-icons/primary_universal.png", "sourcePath": "panorama/images/primary_attribute_icons/primary_attribute_icon_all_psd.vtex_c", "bytes": 5599, "sha256": "3133b3d863820f1abc5bf7ab45041bc832e6d3cc12d896a472cd1674c3251878" },
+    { "path": "stat-icons/damage.png", "sourcePath": "panorama/images/hud/reborn/icon_damage_psd.vtex_c", "bytes": 1269, "sha256": "96cc2ed17ece02ecacb5a5caddc07072968d265cf40920b22205d3a9a2dedcd5" },
+    { "path": "stat-icons/health_regen.png", "sourcePath": "panorama/images/hud/reborn/health_regen_png.vtex_c", "bytes": 2822, "sha256": "18d8f5045b7064523290818ad25faa5a6762c104add2521a0e69b654c0b4fa60" },
+    { "path": "stat-icons/mana_regen.png", "sourcePath": "panorama/images/hud/reborn/mana_regen_png.vtex_c", "bytes": 2871, "sha256": "f3232d11c616ca2ae73f6181d9c42aeacde0ac811a29831fc4bdef7ddff46285" },
+    { "path": "stat-icons/armor.png", "sourcePath": "panorama/images/hud/reborn/icon_armor_psd.vtex_c", "bytes": 864, "sha256": "3e99008501bb1b17b1085e3636990066756e2644d72872807a68a67c3573cbb5" },
+    { "path": "stat-icons/magic_resist.png", "sourcePath": "panorama/images/hud/reborn/icon_magic_resist_psd.vtex_c", "bytes": 1951, "sha256": "a8c7e19cf7f04409da908496f290e607a98a41e1763f815b6cbc0ccfcfb8bd3d" },
+    { "path": "stat-icons/attack_speed.png", "sourcePath": "panorama/images/hud/reborn/icon_attack_speed_psd.vtex_c", "bytes": 1536, "sha256": "f7aeb5c80b172160bef46ea0d497f1a97d2af71222aaa762c4fcbba16d33f3de" },
+    { "path": "stat-icons/move_speed.png", "sourcePath": "panorama/images/hud/reborn/icon_speed_psd.vtex_c", "bytes": 1305, "sha256": "347d71936731ba0aea506efc7347fbc0d000b16953c9262b1def3583c0a95c90" },
+    { "path": "stat-icons/evasion.png", "sourcePath": "panorama/images/hud/reborn/icon_evasion_png.vtex_c", "bytes": 423, "sha256": "020599b506b2eb07e0162edf4173db855e2c63194ef3f2cf5a6af6923366403e" },
+    { "path": "stat-icons/lifesteal.png", "sourcePath": "panorama/images/items/lifesteal_png.vtex_c", "bytes": 9021, "sha256": "d6a840620897de781917627dc1971b5996fbf0e990b7827ea164ba9657345eae" }
+  ]
+}

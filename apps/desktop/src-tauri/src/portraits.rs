@@ -2,7 +2,7 @@
 
 use base64::Engine;
 use flate2::{write::ZlibEncoder, Compression};
-use kohbor_game_assets::{decode_vtex_c, hero_portrait_path, Image, Vpk};
+use kohbor_game_assets::{decode_vtex_c_for_display, hero_portrait_path, Image, Vpk};
 use serde::Serialize;
 use std::collections::{HashSet, VecDeque};
 use std::io::Write;
@@ -148,7 +148,7 @@ impl PortraitService {
                 .ok_or("INVALID_HERO_ID")?;
             let entry = vpk.find(&path).ok_or("ENTRY_UNAVAILABLE")?;
             let bytes = vpk.read(&entry).map_err(|_| "READ_FAILED")?;
-            let image = decode_vtex_c(&bytes).map_err(|_| "DECODE_FAILED")?;
+            let image = decode_vtex_c_for_display(&bytes).map_err(|_| "DECODE_FAILED")?;
             let image = resize_portrait(image).ok_or("RESIZE_FAILED")?;
             let png = encode_png(&image).ok_or("PNG_ENCODE_FAILED")?;
             Ok::<_, &'static str>(PortraitResponse {
@@ -414,7 +414,8 @@ mod tests {
         let mut pixels = Vec::new();
         for y in 0..128_u16 {
             for x in 0..256_u16 {
-                pixels.extend_from_slice(&[x as u8, y as u8, 9, 255]);
+                // Format 28 is BGRA8888: store blue first so the decoded RGBA is (x, y, 9).
+                pixels.extend_from_slice(&[9, y as u8, x as u8, 255]);
             }
         }
         game.write_vpk(vec![
@@ -462,6 +463,41 @@ mod tests {
                 .count(),
             1
         );
+    }
+
+    #[test]
+    fn runtime_portrait_loader_converts_a_marked_dxt5_selection_texture() {
+        let _gate = crate::intake::lock(&SERVICE_TEST_GATE);
+        let game = TempGame::new();
+        let rgb565 = (25_u16 << 11) | (29_u16 << 5);
+        let mut block = [0_u8; 16];
+        block[..2].copy_from_slice(&[113, 113]);
+        block[8..10].copy_from_slice(&rgb565.to_le_bytes());
+        block[10..12].copy_from_slice(&rgb565.to_le_bytes());
+        game.write_vpk(vec![(
+            selection_path("axe"),
+            make_vtex_with_red2(4, 4, 2, &block, b"YCoCg Conv"),
+        )]);
+
+        let root = game.root.clone();
+        let service = PortraitService::new(move || Some(root.clone()));
+        let response = service
+            .load("npc_dota_hero_axe")
+            .expect("portrait should load");
+        let png = base64::engine::general_purpose::STANDARD
+            .decode(&response.base64)
+            .unwrap();
+        let decoded = kohbor_game_assets::decode_vtex_c(&make_vtex(
+            response.width as u16,
+            response.height as u16,
+            16,
+            &png,
+        ))
+        .unwrap();
+        let center = ((response.height as usize / 2) * response.width as usize
+            + response.width as usize / 2)
+            * 4;
+        assert_eq!(&decoded.rgba[center..center + 4], &[202, 102, 46, 255]);
     }
 
     #[test]
@@ -649,20 +685,37 @@ mod tests {
         !crc
     }
     fn make_vtex(width: u16, height: u16, format: u8, payload: &[u8]) -> Vec<u8> {
+        make_vtex_with_red2(width, height, format, payload, &[0_u8; 24])
+    }
+    fn make_vtex_with_red2(
+        width: u16,
+        height: u16,
+        format: u8,
+        payload: &[u8],
+        red2: &[u8],
+    ) -> Vec<u8> {
+        let red2_start = 44_usize;
+        let texture = (red2_start + red2.len()).next_multiple_of(4).max(96);
+        let metadata_len = texture + 28;
         let mut bytes = vec![0_u8; 124];
-        bytes[..4].copy_from_slice(&124_u32.to_le_bytes());
+        bytes.resize(metadata_len, 0);
+        bytes[..4].copy_from_slice(&(metadata_len as u32).to_le_bytes());
         bytes[4..8].copy_from_slice(&0x0001_000c_u32.to_le_bytes());
         bytes[8..12].copy_from_slice(&8_u32.to_le_bytes());
-        bytes[12..16].copy_from_slice(&1_u32.to_le_bytes());
-        bytes[16..20].copy_from_slice(b"DATA");
-        bytes[20..24].copy_from_slice(&76_u32.to_le_bytes());
-        bytes[24..28].copy_from_slice(&28_u32.to_le_bytes());
-        bytes[96..98].copy_from_slice(&1_u16.to_le_bytes());
-        bytes[116..118].copy_from_slice(&width.to_le_bytes());
-        bytes[118..120].copy_from_slice(&height.to_le_bytes());
-        bytes[120..122].copy_from_slice(&1_u16.to_le_bytes());
-        bytes[122] = format;
-        bytes[123] = 1;
+        bytes[12..16].copy_from_slice(&2_u32.to_le_bytes());
+        bytes[16..20].copy_from_slice(b"RED2");
+        bytes[20..24].copy_from_slice(&((red2_start - 20) as u32).to_le_bytes());
+        bytes[24..28].copy_from_slice(&(red2.len() as u32).to_le_bytes());
+        bytes[28..32].copy_from_slice(b"DATA");
+        bytes[32..36].copy_from_slice(&((texture - 32) as u32).to_le_bytes());
+        bytes[36..40].copy_from_slice(&28_u32.to_le_bytes());
+        bytes[red2_start..red2_start + red2.len()].copy_from_slice(red2);
+        bytes[texture..texture + 2].copy_from_slice(&1_u16.to_le_bytes());
+        bytes[texture + 20..texture + 22].copy_from_slice(&width.to_le_bytes());
+        bytes[texture + 22..texture + 24].copy_from_slice(&height.to_le_bytes());
+        bytes[texture + 24..texture + 26].copy_from_slice(&1_u16.to_le_bytes());
+        bytes[texture + 26] = format;
+        bytes[texture + 27] = 1;
         bytes.extend_from_slice(payload);
         bytes
     }

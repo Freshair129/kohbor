@@ -75,6 +75,18 @@ pub fn store(path: &Path, plain: &[u8]) -> Option<()> {
     crate::atomic::write(path, &blob).ok()
 }
 
+/// Load a provider-specific API key from a caller-owned, provider-scoped path.
+/// Provider paths are constructed from the closed analytics provider registry;
+/// the renderer never supplies a filesystem path.
+pub(crate) fn load_provider_key(path: &Path) -> Option<Vec<u8>> {
+    load_or_create(path, || None)
+}
+
+/// Store a provider-specific key as a current-user DPAPI blob.
+pub(crate) fn store_provider_key(path: &Path, plain: &[u8]) -> Option<()> {
+    store(path, plain)
+}
+
 pub fn random<const N: usize>() -> Option<[u8; N]> {
     let mut b = [0u8; N];
     getrandom::getrandom(&mut b).ok()?;

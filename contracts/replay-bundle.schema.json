@@ -1,0 +1,420 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kohbor.invalid/contracts/replay-bundle.schema.json",
+  "title": "Kohbor Replay Match Bundle",
+  "description": "Three-file Match Bundle emitted by replay-engine-rs 0.4.1; schemas 3.0, 3.1 and 3.2 are admitted.",
+  "x-kohbor-contract-version": "1.2.0",
+  "type": "object",
+  "required": ["manifest", "match", "world"],
+  "properties": {
+    "manifest": { "$ref": "#/$defs/manifest" },
+    "match": { "$ref": "#/$defs/match" },
+    "world": { "$ref": "#/$defs/world" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "fileRecord": {
+      "type": "object",
+      "required": ["bytes", "sha256"],
+      "properties": {
+        "bytes": { "type": "integer", "minimum": 0 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    },
+    "teamName": { "enum": ["radiant", "dire"] },
+    "daynightRow": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "prefixItems": [{ "type": "number" }, { "enum": ["day", "night"] }],
+      "items": false
+    },
+    "modifierSource": {
+      "description": "Caster hero id, a unit and team object, or null when absent or unknown.",
+      "anyOf": [
+        { "type": "null" },
+        { "type": "string", "pattern": "^npc_dota_hero_[a-z0-9_]+$" },
+        {
+          "type": "object",
+          "required": ["unit", "team"],
+          "properties": {
+            "unit": { "type": "string", "minLength": 1 },
+            "team": { "enum": ["radiant", "dire", "neutral", null] }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "modifierLong": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "prefixItems": [
+        { "type": "number" },
+        { "type": ["number", "null"] },
+        { "type": "string", "minLength": 1 },
+        { "$ref": "#/$defs/modifierSource" },
+        { "type": "array", "items": { "enum": ["aura", "permanent", "stacking", "subtle"] } }
+      ],
+      "items": false
+    },
+    "modifierStack": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "prefixItems": [
+        { "type": "number" },
+        { "type": "string", "minLength": 1 },
+        { "type": "integer", "minimum": 0 }
+      ],
+      "items": false
+    },
+    "draftEntry": {
+      "type": "object",
+      "required": ["order", "team", "kind", "hero"],
+      "properties": {
+        "order": { "type": "integer", "minimum": 0 },
+        "team": { "$ref": "#/$defs/teamName" },
+        "kind": { "enum": ["pick", "ban"] },
+        "hero": { "type": ["string", "null"], "pattern": "^npc_dota_hero_[a-z0-9_]+$" }
+      },
+      "additionalProperties": false
+    },
+    "manifest": {
+      "type": "object",
+      "required": [
+        "schema",
+        "engine_version",
+        "match_id",
+        "patch",
+        "pack",
+        "dem_sha256",
+        "files",
+        "map",
+        "icons",
+        "run"
+      ],
+      "properties": {
+        "schema": { "enum": ["3.0", "3.1", "3.2"] },
+        "engine_version": { "type": "string", "minLength": 1 },
+        "match_id": { "type": "integer", "minimum": 1 },
+        "patch": { "type": "string", "minLength": 1 },
+        "pack": {
+          "type": "object",
+          "required": ["id", "source"],
+          "properties": {
+            "id": { "type": "string" },
+            "source": { "type": "string" }
+          },
+          "additionalProperties": true
+        },
+        "dem_sha256": { "$ref": "#/$defs/sha256" },
+        "files": {
+          "type": "object",
+          "required": ["match.json", "world.json"],
+          "properties": {
+            "match.json": { "$ref": "#/$defs/fileRecord" },
+            "world.json": { "$ref": "#/$defs/fileRecord" }
+          },
+          "additionalProperties": false
+        },
+        "map": {
+          "type": "object",
+          "required": ["image", "pack_path", "size", "coord", "calibration"],
+          "properties": {
+            "image": { "type": "string" },
+            "pack_path": { "type": "string" },
+            "size": { "type": "integer", "minimum": 1 },
+            "coord": { "type": "string" },
+            "calibration": {
+              "type": "object",
+              "required": ["px", "py", "formula"],
+              "properties": {
+                "px": { "type": "array", "items": { "type": "number" } },
+                "py": { "type": "array", "items": { "type": "number" } },
+                "formula": { "type": "string" }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        },
+        "icons": {
+          "type": "object",
+          "required": ["dirs", "needed"],
+          "properties": {
+            "dirs": { "type": "object" },
+            "needed": {
+              "type": "object",
+              "required": ["heroes", "items", "abilities"],
+              "properties": {
+                "heroes": { "type": "array", "items": { "type": "string" } },
+                "items": { "type": "array", "items": { "type": "string" } },
+                "abilities": { "type": "array", "items": { "type": "string" } }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        },
+        "run": {
+          "type": "object",
+          "required": ["parser_passes", "timing_s"],
+          "properties": {
+            "parser_passes": { "type": "integer", "minimum": 1 },
+            "timing_s": { "type": "object" }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "matchMeta": {
+      "type": "object",
+      "required": [
+        "schema",
+        "engine_version",
+        "patch",
+        "pack",
+        "server_build",
+        "build_num",
+        "match_id",
+        "end_time_utc",
+        "game_mode",
+        "duration_s",
+        "dem_sha256",
+        "dem_file",
+        "parse_error"
+      ],
+      "properties": {
+        "schema": { "enum": ["3.0", "3.1", "3.2"] },
+        "engine_version": { "type": "string" },
+        "patch": { "type": "string" },
+        "pack": { "type": "string" },
+        "server_build": { "type": "string" },
+        "build_num": { "type": "integer" },
+        "match_id": { "type": "integer", "minimum": 1 },
+        "end_time_utc": {
+          "description": "Nullable event time; the key is present and null when the replay has no positive end time.",
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "game_mode": { "type": "integer" },
+        "duration_s": { "type": "number", "minimum": 0 },
+        "dem_sha256": { "$ref": "#/$defs/sha256" },
+        "dem_file": {
+          "description": "Nullable source basename; null when the caller supplied no filename.",
+          "type": ["string", "null"]
+        },
+        "parse_error": {
+          "description": "Nullable parse error detail; null for a successful Match Bundle.",
+          "type": ["object", "null"]
+        },
+        "winner": { "enum": ["radiant", "dire", null] },
+        "winner_reason": { "type": "string", "minLength": 1 },
+        "draft": { "type": ["array", "null"], "items": { "$ref": "#/$defs/draftEntry" } },
+        "draft_reason": { "type": "string", "minLength": 1 },
+        "daynight": {
+          "description": "Schema 3.2 day/night step series, or null when absent from the replay.",
+          "type": ["array", "null"],
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/daynightRow" }
+        },
+        "daynight_reason": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": true,
+      "allOf": [
+        {
+          "if": { "properties": { "winner": { "type": "null" } }, "required": ["winner"] },
+          "then": { "required": ["winner_reason"] },
+          "else": { "not": { "required": ["winner_reason"] } }
+        },
+        {
+          "if": { "properties": { "draft": { "type": "null" } }, "required": ["draft"] },
+          "then": { "required": ["draft_reason"] },
+          "else": { "not": { "required": ["draft_reason"] } }
+        },
+        {
+          "if": { "properties": { "daynight": { "type": "null" } }, "required": ["daynight"] },
+          "then": { "required": ["daynight_reason"] },
+          "else": { "not": { "required": ["daynight_reason"] } }
+        },
+        {
+          "if": { "properties": { "schema": { "const": "3.2" } }, "required": ["schema"] },
+          "then": { "required": ["daynight"] }
+        }
+      ]
+    },
+    "hero": {
+      "type": "object",
+      "required": [
+        "id", "name", "team", "pid", "color", "pos", "hp", "mhp", "mp",
+        "mmp", "lvl", "alive", "eco", "abil", "inv", "icd", "mods",
+        "casts", "buys", "finds", "st", "prim", "din", "hin"
+      ],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "team": { "type": "integer" },
+        "pid": { "type": "integer" },
+        "color": { "type": "string" },
+        "pos": { "type": "array" },
+        "hp": { "type": "array" },
+        "mhp": { "type": "array" },
+        "mp": { "type": "array" },
+        "mmp": { "type": "array" },
+        "lvl": { "type": "array" },
+        "alive": { "type": "array" },
+        "eco": { "type": "array" },
+        "abil": { "type": "array" },
+        "inv": { "type": "array" },
+        "icd": { "type": "object" },
+        "mods": { "type": "array" },
+        "casts": { "type": "array" },
+        "buys": { "type": "array" },
+        "finds": { "type": "array" },
+        "st": { "type": "object" },
+        "prim": { "type": "integer" },
+        "din": { "type": "array" },
+        "hin": { "type": "array" },
+        "gold_earned": {
+          "type": "array",
+          "items": { "type": ["integer", "null"], "minimum": 0 }
+        },
+        "gold_earned_final": { "type": ["integer", "null"], "minimum": 0 },
+        "dmg_out": {
+          "type": "object",
+          "required": ["total", "p", "m", "u"],
+          "properties": {
+            "total": { "type": "integer", "minimum": 0 },
+            "p": { "type": "integer", "minimum": 0 },
+            "m": { "type": "integer", "minimum": 0 },
+            "u": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        "mods_long": { "type": "array", "items": { "$ref": "#/$defs/modifierLong" } },
+        "mod_stacks": { "type": "array", "items": { "$ref": "#/$defs/modifierStack" } }
+      },
+      "additionalProperties": true
+    },
+    "death": {
+      "type": "object",
+      "required": ["t", "hero", "killer", "last", "by", "win", "hits", "heals", "seen", "out"],
+      "properties": {
+        "t": { "type": "number" },
+        "hero": { "type": "string" },
+        "killer": { "type": ["string", "null"] },
+        "last": { "type": "array" },
+        "by": { "type": "array" },
+        "win": { "type": "array" },
+        "hits": { "type": "array" },
+        "heals": { "type": "array" },
+        "seen": { "type": "object" },
+        "out": { "type": "integer" }
+      },
+      "additionalProperties": true
+    },
+    "match": {
+      "type": "object",
+      "required": ["meta", "t0", "t1", "heroes", "deaths", "names", "statdb", "sampleT", "dtick"],
+      "properties": {
+        "meta": { "$ref": "#/$defs/matchMeta" },
+        "t0": { "type": "number" },
+        "t1": { "type": "number" },
+        "heroes": { "type": "array", "items": { "$ref": "#/$defs/hero" } },
+        "deaths": { "type": "array", "items": { "$ref": "#/$defs/death" } },
+        "names": { "type": "object", "additionalProperties": { "type": "string" } },
+        "statdb": { "type": "object" },
+        "sampleT": { "type": "array", "items": { "type": "number" } },
+        "dtick": { "type": "number" }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": { "meta": { "properties": { "schema": { "const": "3.2" } }, "required": ["schema"] } },
+            "required": ["meta"]
+          },
+          "then": {
+            "properties": { "heroes": { "items": { "required": ["mods_long", "mod_stacks"] } } }
+          }
+        }
+      ]
+    },
+    "worldHero": {
+      "type": "object",
+      "required": ["t", "x", "y", "brk", "dead", "vis"],
+      "properties": {
+        "t": { "type": "array", "items": { "type": "number" } },
+        "x": { "type": "array", "items": { "type": "number" } },
+        "y": { "type": "array", "items": { "type": "number" } },
+        "brk": { "type": "array" },
+        "dead": { "type": "array" },
+        "vis": { "type": "array" }
+      },
+      "additionalProperties": true
+    },
+    "worldTrack": {
+      "type": "object",
+      "required": ["k", "team", "t0", "vis", "t1", "p"],
+      "properties": {
+        "k": { "type": "string" },
+        "team": { "type": "integer" },
+        "t0": { "type": "number" },
+        "vis": { "type": "array" },
+        "hp": { "type": "array" },
+        "n": { "type": "string" },
+        "t1": { "type": "number" },
+        "p": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "prefixItems": [
+            { "type": "array", "items": { "type": "number" } },
+            { "type": "array", "items": { "type": "number" } },
+            { "type": "array", "items": { "type": "number" } }
+          ],
+          "items": false
+        }
+      },
+      "additionalProperties": true
+    },
+    "rune": {
+      "type": "object",
+      "required": ["t0", "t1", "type", "x", "y", "out", "by"],
+      "properties": {
+        "t0": { "type": "number" },
+        "t1": { "type": "number" },
+        "type": { "type": "string" },
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "out": { "type": "string" },
+        "by": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "world": {
+      "type": "object",
+      "required": ["v", "qh", "qu", "t0", "heroes", "tracks", "runes"],
+      "properties": {
+        "v": { "type": "integer" },
+        "qh": { "type": "number" },
+        "qu": { "type": "number" },
+        "t0": { "type": "number" },
+        "heroes": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/worldHero" }
+        },
+        "tracks": { "type": "array", "items": { "$ref": "#/$defs/worldTrack" } },
+        "runes": { "type": "array", "items": { "$ref": "#/$defs/rune" } }
+      },
+      "additionalProperties": false
+    }
+  }
+}

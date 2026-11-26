@@ -1,10 +1,10 @@
 ---
 domain: banner-lab
 tier: A
-card_version: 2
-verified_at_commit: d9db064
-verified_on: 2026-11-14
-verified_by: "claude-code subagent draft (read-only), integrated by the governance lead; agent work, not human review"
+card_version: 4
+verified_at_commit: a8b636b
+verified_on: 2026-11-25
+verified_by: "Codex worker; reviewed listed source changes, not human or owner approval"
 ---
 
 # Card: banner-lab
@@ -25,9 +25,10 @@ Production lab for event banners (silent WebM with alpha plus a mixed WAV) and f
 
 ## 2. Owner decisions (ids only; text lives in contracts/decisions.json)
 
-- Decided: DEC-BANNER-LAB-STYLE, DEC-BANNER-WORKER, DEC-PACK-AUDIO-OPTIONAL-VISUAL, DEC-COMMERCE-INTENT
+- Decided: DEC-BANNER-LAB-STYLE, DEC-BANNER-WORKER, DEC-PACK-AUDIO-OPTIONAL-VISUAL, DEC-COMMERCE-INTENT, DEC-MULTI-PACK, DEC-POSITIONING-20261125
 - DEC-BANNER-LAB-STYLE does NOT approve: DEC-VISUALS tokens, any clip as critical media (DEC-CRITICAL-MEDIA), rights to a voice, shipping any banner. Pipeline in one line: a WebGL2 renderer in headless Edge piped to a pinned ffmpeg, rebuilt by one command (`lab:fable/build.mjs`; `--only` and `--skip-pack` exist), then `kohbor-pack-build`.
-- Open: DEC-VISUALS, DEC-CRITICAL-MEDIA, DEC-EVENT-RUNE-SPAWN
+- Decided: DEC-CRITICAL-MEDIA, DEC-EVENT-RUNE-SPAWN
+- Open: DEC-VISUALS
 - Proposed: DEC-EVENT-AUDIO
 - Deferred: DEC-PACK-BANNER-ADDON
 
@@ -35,14 +36,14 @@ Production lab for event banners (silent WebM with alpha plus a mixed WAV) and f
 
 - Now: Baseline `lab:fable/` has 10 entries in `lab:fable/src/banners.json`: 6 bound to catalog events, 4 asset-only (listed in `lab:fable/report.json`, key `not_in_mapping`). DEC-BANNER-LAB-STYLE
 - Now: The baseline still renders the old system font; the open-licence font swap exists only in private copies (phase A), phase B re-render is not approved. `lab:AGENTS.md` section 6
-- Now: Ledger claims active, both expiring 2026-11-14 (the claim does not release the area by itself): `banner-lab__nakom-taste-test`, `banner-studio__ux-mockups`
 - Now: Banner Studio is a proposal only (increments 1 to 6, owner decides scope and pack count); no code. `lab:STUDIO-DESIGN.md`
-- Now: The pack tool binary the lab runs is dated 2026-11-12 18:44, before commit 8b70f6f (audio-only bindings); whether it contains that change is UNVERIFIED. DEC-PACK-AUDIO-OPTIONAL-VISUAL
 - Next: Owner listens to every mixed WAV and confirms every Thai sentence (agents cannot). DEC-BANNER-LAB-STYLE
-- Next: Play a banner in the real overlay (VP9 alpha) and measure decode cost; tiers 4, 5 and the streak family are not built. DEC-BANNER-LAB-STYLE
+- Next: Owner listening and real-overlay acceptance remain open (`DEC-BANNER-LAB-STYLE`; `docs/delivery/SPRINT-ROADMAP.md`).
 - Next: Icon docked onto the plaque (owner preference, not built) needs a recorded amendment of the style decision first. DEC-BANNER-LAB-STYLE
 - Blocked: `rune_spawn` has no catalog entry and no detector; stays asset-only. DEC-EVENT-RUNE-SPAWN
 - Blocked: `risk_alert` is a catalog event whose detector status is only the lab's claim (UNVERIFIED here); stays asset-only. DEC-EVENT-AUDIO
+- Blocked: special voice-pack events stay unavailable until live captures confirm their detectors (`DEC-MULTI-PACK`; `contracts/event-catalog.json`).
+- Blocked: rights review before public release remains with the owner's rights team (`DEC-POSITIONING-20261125`; `DEC-REPLAY-INTEGRATION`).
 
 ## 4. Open questions (no DEC id yet)
 
@@ -57,7 +58,8 @@ Machine list: `state.json`. Short form:
 - Governing: `lab:AGENTS.md`, `lab:fable/DESIGN-SYSTEM.md`, `lab:BRIEF.md` (file contract).
 - Code and shipped set: `lab:fable/build.mjs`, `lab:fable/src/**`, `lab:fable/*.webm|*.wav|*-sheet|*-hold|*-final`, `mapping.json`, `report.json`, `build-log.txt` (change only by owner-approved build).
 - Private copies of the baseline (`lab:fable-*/`, `lab:nk-*/`): registered in the ledger registry, not described here.
-- Repo side: `contracts/event-catalog.json`, `crates/kohbor-pack-author/src/lib.rs`, `docs/design/MEDIA-PACK-SPEC.md` (MEDIA-004).
+- Repo side: `contracts/event-catalog.json`, `crates/kohbor-pack-author/src/lib.rs`, and the authoring contract in `docs/design/MEDIA-PACK-SPEC.md` (MEDIA-004).
+- Closed-alpha scope: [ALPHA-LAUNCH](../../design/ALPHA-LAUNCH.md) and its scope entry in [DECISION-LOG](../../governance/DECISION-LOG.md).
 
 ## 6. Traps and lessons
 

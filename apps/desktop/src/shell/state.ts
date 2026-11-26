@@ -49,6 +49,7 @@ export type StatusLineLabels = {
   gamePhase: string;
   gameAge: string;
   capture: string;
+  minimapRecording: string;
   gsiSetup: string;
 };
 
@@ -58,13 +59,14 @@ export type StatusLineModelInput = {
   phase: { label: string; tone: HeaderTone };
   gameAge: string;
   capture: { label: string; tone: HeaderTone };
+  minimapRecording: boolean;
   deck: { label: string; tone: HeaderTone; reason: string };
   setupAvailable: boolean;
   hostLost: boolean;
 };
 
 export type StatusLineItem = {
-  id: "gsi" | "phase" | "age" | "capture" | "deck";
+  id: "gsi" | "phase" | "age" | "capture" | "recording" | "deck";
   label: string;
   tone: HeaderTone;
   detail?: string;
@@ -77,6 +79,9 @@ export function statusLineModel(input: StatusLineModelInput) {
     { id: "phase", label: `${labels.gamePhase}: ${input.phase.label}`, tone: input.phase.tone },
     { id: "age", label: `${labels.gameAge}: ${input.gameAge}`, tone: "unknown" },
     { id: "capture", label: `${labels.capture} · ${input.capture.label}`, tone: input.capture.tone },
+    ...(input.minimapRecording
+      ? [{ id: "recording" as const, label: labels.minimapRecording, tone: "warn" as const }]
+      : []),
     { id: "deck", label: input.deck.label, tone: input.deck.tone, detail: input.deck.reason },
   ];
   return {

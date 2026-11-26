@@ -110,6 +110,36 @@ pub struct OwnCounters {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct MapFields {
+    pub radiant_score: Field<i64>,
+    pub dire_score: Field<i64>,
+    /// Signed GSI clock; negative values are the countdown before the horn.
+    pub clock_time: Field<i64>,
+}
+
+/// GSI fields used only by the pinned objective read model. Kept separate from
+/// `Admitted` so the existing event-admission contract and callers stay stable.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ObjectiveMapFields {
+    pub clock_time: Field<i64>,
+    pub daytime: Field<bool>,
+    pub nightstalker_night: Field<bool>,
+    pub roshan_state: Field<String>,
+    pub roshan_respawn_seconds: Field<i64>,
+}
+
+/// Admit the small set of objective-panel fields without retaining the GSI body.
+pub fn parse_objective_map_fields(map: Option<&Value>) -> ObjectiveMapFields {
+    ObjectiveMapFields {
+        clock_time: int_field(map, "clock_time", -86_400, 86_400),
+        daytime: map_bool_field(map, "daytime"),
+        nightstalker_night: map_bool_field(map, "nightstalker_night"),
+        roshan_state: map_string_field(map, "roshan_state", 32),
+        roshan_respawn_seconds: int_field(map, "roshan_respawn_seconds", 0, 7_200),
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Admitted {
     pub phase: Phase,
     /// Exact draft-screen phases. Loading states still belong to the coarse Draft phase.
@@ -123,6 +153,7 @@ pub struct Admitted {
     /// Raw SteamID64 from the payload; never persist, log or display.
     pub steamid64: Option<u64>,
     pub counters: OwnCounters,
+    pub map: MapFields,
     pub hero: HeroFields,
 }
 
@@ -308,7 +339,8 @@ pub fn admit(
         .and_then(Value::as_str)
         .filter(|m| !m.is_empty() && *m != "0")
         .map(str::to_owned);
-    let counters = own_counters(body.get("player"), body.get("map"));
+    let map = map_fields(body.get("map"));
+    let counters = own_counters(body.get("player"), &map);
     let hero = hero_fields(body.get("hero"));
     Outcome::Admitted(Box::new(Admitted {
         phase,
@@ -319,6 +351,7 @@ pub fn admit(
         match_id,
         steamid64,
         counters,
+        map,
         hero,
     }))
 }
@@ -511,14 +544,52 @@ fn int_field(object: Option<&Value>, key: &str, min: i64, max: i64) -> Field<i64
     }
 }
 
-fn own_counters(player: Option<&Value>, map: Option<&Value>) -> OwnCounters {
-    let radiant_score = int_field(map, "radiant_score", 0, 100_000);
-    let dire_score = int_field(map, "dire_score", 0, 100_000);
-    let combined_score = match (radiant_score, dire_score) {
+fn map_bool_field(object: Option<&Value>, key: &str) -> Field<bool> {
+    match object.and_then(Value::as_object) {
+        None if object.is_none() => Field::Missing,
+        None => Field::Invalid,
+        Some(map) => match map.get(key) {
+            None => Field::Missing,
+            Some(Value::Bool(value)) => Field::Value(*value),
+            Some(_) => Field::Invalid,
+        },
+    }
+}
+
+fn map_string_field(object: Option<&Value>, key: &str, max_bytes: usize) -> Field<String> {
+    match object.and_then(Value::as_object) {
+        None if object.is_none() => Field::Missing,
+        None => Field::Invalid,
+        Some(map) => match map.get(key) {
+            None => Field::Missing,
+            Some(Value::String(value))
+                if !value.is_empty()
+                    && value.len() <= max_bytes
+                    && value
+                        .bytes()
+                        .all(|byte| byte.is_ascii_alphanumeric() || b"_-".contains(&byte)) =>
+            {
+                Field::Value(value.clone())
+            }
+            Some(_) => Field::Invalid,
+        },
+    }
+}
+
+fn map_fields(map: Option<&Value>) -> MapFields {
+    MapFields {
+        radiant_score: int_field(map, "radiant_score", 0, 100_000),
+        dire_score: int_field(map, "dire_score", 0, 100_000),
+        clock_time: int_field(map, "clock_time", -86_400, 86_400),
+    }
+}
+
+fn own_counters(player: Option<&Value>, map: &MapFields) -> OwnCounters {
+    let combined_score = match (&map.radiant_score, &map.dire_score) {
         (Field::Missing, _) | (_, Field::Missing) => Field::Missing,
         (Field::Invalid, _) | (_, Field::Invalid) => Field::Invalid,
         (Field::Value(radiant), Field::Value(dire)) => radiant
-            .checked_add(dire)
+            .checked_add(*dire)
             .map(Field::Value)
             .unwrap_or(Field::Invalid),
     };
@@ -629,5 +700,48 @@ mod draft_screen_tests {
             assert_eq!(admitted.phase, expected_phase, "{state}");
             assert_eq!(admitted.draft_bar_phase, expected_bar_phase, "{state}");
         }
+    }
+}
+
+#[cfg(test)]
+mod objective_map_admission_tests {
+    use super::{parse_objective_map_fields, Field};
+    use serde_json::json;
+
+    #[test]
+    fn objective_map_admission_keeps_clock_day_night_and_bounded_roshan_values() {
+        let map = json!({
+            "clock_time": -12,
+            "daytime": false,
+            "nightstalker_night": true,
+            "roshan_state": "alive",
+            "roshan_respawn_seconds": 42
+        });
+        let fields = parse_objective_map_fields(Some(&map));
+        assert_eq!(fields.clock_time, Field::Value(-12));
+        assert_eq!(fields.daytime, Field::Value(false));
+        assert_eq!(fields.nightstalker_night, Field::Value(true));
+        assert_eq!(fields.roshan_state, Field::Value("alive".to_owned()));
+        assert_eq!(fields.roshan_respawn_seconds, Field::Value(42));
+    }
+
+    #[test]
+    fn absent_or_malformed_objective_values_remain_unknown_or_invalid() {
+        let missing = parse_objective_map_fields(None);
+        assert!(matches!(missing.daytime, Field::Missing));
+        assert!(matches!(missing.roshan_respawn_seconds, Field::Missing));
+        let malformed = json!({
+            "clock_time": "90",
+            "daytime": "true",
+            "nightstalker_night": null,
+            "roshan_state": "alive\\n",
+            "roshan_respawn_seconds": -1
+        });
+        let fields = parse_objective_map_fields(Some(&malformed));
+        assert!(matches!(fields.clock_time, Field::Invalid));
+        assert!(matches!(fields.daytime, Field::Invalid));
+        assert!(matches!(fields.nightstalker_night, Field::Invalid));
+        assert!(matches!(fields.roshan_state, Field::Invalid));
+        assert!(matches!(fields.roshan_respawn_seconds, Field::Invalid));
     }
 }

@@ -163,9 +163,197 @@ export const EMPTY_HISTORY: MatchHistory = {
   trend: [], topHeroes: [], best: { minGames: 3, allTime: [], thisMonth: [] }, entries: [],
 };
 
+/** The shared label used when Overview counts unknown match types or has no counted base. */
+export function allModesScopeLabel(locale: OverviewLocale): string {
+  return overviewCopy(locale).stats.allModes;
+}
+
 /** Unix seconds of the start of the local calendar month containing `now` (sent to the host). */
 export function localMonthStart(now: Date): number {
   return Math.floor(new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0).getTime() / 1000);
+}
+
+/** Unix-second half-open range for the local calendar day. Construct both midnights locally so
+ * daylight-saving transitions do not turn a calendar day into a fixed 24-hour duration. */
+export function localDayRange(now: Date): { start: number; end: number } {
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  return { start: Math.floor(start.getTime() / 1000), end: Math.floor(end.getTime() / 1000) };
+}
+
+export interface TodayBestHero {
+  hero: BestHero | null;
+  reason: "no_matches_today" | "no_hero_today" | null;
+  minGames: number;
+  matchCount: number;
+}
+
+/** Match the host's best-hero rule for the local calendar day: win-rate order from three counted
+ * games, otherwise most played. Counted types/results match match_history.rs. */
+export function todayBestHero(entries: readonly HistoryEntry[], now: Date, minGames = 3): TodayBestHero {
+  const { start, end } = localDayRange(now);
+  const today = entries.filter((entry) => entry.endedAt >= start && entry.endedAt < end);
+  if (today.length === 0) return { hero: null, reason: "no_matches_today", minGames, matchCount: 0 };
+  const groups = new Map<string, {
+    games: number; wins: number; losses: number; kdaGames: number;
+    kills: number; deaths: number; assists: number;
+  }>();
+  for (const entry of today) {
+    if (!entry.hero) continue;
+    const tally = groups.get(entry.hero) ?? { games: 0, wins: 0, losses: 0, kdaGames: 0, kills: 0, deaths: 0, assists: 0 };
+    tally.games += 1;
+    const countedType = entry.matchType === "ranked" || entry.matchType === "unranked" || entry.matchType === "unknown";
+    if (countedType && entry.result === "win") tally.wins += 1;
+    if (countedType && entry.result === "loss") tally.losses += 1;
+    if (entry.kills !== null && entry.deaths !== null && entry.assists !== null) {
+      tally.kdaGames += 1;
+      tally.kills += entry.kills;
+      tally.deaths += entry.deaths;
+      tally.assists += entry.assists;
+    }
+    groups.set(entry.hero, tally);
+  }
+  if (groups.size === 0) return { hero: null, reason: "no_hero_today", minGames, matchCount: today.length };
+
+  const candidates = [...groups].map(([hero, tally]) => {
+    const countedGames = tally.wins + tally.losses;
+    return {
+      hero, tally, countedGames,
+      winRate: countedGames > 0 ? (tally.wins / countedGames) * 100 : null,
+    };
+  });
+  const qualified = candidates.filter((candidate) => candidate.countedGames >= minGames);
+  const basis = qualified.length > 0 ? "win_rate" as const : "most_played" as const;
+  const ranked = qualified.length > 0
+    ? qualified.sort((a, b) => (b.winRate ?? 0) - (a.winRate ?? 0)
+      || b.countedGames - a.countedGames || compareId(a.hero, b.hero))
+    : candidates.sort((a, b) => b.tally.games - a.tally.games || compareId(a.hero, b.hero));
+  const best = ranked[0]!;
+  const avg = (sum: number) => best.tally.kdaGames > 0 ? sum / best.tally.kdaGames : null;
+  return {
+    hero: {
+      hero: best.hero, basis, games: best.tally.games, countedGames: best.countedGames,
+      wins: best.tally.wins, losses: best.tally.losses, winRate: best.winRate,
+      avgKills: avg(best.tally.kills), avgDeaths: avg(best.tally.deaths), avgAssists: avg(best.tally.assists),
+    },
+    reason: null, minGames, matchCount: today.length,
+  };
+}
+
+export type NemesisLane = "top" | "mid" | "bot";
+export type NemesisOutcome = "even" | "radiant_won" | "dire_won" | "radiant_stomp" | "dire_stomp";
+export interface NemesisLaneSample {
+  lane: NemesisLane;
+  radiant: string[];
+  dire: string[];
+  outcome: NemesisOutcome | null;
+}
+export interface NemesisMatch { ownHero: string; lanes: NemesisLaneSample[] }
+export interface NemesisHeroRow { hero: string; lost: number; faced: number; sampleSize: number }
+export interface NemesisStyleRow { tag: string; losses: number; samples: number }
+export interface NemesisSummary {
+  rows: NemesisHeroRow[];
+  styles: NemesisStyleRow[];
+  totalSamples: number;
+  minLanes: number;
+  lowData: boolean;
+}
+
+const HERO_ID = /^npc_dota_hero_[a-z0-9_]{1,48}$/;
+const NEMESIS_OUTCOMES: readonly NemesisOutcome[] = ["even", "radiant_won", "dire_won", "radiant_stomp", "dire_stomp"];
+const compareId = (left: string, right: string) => left < right ? -1 : left > right ? 1 : 0;
+
+function heroIds(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return [...new Set(raw.flatMap((value): string[] => {
+    const hero = isObj(value) ? value.hero : value;
+    return typeof hero === "string" && HERO_ID.test(hero) ? [hero] : [];
+  }))];
+}
+
+/** Read only lane facts. Player names, account IDs, and every unrecognized field are discarded. */
+export function parseNemesisReply(raw: unknown): { matches: NemesisMatch[] } | null {
+  if (!isObj(raw) || raw.schema_version !== "1.0.0" || !Array.isArray(raw.matches)) return null;
+  const matches = raw.matches.flatMap((item): NemesisMatch[] => {
+    if (!isObj(item) || typeof item.own_hero !== "string" || !HERO_ID.test(item.own_hero) || !Array.isArray(item.lanes)) return [];
+    const lanes = item.lanes.flatMap((lane): NemesisLaneSample[] => {
+      if (!isObj(lane) || (lane.lane !== "top" && lane.lane !== "mid" && lane.lane !== "bot")) return [];
+      return [{
+        lane: lane.lane,
+        radiant: heroIds(lane.radiant),
+        dire: heroIds(lane.dire),
+        outcome: NEMESIS_OUTCOMES.includes(lane.outcome as NemesisOutcome) ? lane.outcome as NemesisOutcome : null,
+      }];
+    });
+    return [{ ownHero: item.own_hero, lanes }];
+  });
+  return { matches };
+}
+
+/** Tags are derived only from the installed local hero stats pack. Unsupported/missing values stay absent. */
+export function buildLocalHeroStyleTags(rawHeroes: unknown): Record<string, string[]> {
+  if (!isObj(rawHeroes)) return {};
+  const tags: Record<string, string[]> = {};
+  for (const [shortName, raw] of Object.entries(rawHeroes)) {
+    if (!isObj(raw)) continue;
+    const hero = shortName.startsWith("npc_dota_hero_") ? shortName : `npc_dota_hero_${shortName}`;
+    if (!HERO_ID.test(hero)) continue;
+    const result: string[] = [];
+    const attack = isObj(raw.attack) ? raw.attack.type : null;
+    if (attack === "melee" || attack === "ranged") result.push(`attack:${attack}`);
+    const attribute = raw.primaryAttribute;
+    if (attribute === "strength" || attribute === "agility" || attribute === "intelligence" || attribute === "universal") {
+      result.push(`attribute:${attribute}`);
+    }
+    if (result.length > 0) tags[hero] = result;
+  }
+  return tags;
+}
+
+/** A lane is one sample for each identified enemy hero. Unknown lane outcomes and ambiguous own-side
+ * assignments are omitted; enemy players are never part of this model. */
+export function aggregateNemesis(
+  data: { matches: readonly NemesisMatch[] },
+  styles: Readonly<Record<string, readonly string[]>>,
+  minLanes = 3,
+): NemesisSummary {
+  const heroes = new Map<string, { lost: number; faced: number }>();
+  const styleTallies = new Map<string, { losses: number; samples: number }>();
+  for (const match of data.matches) {
+    for (const lane of match.lanes) {
+      if (!lane.outcome) continue;
+      const inRadiant = lane.radiant.includes(match.ownHero);
+      const inDire = lane.dire.includes(match.ownHero);
+      if (inRadiant === inDire) continue;
+      const ownSide = inRadiant ? "radiant" : "dire";
+      const enemyHeroes = [...new Set((ownSide === "radiant" ? lane.dire : lane.radiant).filter((hero) => HERO_ID.test(hero)))];
+      if (enemyHeroes.length === 0) continue;
+      const winner = lane.outcome === "even" ? null
+        : lane.outcome.startsWith("radiant_") ? "radiant" : "dire";
+      const lost = winner !== null && winner !== ownSide;
+      for (const hero of enemyHeroes) {
+        const tally = heroes.get(hero) ?? { lost: 0, faced: 0 };
+        tally.faced += 1;
+        if (lost) tally.lost += 1;
+        heroes.set(hero, tally);
+        for (const tag of styles[hero] ?? []) {
+          const style = styleTallies.get(tag) ?? { losses: 0, samples: 0 };
+          style.samples += 1;
+          if (lost) style.losses += 1;
+          styleTallies.set(tag, style);
+        }
+      }
+    }
+  }
+  const eligible = [...heroes].filter(([, value]) => value.faced >= minLanes);
+  const rows = eligible.map(([hero, value]) => ({ hero, lost: value.lost, faced: value.faced, sampleSize: value.faced }))
+    .sort((a, b) => b.lost - a.lost || compareId(a.hero, b.hero));
+  const stylesOut = [...styleTallies].filter(([, value]) => value.losses > 0)
+    .map(([tag, value]) => ({ tag, ...value }))
+    .sort((a, b) => b.losses - a.losses || b.samples - a.samples || compareId(a.tag, b.tag));
+  const totalSamples = [...heroes.values()].reduce((sum, value) => sum + value.faced, 0);
+  const lowData = totalSamples === 0 || [...heroes.values()].some((value) => value.faced < minLanes);
+  return { rows, styles: stylesOut, totalSamples, minLanes, lowData };
 }
 
 export function percent(value: number | null): string {
@@ -390,7 +578,7 @@ export function matchRows(history: MatchHistory, locale: OverviewLocale, limit: 
 // OpenDota own-history state. The host owns all network, consent and cache decisions.
 
 export type OpenDotaState = "disabled" | "idle" | "loading" | "merged" | "empty" | "private_profile"
-  | "not_found" | "rate_limited" | "budget_exhausted" | "offline" | "unavailable";
+  | "waiting_for_account" | "not_found" | "rate_limited" | "budget_exhausted" | "offline" | "unavailable";
 
 export interface OpenDotaView {
   state: OpenDotaState;
@@ -402,7 +590,7 @@ export interface OpenDotaView {
 }
 
 const OPENDOTA_STATES: readonly OpenDotaState[] = [
-  "disabled", "idle", "loading", "merged", "empty", "private_profile", "not_found", "rate_limited",
+  "disabled", "idle", "loading", "merged", "empty", "private_profile", "waiting_for_account", "not_found", "rate_limited",
   "budget_exhausted", "offline", "unavailable",
 ];
 
@@ -419,6 +607,25 @@ export function parseOpenDotaView(raw: unknown): OpenDotaView | null {
     lastAttemptAt: count(raw.last_attempt_at),
     retryAvailable: raw.retry_available,
   };
+}
+
+/** Localized status text keeps the waiting state separate from actual provider or host failures. */
+export function openDotaStatusText(state: OpenDotaState, locale: OverviewLocale): string {
+  const t = overviewCopy(locale).stats;
+  switch (state) {
+    case "disabled": return t.openDotaDisabled;
+    case "idle": return t.openDotaEnabled;
+    case "loading": return t.openDotaLoading;
+    case "merged": return t.openDotaMerged;
+    case "empty": return t.openDotaEmpty;
+    case "waiting_for_account": return t.openDotaWaitingForAccount;
+    case "private_profile": return t.openDotaPrivateBody;
+    case "not_found": return t.openDotaNotFound;
+    case "rate_limited": return t.openDotaRateLimited;
+    case "budget_exhausted": return t.openDotaBudgetLimited;
+    case "offline": return t.openDotaOffline;
+    case "unavailable": return t.openDotaUnavailable;
+  }
 }
 
 // ---------------------------------------------------------------------------------------------

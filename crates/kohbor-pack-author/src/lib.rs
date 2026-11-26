@@ -114,6 +114,7 @@ struct MappingPlan {
     bindings: Vec<MappingBinding>,
     has_variants: bool,
     has_captions: bool,
+    has_hero: bool,
     presentation: PresentationOptions,
 }
 
@@ -121,6 +122,7 @@ struct MappingPlan {
 struct MappingBinding {
     event_id: String,
     tier: Option<u32>,
+    hero: Option<String>,
     selection: Option<String>,
     variants: Vec<MappingVariant>,
 }
@@ -207,7 +209,7 @@ pub fn build_package(options: &BuildOptions) -> Result<BuildReport, BuildError> 
         || mapping_plan.presentation.author.is_some()
         || mapping_plan.presentation.languages.is_some()
         || mapping_plan.presentation.cover.is_some();
-    let use_v14_output = mapping_plan.has_variants || has_presentation_input;
+    let use_v14_output = mapping_plan.has_variants || mapping_plan.has_hero || has_presentation_input;
     if use_v14_output {
         assign_implicit_variant_ids(&mut mapping_plan.bindings)?;
     }
@@ -313,6 +315,9 @@ pub fn build_package(options: &BuildOptions) -> Result<BuildReport, BuildError> 
             if let Some(tier) = mapping.tier {
                 descriptor_binding.insert("tier".to_owned(), json!(tier));
             }
+            if let Some(hero) = mapping.hero.as_ref() {
+                descriptor_binding.insert("hero".to_owned(), json!(hero));
+            }
             if let Some(selection) = selection.as_ref() {
                 descriptor_binding.insert("selection".to_owned(), json!(selection));
             }
@@ -411,7 +416,9 @@ pub fn build_package(options: &BuildOptions) -> Result<BuildReport, BuildError> 
         }));
     }
     let taxonomy_version = format!("{}.{}", catalog.taxonomy.major, catalog.taxonomy.minor);
-    let descriptor_schema_version = if has_presentation {
+    let descriptor_schema_version = if mapping_plan.has_hero {
+        "1.4.3"
+    } else if has_presentation {
         "1.4.2"
     } else if mapping_plan.has_captions {
         "1.4.1"
@@ -965,6 +972,7 @@ fn parse_mapping(value: &Value) -> Result<MappingPlan, BuildError> {
     let mut result = Vec::with_capacity(bindings.len());
     let mut has_variants = false;
     let mut has_captions = false;
+    let mut has_hero = false;
     let mut total_variants = 0usize;
     let mut explicit_variant_ids = BTreeSet::new();
     for value in bindings {
@@ -973,12 +981,20 @@ fn parse_mapping(value: &Value) -> Result<MappingPlan, BuildError> {
             .ok_or_else(|| BuildError::new(1, "mapping binding must be an object"))?;
         let event_id = required_string(object, "event_id")?;
         let tier = optional_u32(object, "tier")?;
+        let hero = optional_string(object, "hero")?;
+        if hero.as_deref().is_some_and(|value| !valid_hero_id(value)) {
+            return Err(BuildError::new(
+                1,
+                "hero must be a Dota hero id such as npc_dota_hero_sniper",
+            ));
+        }
+        has_hero |= hero.is_some();
         if tier.is_some_and(|value| value == 0 || value > 100) {
             return Err(BuildError::new(1, "tier must be between 1 and 100"));
         }
         let (selection, variants) = if object.contains_key("variants") {
             has_variants = true;
-            reject_mapping_fields(object, &["event_id", "tier", "selection", "variants"])?;
+            reject_mapping_fields(object, &["event_id", "tier", "hero", "selection", "variants"])?;
             let variant_values = object
                 .get("variants")
                 .and_then(Value::as_array)
@@ -1104,6 +1120,7 @@ fn parse_mapping(value: &Value) -> Result<MappingPlan, BuildError> {
                 &[
                     "event_id",
                     "tier",
+                    "hero",
                     "audio",
                     "visual",
                     "identity_audio",
@@ -1155,6 +1172,7 @@ fn parse_mapping(value: &Value) -> Result<MappingPlan, BuildError> {
         result.push(MappingBinding {
             event_id,
             tier,
+            hero,
             selection,
             variants,
         });
@@ -1163,6 +1181,7 @@ fn parse_mapping(value: &Value) -> Result<MappingPlan, BuildError> {
         bindings: result,
         has_variants,
         has_captions,
+        has_hero,
         presentation,
     })
 }
@@ -1614,10 +1633,25 @@ fn skipped_report_json(binding: &SkippedBinding) -> Value {
 }
 
 fn binding_key(mapping: &MappingBinding) -> String {
-    match mapping.tier {
+    let key = match mapping.tier {
         Some(tier) => format!("{}-t{tier}", mapping.event_id),
         None => mapping.event_id.clone(),
-    }
+    };
+    mapping.hero.as_deref().map_or(key.clone(), |hero| {
+        let suffix = hero.strip_prefix("npc_dota_hero_").unwrap_or(hero);
+        format!("{key}-h{suffix}")
+    })
+}
+
+fn valid_hero_id(value: &str) -> bool {
+    let Some(name) = value.strip_prefix("npc_dota_hero_") else {
+        return false;
+    };
+    !name.is_empty()
+        && value.len() <= 64
+        && name
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
 }
 
 fn absolute_output_path(path: &Path) -> Result<PathBuf, BuildError> {

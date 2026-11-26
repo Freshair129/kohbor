@@ -37,6 +37,7 @@ While the endpoint or the public key is `None`, the updater reports `NO_ENDPOINT
 
 ## Behaviour (release, later slice)
 
+- Keep the base `tauri.conf.json` bundle inactive so ordinary builds do not need the signing key. The release helper passes the absolute `tools/release/release.conf.json` path with Tauri `--config`; that override enables the NSIS bundle, updater artifacts, and release-only Windows installer settings.
 - Build the NSIS installer with `bundle.createUpdaterArtifacts`, sign it with the owner's key on the owner's machine, and produce `latest.json`.
 - UPDATE-003: stable promotion copies the exact approved candidate assets and `latest.json` entry. A promotion script compares SHA-256 and signature bytes and refuses to rebuild or re-sign.
 - UPDATE-004: the runbook keeps the last known-good installer and documents the emergency route: a new higher version, never a manifest downgrade.
@@ -46,6 +47,8 @@ While the endpoint or the public key is `None`, the updater reports `NO_ENDPOINT
 1. **App slice (this branch).** The real plugin backend behind `UpdateBackend`, wiring in `lib.rs`, commands, the consent setting, match deferral, UI states in the existing `UpdateControl`, and synthetic tests with a throwaway key and a local test server. With `None` constants the shipped behaviour stays fail-closed.
 2. **Release slice.** NSIS bundle settings, signing and `latest.json` scripts, the promotion check, and the runbook. It needs the owner's key and the public repository.
 3. **Native evidence.** Install an old signed test build, update to a newer signed test build, and confirm deferral during a match (UAT-12).
+
+Release steps and tooling: [RELEASE-UPDATES.md](../operations/RELEASE-UPDATES.md) and `tools/release/`.
 
 ## Non-goals
 

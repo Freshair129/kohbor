@@ -50,6 +50,20 @@ test("the side setting defaults to off and survives a broken or unknown stored v
   assert.equal(persistSecondMonitorSide({ setItem: () => { throw new Error("full"); } }, "left"), "left");
 });
 
+test("the second-monitor selector keeps three named, pressed icon buttons", () => {
+  const component = readFileSync(new URL("../src/live/SecondMonitorToggle.tsx", import.meta.url), "utf8");
+  for (const label of ["ปิด", "จอ 2 อยู่ซ้าย", "จอ 2 อยู่ขวา", "Off", "Monitor 2 on the left", "Monitor 2 on the right"]) {
+    assert.ok(component.includes(label), `accessible name and tooltip include ${label}`);
+  }
+  assert.match(component, /SECOND_MONITOR_SIDES\.map\(option =>/);
+  assert.match(component, /aria-label=\{labels\[option\]\} title=\{labels\[option\]\} aria-pressed=\{side === option\}/);
+  assert.match(component, /<MonitorGlyph side=\{option\} \/>/);
+  assert.match(component, /onClick=\{\(\) => onChange\(option\)\}/);
+  assert.match(component, /fill=\{leftActive \? "var\(--accent\)"/);
+  assert.match(component, /const leftActive = side === "left"/);
+  assert.match(component, /aria-hidden="true" focusable="false"/);
+});
+
 test("monitor 2 on the right pins the map to the left edge, and the reverse", () => {
   assert.equal(mapEdgeFor("right"), "left");
   assert.equal(mapEdgeFor("left"), "right");
@@ -114,26 +128,33 @@ test("copy labels every pending source and never claims ally vitals or abnormal 
 
 test("component sources render no invented values", () => {
   const deck = readFileSync(new URL("../src/live/SecondMonitorDeck.tsx", import.meta.url), "utf8");
-  assert.match(deck, /row\.heroName \?\? "—"/);
-  assert.match(deck, /card\.heroName \?\? "—"/);
-  assert.match(deck, /missing === null \? "—"/);
-  assert.match(deck, /formatCountdown\(next\?\.secondsUntil \?\? null\)/);
+  const cards = readFileSync(new URL("../src/live/HeroCard.tsx", import.meta.url), "utf8");
+  assert.match(deck, /CompactHeroCards cards=\{cards\}[^>]*fieldCard/);
+  assert.match(deck, /orderBySlot\(\[ownCard, \.\.\.allies\]\)/);
+  assert.match(cards, /view\.heroName \?\? UNKNOWN/);
+  assert.match(cards, /CardSections view=\{view\}/);
   assert.doesNotMatch(deck, /Math\.random|placeholder hero|npc_dota_hero_/);
 });
 
-test("pinned CSS: the map size comes from the layout variable; nothing scrolls; text does not shrink", () => {
+test("both in-match Live layouts have no scroll region, and preserve the global header and footer", () => {
   const css = readFileSync(new URL("../src/live/secondMonitor.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
-  assert.match(css, /\.live-map-pane\s*\{[^}]*width:\s*var\(--sm-map\);\s*height:\s*var\(--sm-map\)/);
+  const cards = readFileSync(new URL("../src/live/heroCard.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.match(css, /\.sm-map-region > \.live-pinned-panel\s*\{[^}]*height:\s*100%/);
   assert.match(css, /\.sm-host\s*\{[^}]*overflow:\s*hidden/);
-  assert.doesNotMatch(css, /overflow(?:-[xy])?:\s*(?:auto|scroll)/, "no scrolling region in second-monitor mode");
-  assert.doesNotMatch(css, /font-size:\s*(?:[0-9]|1[01])px/, "no text below 12 px");
+  assert.match(cards, /\.lhc-list-field\s*\{[^}]*overflow:\s*hidden/);
+  assert.doesNotMatch(css, /overflow(?:-[xy])?:\s*(?:auto|scroll)/, "second-monitor regions have no scroll containers");
+  assert.match(cards, /\.lhc-list-field\s*\{[^}]*overflow:\s*hidden/);
+  assert.doesNotMatch(cards, /\.lhc-list-field[^{}]*\{[^}]*overflow(?:-[xy])?:\s*(?:auto|scroll)/, "field card lists do not scroll");
+  const liveCards = cards.split("}").filter(rule => !/^\s*[^{}]*\.rc\b/.test(rule.slice(0, rule.indexOf("{")))).join("}");
+  assert.doesNotMatch(liveCards, /font-size:\s*(?:[0-9]|1[01])px/, "Live card text is not set below 12 px");
+  assert.doesNotMatch(css, /\.app\[data-live-monitor\][^}]*\.shell-page-header\s*\{[^}]*display:\s*none/);
   assert.match(css, /\.app\[data-live-monitor\]\[data-match="true"\] \.shell-rail-right\s*\{\s*display:\s*none/);
 });
 
 // ---- Second-monitor layout only during a match (owner report on build 3815c73, 2026-11-23) ----
 test("the second-monitor deck is pinned only while a match runs; otherwise the centred deck shows", () => {
   const cases: [string | null, boolean, boolean][] = [
-    ["none", false, false], ["draft", false, true], ["pregame", false, true], ["live", false, true],
+    ["none", false, false], ["loading", false, false], ["draft", false, true], ["pregame", false, true], ["live", false, true],
     ["post_game", false, false], ["unsupported", false, false], [null, false, false],
     ["draft", true, false], ["pregame", true, false], ["live", true, false], [null, true, false],
   ];
@@ -152,17 +173,44 @@ test("the second-monitor deck is pinned only while a match runs; otherwise the c
 test("App gates the pinned deck on the match helper and keeps the side selector reachable outside a match", () => {
   const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
   assert.match(app, /const pinnedSide = pinnedSecondMonitorSide\(\{ side: secondMonitor\.side, onLivePage: activePage === "live", phase: status\?\.session\.phase \?\? null, hostLost \}\)/);
-  assert.match(app, /\{!pinnedSide && <div className="shell-live-page-top">\s*<SecondMonitorToggle side=\{secondMonitor\.side\}/);
+  assert.match(app, /data-live-match=\{activePage === "live" && inMatch \? "true" : undefined\}/);
+  const header = app.match(/<header className="shell-page-header"[^>]*>([\s\S]*?)<\/header>/)?.[1] ?? "";
+  assert.match(header, /activePage === "live" && <SecondMonitorToggle/);
+  assert.match(header, /activePage === "live" && steamStatus\?\.dota_running === false && !steamStatus\.launch_pending && <div className="shell-live-start-control">\s*<StartDotaBar/);
+  assert.match(app, /<Deck[^>]*inMatch=\{inMatch\}/);
+  assert.doesNotMatch(app, /shell-live-page-top/);
   assert.doesNotMatch(app, /secondMonitor\.side !== "off" \? secondMonitor\.side/, "the stored side alone never pins the deck");
 });
 
-test("the alert strip is anchored inside the map stage, not at a fixed offset over the wrapping toolbar", () => {
-  const panel = readFileSync(new URL("../src/live/MinimapPanel.tsx", import.meta.url), "utf8");
-  assert.match(panel, /<div className="sm-alerts">\{stageAlerts\(/);
-  assert.match(panel, /\{stageOverride\}\{pinnedAlerts\}/, "also over the draft board");
-  assert.match(panel, /\{pinnedAlerts\}\s*<\/MinimapStage>/);
-  const css = readFileSync(new URL("../src/live/secondMonitor.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
-  const rule = css.match(/\.sm-alerts\s*\{([^}]+)\}/)?.[1] ?? "";
-  assert.match(rule, /bottom:\s*8px/);
-  assert.doesNotMatch(rule, /top:/);
+test("all Live phases use the v3 field and exclude feed, sound, GSI hint, and scroll panels", () => {
+  const deck = readFileSync(new URL("../src/deck/Deck.tsx", import.meta.url), "utf8");
+  const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  const liveCss = readFileSync(new URL("../src/live/secondMonitor.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const liveStart = app.indexOf('{activePage === "live" && (');
+  const nextPage = app.indexOf('{activePage === "packs" &&', liveStart);
+  const livePage = app.slice(liveStart, nextPage);
+  const phaseCases: [string | null, boolean, "centered" | "pinned"][] = [
+    ["none", false, "centered"], ["loading", false, "centered"], ["draft", false, "pinned"],
+    ["live", false, "pinned"], ["post_game", false, "centered"], ["unsupported", false, "centered"],
+    [null, false, "centered"], ["live", true, "centered"],
+  ];
+  for (const [phase, hostLost, expected] of phaseCases) {
+    const pinned = pinnedSecondMonitorSide({ side: "left", onLivePage: true, phase, hostLost });
+    assert.equal(pinned === null ? "centered" : "pinned", expected, `${phase ?? "unknown"} routes to ${expected}`);
+  }
+  assert.match(deck, /if \(inMatch && secondMonitor\) return \(\s*<SecondMonitorDeck/);
+  assert.match(deck, /return <CenteredLiveField/);
+  assert.doesNotMatch(deck, /if \(inMatch\) return <CenteredLiveField/,
+    "the centred field is not gated to match phases");
+  assert.doesNotMatch(deck, /const legacy =|<EventFeed|<AnnouncerStatus|deck-column/,
+    "no legacy cards or side panels remain in the Live deck");
+  assert.doesNotMatch(livePage, /GsiSetupCard|GsiSetupHint|shell-live-page-top|EventFeed|AnnouncerStatus/,
+    "the Live page has no separate GSI, feed, sound, or status panels in any phase");
+  assert.match(app, /setupNeeded && <div className="shell-status-setup"><GsiSetupCard/,
+    "GSI setup remains available on the Status page");
+  assert.match(liveCss, /\.app\[data-page="live"\] \.shell-live-page > \.deck-field-root/,
+    "centred field geometry applies outside a match as well as during one");
+  assert.match(liveCss, /\.deck-field-region\s*\{[^}]*overflow:\s*hidden/);
+  assert.doesNotMatch(liveCss, /\.deck-field-(?:root|region|team|map)[^{}]*\{[^}]*overflow(?:-[xy])?:\s*(?:auto|scroll)/,
+    "Live field regions never create scroll containers");
 });

@@ -2,9 +2,9 @@
   "schema_version": "1.0.0",
   "domain": "events-audio",
   "tier": "A",
-  "verified_at_commit": "0997546",
-  "verified_on": "2026-11-13",
-  "verified_by": "claude-code subagent draft (read-only), integrated by the governance lead; agent work, not human review",
+  "verified_at_commit": "a8b636b",
+  "verified_on": "2026-11-25",
+  "verified_by": "Codex; reviewed source references, not human or owner approval",
   "write_areas": [
     "crates/kohbor-events",
     "crates/kohbor-audio",
@@ -13,7 +13,8 @@
     "apps/desktop/src-tauri/src/media",
     "apps/desktop/src-tauri/src/host.rs",
     "apps/desktop/src-tauri/src/commands.rs",
-    "apps/desktop/src-tauri/src/clock.rs"
+    "apps/desktop/src-tauri/src/clock.rs",
+    "crates/kohbor-lab/**"
   ],
   "requirement_ids": [
     "MEDIA-001",
@@ -23,7 +24,8 @@
     "ALERT-001",
     "ALERT-007",
     "QUALITY-001",
-    "QUALITY-007"
+    "QUALITY-007",
+    "ALERT-008"
   ],
   "proposed_requirement_ids": [],
   "decision_ids": [
@@ -36,7 +38,8 @@
     "DEC-PACK-AUDIO-OPTIONAL-VISUAL",
     "DEC-PACK-BANNER-ADDON",
     "DEC-BANNER-LAB-STYLE",
-    "DEC-EVENT-RUNE-SPAWN"
+    "DEC-EVENT-RUNE-SPAWN",
+    "DEC-MULTI-PACK"
   ],
   "task_id_prefixes": [
     "S1-",
@@ -47,13 +50,13 @@
       "path": "docs/design/EVENT-AUDIO-SPEC.md",
       "type": "spec",
       "role": "governing",
-      "reviewed_sha256": "71cc80c4ea46efd8c1e7351b48101029ffd4cb47ad203c659b4677254066709a"
+      "reviewed_sha256": "34aaea260d1109474e9c16804c22497a1b799849fa4cdc731044320dc299afaf"
     },
     {
       "path": "docs/design/S3-5-HOST-CRITICAL-PATH.md",
       "type": "spec",
       "role": "governing",
-      "reviewed_sha256": "288d64539b882a906c31bea58ae59c25b48c9afeb52e5de7a2ef9d5e782b82e7"
+      "reviewed_sha256": "c545e2d7804e5b1201ba7750712071b0cb6eec6148cc3962a5849528dd628143"
     },
     {
       "path": "docs/delivery/S3-1-AUDIO-SPIKE.md",
@@ -65,7 +68,7 @@
       "path": "docs/delivery/SPRINT-ROADMAP.md",
       "type": "registry",
       "role": "reference",
-      "reviewed_sha256": "73a046327b50a6a41c6083754870b919ac7f8fd560bca41270c8d9d8b4ee6c80"
+      "reviewed_sha256": "1998e844650b06125fd18912cf140ab02b896c80f57b7b42502d01c1daa8b64b"
     },
     {
       "path": "contracts/decisions.json",
@@ -157,6 +160,28 @@
       "type": "review",
       "role": "reference",
       "reviewed_sha256": "2f3e26cfbc2b25c473f2ef1c89f4ef46169cc618d259dd0f4ffef4267b5f0067"
+    },
+    {
+      "path": "crates/kohbor-lab",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "docs/design/KOHBOR-LAB.md",
+      "type": "design",
+      "role": "governing",
+      "reviewed_sha256": "1ca42df97b9a46abfad468594d44ace391b00b113b26c87f3f07fa2d470ea938"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/lab.rs",
+      "type": "code",
+      "role": "neighbour:host-core",
+      "reviewed_sha256": "45ddea9f3a6be4799785cc15a9e8e79435492b13287b930bde8fb77409914e2a"
+    },
+    {
+      "path": "apps/desktop/src/lab",
+      "type": "code",
+      "role": "neighbour:ui-overlay"
     }
   ],
   "open_questions": [
@@ -168,17 +193,19 @@
     }
   ],
   "last_handoff": {
-    "task_id": null,
-    "on": "2026-11-13",
-    "summary": "Refreshed after PR #10 merged: S3 roadmap rows, S3-5 design section 13 and requirement implementation refs reviewed in the diff; no card fact outside the lines changed."
+    "task_id": "domain-cards-refresh-2",
+    "on": "2026-11-25",
+    "summary": "Refreshed domain maps from current source documents and assigned existing requirements and crates; source and requirement records were not edited."
   },
   "crates": [
     "kohbor-events",
     "kohbor-audio",
-    "kohbor-audio-native"
+    "kohbor-audio-native",
+    "kohbor-lab"
   ],
   "interface_requirement_ids": [
     "MEDIA-004",
-    "MEDIA-007"
+    "MEDIA-007",
+    "UI-015"
   ]
 }

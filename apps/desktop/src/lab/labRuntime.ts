@@ -1,5 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
+import { parseMinimapRecorderStatus, type MinimapRecorderStatus } from "./minimapRecorderModel.ts";
+// @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
 import { parseDescription, parseTrace, type Description, type Trace } from "./labModel.ts";
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
 import { parseLayoutView, parsePreview, type BannerLayout, type LayoutView, type Preview } from "./labLayout.ts";
@@ -92,6 +94,41 @@ export async function labStatus(): Promise<Description | null> {
 export async function labLastTrace(): Promise<Trace | null> {
   if (browserMockRequested()) return null;
   return parseTrace(await invoke<unknown>("lab_last_trace"));
+}
+
+export async function labMinimapRecorderStatus(): Promise<MinimapRecorderStatus | null> {
+  if (!hostAvailable()) return null;
+  try {
+    return parseMinimapRecorderStatus(await invoke<unknown>("lab_minimap_recorder_status"));
+  } catch {
+    return null;
+  }
+}
+
+export async function labMinimapRecorderSet(config: {
+  enabled: boolean;
+  sampling_rate_fps: number;
+  total_cap_bytes: number;
+}): Promise<MinimapRecorderStatus> {
+  const status = parseMinimapRecorderStatus(await invoke<unknown>("lab_minimap_recorder_set", {
+    enabled: config.enabled,
+    samplingRateFps: config.sampling_rate_fps,
+    totalCapBytes: config.total_cap_bytes,
+  }));
+  if (status === null) throw new Error("MINIMAP_RECORDER_BAD_RESPONSE");
+  return status;
+}
+
+export async function labMinimapRecorderDelete(matchHash: string): Promise<MinimapRecorderStatus> {
+  const status = parseMinimapRecorderStatus(await invoke<unknown>("lab_minimap_recorder_delete", {
+    matchHash,
+  }));
+  if (status === null) throw new Error("MINIMAP_RECORDER_BAD_RESPONSE");
+  return status;
+}
+
+export async function labMinimapRecorderOpenFolder(): Promise<void> {
+  await invoke<void>("lab_minimap_recorder_open_folder");
 }
 
 export async function labExport(): Promise<string> {

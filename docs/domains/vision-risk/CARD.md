@@ -1,19 +1,19 @@
 ---
 domain: vision-risk
 tier: B
-card_version: 1
-verified_at_commit: 0997546
-verified_on: 2026-11-13
-verified_by: "claude-code subagent draft (read-only), integrated by the governance lead; agent work, not human review"
+card_version: 3
+verified_at_commit: a8b636b
+verified_on: 2026-11-25
+verified_by: "Codex worker; reviewed listed source changes, not human or owner approval"
 ---
 
-# Vision and risk: screen capture, observation boundary, risk and alert policy (M3, not started)
+# Vision and risk: screen capture, observation boundary, risk and alert policy
 
 A map, not evidence. Authority: decisions, PRD/SRS, contracts, code and tests, then this card.
 
 ## 1. Purpose and boundary
 
-- Owns: `crates/kohbor-capture`, `kohbor-capture-native`, `kohbor-vision`, `kohbor-risk`, `kohbor-minimap-cv` (MVP-1, branch `mvp1/integration`) and the host file `apps/desktop/src-tauri/src/capture_host.rs`; `spikes/capture` is still not created (docs/design/REMAINING-SYSTEM-DESIGN.md section 4).
+- Owns: `crates/kohbor-capture`, `kohbor-capture-native`, `kohbor-vision`, `kohbor-risk`, `kohbor-minimap-cv`, `kohbor-game-assets`, and host paths `apps/desktop/src-tauri/src/capture_host.rs` and `minimap_recorder/`. Minimap spike map: `tools/spikes/minimap-hero-id/README.md` (LAB-001; DATA-005).
 - Hard rule: an enemy field is never filled without an admitted sighting; unknown stays unknown (DATA-005; AGENTS.md; docs/design/REMAINING-SYSTEM-DESIGN.md Sprint 5 exit gate).
 - Must not touch: host-core R2 files (settings, status, containment) without a `host-core` claim; the critical warning path except the admission wiring named in design task 6.4 of REMAINING-SYSTEM-DESIGN (`events-audio`).
 - Interfaces: `host-core` (frame slot, runtime-status capture phases, settings categories); `events-audio` (critical path); `ui-overlay` (map region, markers, enemy column).
@@ -22,18 +22,18 @@ A map, not evidence. Authority: decisions, PRD/SRS, contracts, code and tests, t
 
 - Decided: DEC-SESSION-MONITOR (the map-dominant monitor that capture serves).
 - Provisional: DEC-RESOURCE-BUDGET (GPU allowed for the vision path; no RAM or VRAM limit until the first measured baseline; see docs/design/REMAINING-SYSTEM-DESIGN.md section 1.7).
-- Open: DEC-MODELS (may now choose GPU-based inference), DEC-GAME-DATA, DEC-RISK-DETAIL, DEC-NATIVE-EVIDENCE, DEC-CRITICAL-MEDIA.
+- Open: DEC-MODELS, DEC-GAME-DATA, DEC-RISK-DETAIL, DEC-NATIVE-EVIDENCE.
+- Decided: DEC-CRITICAL-MEDIA.
 
 ## 3. Now / Next / Blocked
 
-- NOW (MVP-1, source and synthetic evidence only, branch `mvp1/integration`): DXGI minimap grabber (1920x1080 at 100% only, else GSI-only), per-frame structural check, T0 frame channel, Live tab, Danger Meter and experimental visual events (anonymous counts, no audio, no score; ALERT-002/003 stay open). Not run in a live match: real-pixel accuracy, FPS cost and overlay behaviour are NOT verified. `status.rs` still reports `capture` from a constant; `kohbor-vision` is unused by the host (stream-fencing review finding open).
-- NOW: the design (D1-D9, spikes V1-V5) is PROPOSED by an agent, not approved, nothing in it was run (docs/design/REMAINING-SYSTEM-DESIGN.md sections 0, 9).
-- NEXT (no owner needed): contracts (design task 4.0), state-machine tests on a fake frame source (4.4) and risk golden tests (6.1), none yet in the roadmap backlog (docs/design/REMAINING-SYSTEM-DESIGN.md section 5; VISION-004, ALERT-002).
-- NEXT (owner hardware): spikes V1-V3 need owner FPS pairs and stills (docs/design/REMAINING-SYSTEM-DESIGN.md section 1.8; DEC-NATIVE-EVIDENCE).
-- BLOCKED: markers and identity need a detector that passes the gate and a certified class list (docs/design/REMAINING-SYSTEM-DESIGN.md section 1.7; DEC-MODELS, DEC-GAME-DATA).
-- BLOCKED: score stays informational and audible gank unavailable until evidence admission is frozen (contracts/decisions.json DEC-RISK-DETAIL; ALERT-003).
-- BLOCKED: an audible vision warning also needs authorized warning media (docs/design/REMAINING-SYSTEM-DESIGN.md section 7; DEC-CRITICAL-MEDIA).
-- NOT VERIFIED: any capture cost, FPS loss or detector quality figure (docs/design/REMAINING-SYSTEM-DESIGN.md section 9; QUALITY-003, QUALITY-004).
+- Capture and observation boundaries map to [REMAINING-SYSTEM-DESIGN](../../design/REMAINING-SYSTEM-DESIGN.md), `apps/desktop/src-tauri/src/capture_host.rs`, `minimap_recorder/` and [SPRINT-ROADMAP](../../delivery/SPRINT-ROADMAP.md) (VISION-004; ALERT-002).
+- The opt-in minimap recorder, consent boundary and hero-ID spike map to LAB-001, [KOHBOR-LAB](../../design/KOHBOR-LAB.md) and `tools/spikes/minimap-hero-id/README.md`.
+- Detector/model readiness, certified classes and risk-detail policy remain open at their decision and design sources (DEC-MODELS; DEC-GAME-DATA; DEC-RISK-DETAIL; ALERT-003).
+- Audible vision warnings still require authorized warning media (DEC-CRITICAL-MEDIA).
+- Native/live capture acceptance and detector accuracy remain pending in [SPRINT-ROADMAP](../../delivery/SPRINT-ROADMAP.md) (DEC-NATIVE-EVIDENCE; LAB-001).
+- No capture-cost, FPS-loss or detector-quality result is established here; measurement gates map to [REMAINING-SYSTEM-DESIGN](../../design/REMAINING-SYSTEM-DESIGN.md) (QUALITY-003; QUALITY-004).
+- Public distribution rights review for bundled game art and data remains pending (DEC-POSITIONING-20261125; DEC-REPLAY-INTEGRATION).
 
 ## 4. Open questions
 
@@ -42,7 +42,7 @@ A map, not evidence. Authority: decisions, PRD/SRS, contracts, code and tests, t
 
 ## 5. Artefacts
 
-Machine list: [state.json](state.json). Primary sources: REMAINING-SYSTEM-DESIGN sections 1, 4-7 (its ADR-A part is `account`, so the file is marked governing there) and SPRINT-ROADMAP sprints 4-5. Reference: SDD component CMP-VISION (docs/design/SDD.md).
+Machine list: [state.json](state.json). Primary sources: REMAINING-SYSTEM-DESIGN sections 1, 4-7 (its ADR-A part is `account`, so the file is marked governing there), SPRINT-ROADMAP sprints 4-5, [KOHBOR-LAB](../../design/KOHBOR-LAB.md), and the [minimap hero-ID spike](../../../tools/spikes/minimap-hero-id/README.md). Reference: SDD component CMP-VISION (docs/design/SDD.md).
 
 ## 6. Traps and lessons
 

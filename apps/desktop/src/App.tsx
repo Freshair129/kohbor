@@ -13,11 +13,13 @@ import { GSI_FIRST_RUN_STORAGE_KEY, gsiNeedsAttention, gsiPhase, readGsiFirstRun
 import { deckStateReasonForLocale, deriveDeckState } from "./deck/deckState";
 import { Guide } from "./Guide";
 import { startLiveCollection, useCaptureStatus } from "./live";
+import { MinimapPanel } from "./live/MinimapPanel";
 import { OwnHero } from "./OwnHero";
 import { OverviewPage } from "./overview/OverviewPage";
 import { NewsSettings } from "./overview/NewsSettings";
 import { OpenDotaSettings } from "./overview/OpenDotaSettings";
 import { PacksPage } from "./packs/PacksPage";
+import { StorePage } from "./store/StorePage";
 import { Readiness } from "./Readiness";
 import { DEFAULT_SHELL_DESTINATION, deriveHeaderState, insightsViews, statusLineModel, type InsightsView, type ShellDestination } from "./shell/state";
 import { publishHudLocale, usePlayback, useRuntime } from "./runtime";
@@ -45,6 +47,9 @@ import { useDotaLauncher, useShowSteamName, useSteamStatus } from "./steam/hooks
 import { steamPersonaName } from "./steam/model";
 import { StartDotaBar } from "./steam/StartDotaBar";
 import { canOpenPostMatchReplay, useMatchEnded } from "./replay/admission";
+import { AnalyticsPage } from "./analytics/AnalyticsPage";
+import { returnToAnalytics as analyticsReturnContext, type AnalyticsReplayDetailsRoute, type AnalyticsReturnContext } from "./analytics/analyticsModel";
+import { AnalyticsSettings } from "./analytics/AnalyticsSettings";
 import { RailLeft } from "./shell/RailLeft";
 import { RailRight } from "./shell/RailRight";
 import { useSecondMonitorSide } from "./live/useSecondMonitorSide";
@@ -60,6 +65,7 @@ import { previewRateTooltip } from "./live/previewDiagnostics";
 const ReplayPanel = import.meta.env.DEV || import.meta.env.VITE_KOHBOR_LAB === "1"
   ? lazy(() => import("./replay/ReplayPanel").then((module) => ({ default: module.ReplayPanel })))
   : null;
+const AnalyticsDetailsPanel = lazy(() => import("./replay/ReplayPanel").then((module) => ({ default: module.ReplayPanel })));
 
 type ShellPage = ShellDestination | "account";
 
@@ -96,7 +102,10 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
   const steamName = useShowSteamName();
   const launch = useDotaLauncher(steamStatus);
   const [activePage, setActivePage] = useState<ShellPage>(DEFAULT_SHELL_DESTINATION);
+  const [settingsEntryPoint, setSettingsEntryPoint] = useState<"hero-card" | null>(null);
   const [insightsView, setInsightsView] = useState<InsightsView>("summary");
+  const [analyticsDetail, setAnalyticsDetail] = useState<AnalyticsReplayDetailsRoute | null>(null);
+  const [analyticsRestore, setAnalyticsRestore] = useState<AnalyticsReturnContext | null>(null);
   const [showGsiFirstRun, setShowGsiFirstRun] = useState(false);
   const firstRunDecisionMade = useRef(false);
   const firstRunEligible = useRef(false);
@@ -149,14 +158,22 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
   const setupNeeded = gsiNeedsAttention(gsiPhase(hostLost ? null : status ?? null));
   const intakeState = status?.intake.state ?? null;
   const gsiTone = hostLost ? "stale" : intakeState === "receiving" ? "fresh" : intakeState === "unavailable" ? "warn" : intakeState === "stale" ? "stale" : "unknown";
-  const insightViewOptions = insightsViews(ReplayPanel !== null);
+  const insightViewOptions = insightsViews(ReplayPanel !== null || analyticsDetail !== null);
   const currentInsightsView = insightViewOptions.includes(insightsView) ? insightsView : "summary";
   const statusModel = statusLineModel({
-    labels: { gsi: "GSI", gamePhase: text.shell.gamePhase, gameAge: text.shell.gameAge, capture: text.shell.capture, gsiSetup: text.shell.gsiSetup },
+    labels: {
+      gsi: "GSI",
+      gamePhase: text.shell.gamePhase,
+      gameAge: text.shell.gameAge,
+      capture: text.shell.capture,
+      minimapRecording: displayLocale === "th" ? "เปิดบันทึกภาพมินิแมป (Lab)" : "Minimap recording enabled (Lab)",
+      gsiSetup: text.shell.gsiSetup,
+    },
     gsi: { label: intakeState ? text.readiness.intake[intakeState] : "—", tone: gsiTone },
     phase: { label: phaseLabel, tone: phaseTone },
     gameAge: headerState.gameAge,
     capture: headerState.capture,
+    minimapRecording: capture?.minimap_recording === true,
     deck: { label: displayLocale === "th" ? deckState.labelTh : deckState.labelEn, tone: deckTone[deckState.state], reason: deckReason },
     setupAvailable: setupNeeded,
     hostLost,
@@ -223,7 +240,38 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
             ? text.settings.saveFailed
             : null;
 
-  const navigate = (destination: ShellDestination) => setActivePage(destination);
+  const navigate = (destination: ShellDestination) => {
+    setSettingsEntryPoint(null);
+    setActivePage(destination);
+  };
+  const openHeroCardSettings = () => {
+    setSettingsEntryPoint("hero-card");
+    setActivePage("settings");
+  };
+  const openAnalyticsDetails = (route: AnalyticsReplayDetailsRoute) => {
+    setAnalyticsRestore(null);
+    setAnalyticsDetail(route);
+    setInsightsView("replay");
+  };
+  const returnToAnalyticsPage = () => {
+    if (analyticsDetail) setAnalyticsRestore(analyticsReturnContext(analyticsDetail));
+    setAnalyticsDetail(null);
+    setInsightsView("summary");
+  };
+  const [postGameMatchKey, setPostGameMatchKey] = useState<{ key: string; nonce: number } | null>(null);
+  // The post-game button opens Insights -> Analytics on the match that just ended. The panel knows the match only by
+  // its install-keyed history hash; AnalyticsPage resolves that hash against the replay library list.
+  const openPostGameReplay = (matchKey?: string) => {
+    setAnalyticsDetail(null);
+    setAnalyticsRestore(null);
+    setActivePage("insights");
+    if (matchKey) {
+      setPostGameMatchKey(previous => ({ key: matchKey, nonce: (previous?.nonce ?? 0) + 1 }));
+      setInsightsView("summary");
+    } else {
+      setInsightsView("replay");
+    }
+  };
   // Second-monitor mode (UI-016): on the Live page only while a match runs (hero selection through the game) and a side
   // is set; otherwise the centred deck, as with "off" (owner report on build 3815c73, 2026-11-23). The deck itself shows
   // "window too small" below the smallest supported size instead of a broken or scrolling layout.
@@ -232,12 +280,13 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
 
   return (
     <div className="app glass-field" lang={displayLocale} data-theme="dark" data-glass={glass.level} data-rail={rail.state} data-page={activePage}
-      data-live-monitor={pinnedSide ?? undefined} data-match={pinnedSide && inMatch ? "true" : undefined}>
+      data-live-monitor={pinnedSide ?? undefined} data-match={pinnedSide && inMatch ? "true" : undefined}
+      data-live-match={activePage === "live" && inMatch ? "true" : undefined}>
       {devScenarioSwitcher && <div className="shell-dev-layer">{devScenarioSwitcher}</div>}
       <RailLeft current={activePage} labels={text.shell.destinations} navigationLabel={text.shell.navigationLabel}
         gameConnection={steamStatus?.gsi ?? "unknown"} locale={displayLocale} railState={rail.state} onToggleRail={rail.toggle} onNavigate={navigate} />
       <main className="shell-main">
-        <header className="shell-page-header">
+        <header className="shell-page-header" data-analytics-layout={activePage === "insights" && currentInsightsView === "summary" ? "true" : undefined}>
           <div className="shell-page-heading">
             <div className="shell-page-title">
               <p className="shell-page-eyebrow">DOTA 2</p>
@@ -251,8 +300,13 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
             </div>}
           </div>
           <div className="shell-page-head-tools">
+            {activePage === "insights" && currentInsightsView === "summary" && <div className="analytics-shell-tools" data-analytics-shell-tools />}
             {/* Owner decision 2026-11-23 item 5: no GSI/game status chips on the Overview; every other page keeps them. */}
             {activePage !== "overview" && <StatusLine model={statusModel} label={text.shell.statusLineLabel} hostLostMessage={`${text.hostLost} — ${text.hostOutdated}`} onNavigate={navigate} />}
+            {activePage === "live" && steamStatus?.dota_running === false && !steamStatus.launch_pending && <div className="shell-live-start-control">
+              <StartDotaBar status={steamStatus} control={launch} showSteamName={steamName.show} locale={displayLocale} />
+            </div>}
+            {activePage === "live" && <SecondMonitorToggle side={secondMonitor.side} onChange={secondMonitor.change} locale={displayLocale === "en" ? "en" : "th"} />}
             <AudioMuteControl control={mute} locale={displayLocale} compact />
           </div>
         </header>
@@ -262,80 +316,102 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
 
           {activePage === "live" && (
             <div className="shell-screen shell-live-page">
-              {!pinnedSide && <div className="shell-live-page-top">
-                <GsiSetupCard status={hostLost ? null : status} locale={displayLocale} setup={setup} />
-                <StartDotaBar status={steamStatus} control={launch} showSteamName={steamName.show} locale={displayLocale} />
-              </div>}
-              {!pinnedSide && <div className="shell-live-page-top">
-                <SecondMonitorToggle side={secondMonitor.side} onChange={secondMonitor.change} locale={displayLocale === "en" ? "en" : "th"} />
-              </div>}
-              <Deck locale={displayLocale} status={status} snapshot={snapshot} state={deckState} mute={mute} playback={playback} hostLost={hostLost} steamStatus={steamStatus} gsiSetup={setup}
-                secondMonitor={pinnedSide ? { side: pinnedSide, onChange: secondMonitor.change,
-                  status: <StartDotaBar status={steamStatus} control={launch} showSteamName={steamName.show} locale={displayLocale} />,
-                  // Only when GSI needs attention; the normal "receiving" line is already in the status chips.
-                  setupNotice: setupNeeded ? <GsiSetupCard status={hostLost ? null : status} locale={displayLocale} setup={setup} /> : null,
-                } : undefined} />
+              <Deck locale={displayLocale} status={status} snapshot={snapshot} state={deckState} hostLost={hostLost} steamStatus={steamStatus}
+                inMatch={inMatch} matchEnded={matchEnded} secondMonitor={pinnedSide ? { side: pinnedSide } : undefined}
+                onOpenReplay={openPostGameReplay} />
             </div>
           )}
 
-          {(activePage === "packs" || activePage === "store") && <PacksPage locale={displayLocale} disabled={hostLost}
-            phase={phase} mute={mute} storeOnly={activePage === "store"} onStoreBack={() => setActivePage("packs")}
+          {activePage === "packs" && <PacksPage locale={displayLocale} disabled={hostLost}
+            phase={phase} mute={mute} storeOnly={false} onStoreBack={() => setActivePage("packs")}
             onStoreOpen={() => setActivePage("store")} />}
 
-          {activePage === "insights" && (currentInsightsView === "replay" && ReplayPanel ? (
-            <Suspense fallback={<p role="status">{text.loading}</p>}>
-              <ReplayPanel locale={displayLocale} available={canOpenPostMatchReplay(status, steamStatus, hostLost, matchEnded)} />
-            </Suspense>
-          ) : <EmptyPage title={text.shell.emptyPage} note={text.shell.emptyPageNote} />)}
+          {activePage === "store" && (
+            developerMode.enabled ? (
+              <StorePage locale={displayLocale} disabled={hostLost} phase={phase} onBackToPacks={() => setActivePage("packs")} />
+            ) : (
+              <PacksPage locale={displayLocale} disabled={hostLost} phase={phase} mute={mute} storeOnly={true} developerMode={false} onStoreBack={() => setActivePage("packs")} />
+            )
+          )}
+
+          {activePage === "insights" && (currentInsightsView === "summary" || analyticsDetail !== null) && <div hidden={currentInsightsView === "replay"}
+            style={{ width: "100%", height: "100%", minWidth: 0, minHeight: 0 }}>
+            <AnalyticsPage locale={displayLocale} active={currentInsightsView === "summary"} restoreContext={analyticsRestore}
+              openMatchKey={postGameMatchKey} onOpenReplay={openAnalyticsDetails} onOpenHeroCardSettings={openHeroCardSettings} />
+          </div>}
+          {activePage === "insights" && currentInsightsView === "replay" && analyticsDetail && <Suspense fallback={<p role="status">{text.loading}</p>}>
+            <AnalyticsDetailsPanel locale={displayLocale} available={canOpenPostMatchReplay(status, steamStatus, hostLost, matchEnded)}
+              detail={analyticsDetail} onBack={returnToAnalyticsPage} />
+          </Suspense>}
+          {activePage === "insights" && currentInsightsView === "replay" && !analyticsDetail && ReplayPanel && <Suspense fallback={<p role="status">{text.loading}</p>}>
+            <ReplayPanel locale={displayLocale} available={canOpenPostMatchReplay(status, steamStatus, hostLost, matchEnded)} />
+          </Suspense>}
 
           {activePage === "settings" && (
             <div className="shell-screen shell-settings">
-              <section className="card shell-locale-card" aria-label={text.languageLabel}>
-                <h1 id="page-settings-heading" className="shell-settings-title">{text.shell.destinations.settings}</h1>
-                <label className="locale-control">
-                  <span>{text.languageLabel}</span>
-                  <select className="locale-select" aria-label={text.languageLabel} value={settings?.locale ?? ""}
-                    disabled={loading || !settings || saving} onChange={(event) => void changeLocale(event.currentTarget.value as Locale)}>
-                    {!settings && <option value="" disabled>{text.settings.unavailable}</option>}
-                    <option value="th">{text.localeOptions.th}</option>
-                    <option value="en">{text.localeOptions.en}</option>
-                  </select>
-                </label>
-                <label className="shell-developer-toggle">
-                  <input type="checkbox" checked={developerMode.enabled} onChange={event => developerMode.change(event.currentTarget.checked)} />
-                  <span>{text.shell.developerMode}</span>
-                </label>
-                <label className="shell-developer-toggle">
-                  <input type="checkbox" checked={steamName.show} onChange={event => steamName.change(event.currentTarget.checked)} />
-                  <span>{displayLocale === "th" ? "แสดงชื่อ Steam" : "Show Steam name"}</span>
-                </label>
-                <label className="shell-glass-control">
-                  <span>{displayLocale === "th" ? "รูปลักษณ์ / กระจก" : "Appearance / Glass"}</span>
-                  <select aria-label={displayLocale === "th" ? "รูปลักษณ์ / กระจก" : "Appearance / Glass"}
-                    value={glass.level} onChange={event => glass.changeLevel(event.currentTarget.value as GlassLevel)}>
-                    <option value="off">{displayLocale === "th" ? "ปิด" : "Off"}</option>
-                    <option value="low">{displayLocale === "th" ? "อ่อน" : "Low"}</option>
-                    <option value="medium">{displayLocale === "th" ? "กลาง" : "Medium"}</option>
-                    <option value="high">{displayLocale === "th" ? "เข้ม" : "High"}</option>
-                  </select>
-                  <small>{displayLocale === "th" ? "บันทึกในเครื่องสำหรับหน้าจอนี้" : "Saved locally for this renderer"}</small>
-                </label>
-                {settingsNotice && <p className="locale-notice" role="status">{settingsNotice}</p>}
-                <ObjectiveSettings locale={displayLocale} />
-                <ShowHotkeySettings locale={displayLocale} />
-                <LayoutEditor locale={displayLocale} />
-              </section>
-              <OrbSettings locale={displayLocale} />
-              <DraftSettings />
-              <NewsSettings locale={displayLocale} />
-              <OpenDotaSettings locale={displayLocale} />
-              <div className="shell-guide-slot">
-                {status && !hostLost ? <Guide status={status} locale={displayLocale} setup={setup} /> : (
-                  <p className={hostLost ? "banner banner-warn" : "muted"} role={hostLost ? "alert" : "status"}>
-                    {hostLost ? `${text.hostLost} — ${text.hostOutdated}` : text.loading}
-                  </p>
-                )}
-              </div>
+              <ObjectiveSettings locale={displayLocale} initialSection={settingsEntryPoint} sections={{
+                general: (
+                  <section className="settings-preferences-card" aria-label={displayLocale === "th" ? "ตั้งค่าทั่วไป" : "General preferences"}>
+                    <label className="settings-field-row">
+                      <span className="settings-field-label">{text.languageLabel}</span>
+                      <select className="locale-select" aria-label={text.languageLabel} value={settings?.locale ?? ""}
+                        disabled={loading || !settings || saving} onChange={(event) => void changeLocale(event.currentTarget.value as Locale)}>
+                        {!settings && <option value="" disabled>{text.settings.unavailable}</option>}
+                        <option value="th">{text.localeOptions.th}</option>
+                        <option value="en">{text.localeOptions.en}</option>
+                      </select>
+                      <small>{displayLocale === "th" ? "เปลี่ยนภาษาของหน้าตั้งค่าและส่วนติดต่อแอป" : "Changes the language used across the app."}</small>
+                    </label>
+                    <label className="settings-field-row">
+                      <span className="settings-field-label">{displayLocale === "th" ? "ชื่อ Steam" : "Steam name"}</span>
+                      <span className="settings-field-control"><input type="checkbox" checked={steamName.show} onChange={event => steamName.change(event.currentTarget.checked)} />
+                        {displayLocale === "th" ? "แสดงชื่อ Steam" : "Show Steam name"}</span>
+                      <small>{displayLocale === "th" ? "แสดงชื่อ Steam ในส่วนติดต่อแอปนี้" : "Show your Steam name in this app's interface."}</small>
+                    </label>
+                    <label className="settings-field-row">
+                      <span className="settings-field-label">{displayLocale === "th" ? "รูปลักษณ์ / กระจก" : "Appearance / Glass"}</span>
+                      <select aria-label={displayLocale === "th" ? "รูปลักษณ์ / กระจก" : "Appearance / Glass"}
+                        value={glass.level} onChange={event => glass.changeLevel(event.currentTarget.value as GlassLevel)}>
+                        <option value="off">{displayLocale === "th" ? "ปิด" : "Off"}</option>
+                        <option value="low">{displayLocale === "th" ? "อ่อน" : "Low"}</option>
+                        <option value="medium">{displayLocale === "th" ? "กลาง" : "Medium"}</option>
+                        <option value="high">{displayLocale === "th" ? "เข้ม" : "High"}</option>
+                      </select>
+                      <small>{displayLocale === "th" ? "บันทึกในเครื่องสำหรับหน้าจอนี้" : "Saved locally for this renderer."}</small>
+                    </label>
+                    {settingsNotice && <p className="locale-notice" role="status">{settingsNotice}</p>}
+                  </section>
+                ),
+                "overlay-layout": <LayoutEditor locale={displayLocale} />,
+                "minimap-capture": (
+                  <>
+                    <section className="shell-capture-settings" aria-label={displayLocale === "th" ? "ตั้งค่าแผนที่ย่อและการจับภาพ" : "Minimap and capture settings"}>
+                      <MinimapPanel locale={displayLocale === "en" ? "en" : "th"} layout="settings" />
+                    </section>
+                    <div className="shell-guide-slot">
+                      {status && !hostLost ? <Guide status={status} locale={displayLocale} setup={setup} /> : (
+                        <p className={hostLost ? "banner banner-warn" : "muted"} role={hostLost ? "alert" : "status"}>
+                          {hostLost ? `${text.hostLost} — ${text.hostOutdated}` : text.loading}
+                        </p>
+                      )}
+                    </div>
+                  </>
+                ),
+                "replay-ai": <AnalyticsSettings locale={displayLocale} />,
+                hotkeys: <ShowHotkeySettings locale={displayLocale} />,
+                "privacy-data": <><DraftSettings /><NewsSettings locale={displayLocale} /><OpenDotaSettings locale={displayLocale} /></>,
+                developer: (
+                  <section className="settings-preferences-card" aria-label={displayLocale === "th" ? "ตั้งค่านักพัฒนา" : "Developer preferences"}>
+                    <label className="settings-field-row">
+                      <span className="settings-field-label">{text.shell.developerMode}</span>
+                      <span className="settings-field-control"><input type="checkbox" checked={developerMode.enabled}
+                        onChange={event => developerMode.change(event.currentTarget.checked)} />{displayLocale === "th" ? "เปิดโหมดนักพัฒนา" : "Enable developer mode"}</span>
+                      <small>{displayLocale === "th" ? "ใช้แสดงบันทึกและเครื่องมือสำหรับนักพัฒนา" : "Enables developer logs and tools."}</small>
+                    </label>
+                  </section>
+                ),
+                "audio-controls": <OrbSettings locale={displayLocale} />,
+              }} />
             </div>
           )}
 

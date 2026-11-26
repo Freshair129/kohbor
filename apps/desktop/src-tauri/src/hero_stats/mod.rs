@@ -2,6 +2,7 @@
 //!
 //! The renderer receives only the view model in `view`; it never selects a URL or makes a request.
 
+pub(crate) mod benchmarks;
 mod budget;
 mod cache;
 pub(crate) mod counters;

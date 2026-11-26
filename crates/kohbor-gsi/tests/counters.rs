@@ -52,6 +52,30 @@ fn present_counters_are_admitted_with_combined_score() {
 }
 
 #[test]
+fn map_scores_and_signed_clock_are_admitted_as_separate_fields() {
+    let mut body = payload();
+    body["map"]["clock_time"] = json!(-12);
+    let admitted = admitted(&body);
+
+    assert_eq!(admitted.map.radiant_score, Field::Value(4));
+    assert_eq!(admitted.map.dire_score, Field::Value(6));
+    assert_eq!(admitted.map.clock_time, Field::Value(-12));
+    assert_eq!(admitted.counters.combined_score, Field::Value(10));
+}
+
+#[test]
+fn missing_or_invalid_map_fields_stay_unknown_or_invalid_independently() {
+    let mut body = payload();
+    body["map"].as_object_mut().unwrap().remove("radiant_score");
+    body["map"]["clock_time"] = json!("12");
+    let admitted = admitted(&body);
+
+    assert_eq!(admitted.map.radiant_score, Field::Missing);
+    assert_eq!(admitted.map.dire_score, Field::Value(6));
+    assert_eq!(admitted.map.clock_time, Field::Invalid);
+}
+
+#[test]
 fn zero_and_one_hundred_thousand_are_in_the_valid_range() {
     let mut body = payload();
     body["player"]["kills"] = json!(0);

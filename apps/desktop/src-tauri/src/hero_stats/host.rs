@@ -133,6 +133,8 @@ fn request_kind(request: OutgoingRequest) -> &'static str {
         OutgoingRequest::LaneRoles(LaneRole::Mid) => "lane_roles_2",
         OutgoingRequest::LaneRoles(LaneRole::Off) => "lane_roles_3",
         OutgoingRequest::OwnHeroDurations(_) => "own_durations",
+        OutgoingRequest::BenchmarksHeroes => "benchmarks_heroes",
+        OutgoingRequest::Benchmarks(_) => "benchmarks",
     }
 }
 
@@ -306,14 +308,14 @@ impl Core {
 
     #[cfg(test)]
     fn set_prefs(&mut self, patch: &Value, now_ms: u64) -> Result<(DraftStatsPrefs, bool), String> {
-        self.set_prefs_with_cancel(patch, now_ms, || {})
+        self.set_prefs_with_cancel(patch, now_ms, |_| {})
     }
 
     fn set_prefs_with_cancel(
         &mut self,
         patch: &Value,
         now_ms: u64,
-        cancel_native: impl FnOnce(),
+        cancel_native: impl FnOnce(Option<&Cancellation>),
     ) -> Result<(DraftStatsPrefs, bool), String> {
         let next = patch_prefs(&self.prefs, patch)?;
         let revoked = self.prefs.hero_stats_consent && !next.hero_stats_consent;
@@ -321,7 +323,7 @@ impl Core {
         if revoked {
             self.prefs = next.clone();
             self.begin_revoke();
-            cancel_native();
+            cancel_native(self.active_cancel.as_ref());
             self.finish_revoke(&next, now_ms)?;
         } else if granted {
             self.grant_consent(&next, now_ms)?;
@@ -740,6 +742,9 @@ impl Core {
                     });
                 })
             }
+            OutgoingRequest::BenchmarksHeroes | OutgoingRequest::Benchmarks(_) => {
+                Err(ParseError::InvalidBody)
+            }
         };
         if let Err(error) = cache_result {
             log_fetch_failed(
@@ -1132,6 +1137,26 @@ impl HeroStatsHost {
         Ok(lock(&self.core).prefs.clone())
     }
 
+    /// Share the existing OpenDota WinHTTP transport and only expose the consented public hero
+    /// table as a local canonical-key-to-ID lookup. The key itself never reaches transport.
+    pub(crate) fn benchmarks_transport(&self) -> Arc<dyn Transport> {
+        self.transport.clone()
+    }
+
+    pub(crate) fn benchmarks_hero_id_lookup(
+        &self,
+    ) -> Arc<dyn Fn(&str) -> Option<u32> + Send + Sync> {
+        let core = self.core.clone();
+        Arc::new(move |key| {
+            let core = lock(&core);
+            if core.prefs.hero_stats_consent && !core.cache_blocked {
+                core.hero_id_for_key(key)
+            } else {
+                None
+            }
+        })
+    }
+
     pub(crate) fn prefs_set(
         &self,
         window_label: &str,
@@ -1142,8 +1167,10 @@ impl HeroStatsHost {
         }
         let result = {
             let mut core = lock(&self.core);
-            let result = core.set_prefs_with_cancel(&patch, epoch_ms(), || {
-                self.transport.cancel_current();
+            let result = core.set_prefs_with_cancel(&patch, epoch_ms(), |cancellation| {
+                if let Some(cancellation) = cancellation {
+                    self.transport.cancel_request(cancellation);
+                }
             });
             core.rebuild_view(epoch_ms(), Instant::now());
             result
@@ -1719,7 +1746,7 @@ mod tests {
             .set_prefs_with_cancel(
                 &serde_json::json!({"hero_stats_consent": false}),
                 now + 1,
-                || store.event("cancel_in_flight"),
+                |_| store.event("cancel_in_flight"),
             )
             .unwrap_err();
         assert!(error.contains("DRAFT_STATS_PREFS_WRITE_FAILED"));
@@ -2274,6 +2301,7 @@ mod tests {
                 OutgoingRequest::HeroStats => valid_hero_stats(),
                 OutgoingRequest::LaneRoles(_) => b"[]".to_vec(),
                 OutgoingRequest::OwnHeroDurations(_) => unreachable!(),
+                OutgoingRequest::BenchmarksHeroes | OutgoingRequest::Benchmarks(_) => unreachable!(),
             };
             core.finish(
                 ticket,

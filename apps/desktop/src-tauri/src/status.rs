@@ -50,7 +50,11 @@ pub fn build(
     };
     let session = json!({
         "phase": phase,
-        "session_epoch": if phase == "none" { Value::Null } else { json!(s.epoch) },
+        "session_epoch": if phase == "none" {
+            s.epoch.or_else(|| s.last_finished_match.as_ref().map(|record| record.epoch))
+        } else {
+            s.epoch
+        },
     });
     let cpu = match sample.cpu_percent {
         Some(c) => json!({"state": "available", "last_sample_percent": (c * 10.0).round() / 10.0,
@@ -114,6 +118,37 @@ mod tests {
         assert!(errors.is_empty(), "{errors:?}\n{v:#}");
         assert_eq!(v["intake"]["state"], "not_configured");
         assert_eq!(v["session"]["phase"], "none");
+    }
+
+    #[test]
+    fn none_phase_retains_last_finished_match_epoch() {
+        let dir = std::env::temp_dir().join(format!("kohbor-status-last-match-{}", std::process::id()));
+        let mut s = Shared::new(dir);
+        s.last_finished_match = Some(crate::intake::LastFinishedMatchRecord {
+            epoch: 9,
+            match_key: "a".repeat(64),
+            end_values: crate::intake::LastFinishedMatchValues {
+                hero_id: None,
+                result: None,
+                kills: None,
+                deaths: None,
+                assists: None,
+                last_hits: None,
+                denies: None,
+                gpm: None,
+                xpm: None,
+                duration_seconds: None,
+                radiant_score: None,
+                dire_score: None,
+            },
+            ended_at: 1_800_000_000,
+        });
+        let sample = Sample { cpu_percent: None, working_set_bytes: None, process_count: None };
+        let value = build(&s, &sample, false, 1, ("not_ready", Some("MEDIA_UNMAPPED")));
+        assert_eq!(value["session"]["phase"], "none");
+        assert_eq!(value["session"]["session_epoch"], 9);
+        let errors: Vec<String> = validator().iter_errors(&value).map(|e| e.to_string()).collect();
+        assert!(errors.is_empty(), "{errors:?}\n{value:#}");
     }
 
     #[test]

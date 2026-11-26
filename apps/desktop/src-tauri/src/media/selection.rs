@@ -25,7 +25,7 @@ struct BindingKey {
 
 #[derive(Debug, Default)]
 struct BindingHistory {
-    play_order: HashMap<String, u64>,
+    play_order: HashMap<(String, String), u64>,
     next_order: u64,
     last_sequence_index: Option<usize>,
 }
@@ -33,7 +33,9 @@ struct BindingHistory {
 pub struct VariantSelector {
     rng: u64,
     session_epoch: Option<u64>,
+    table_fence: Option<u64>,
     histories: HashMap<BindingKey, BindingHistory>,
+    sticky_slots: HashMap<EventId, u8>,
 }
 
 impl VariantSelector {
@@ -54,7 +56,9 @@ impl VariantSelector {
                 seed
             },
             session_epoch: None,
+            table_fence: None,
             histories: HashMap::new(),
+            sticky_slots: HashMap::new(),
         }
     }
 
@@ -74,6 +78,8 @@ impl VariantSelector {
                 variant_id: "v1".to_owned(),
                 clip_id: None,
                 selection: None,
+                source: None,
+                match_consistency: false,
                 media: clip.clone(),
             }),
             BindingLookup::Variants {
@@ -98,6 +104,8 @@ impl VariantSelector {
                     variant_id: variant.variant_id.clone(),
                     clip_id: variant.clip_id.clone(),
                     selection: binding.selection,
+                    source: variant.source.clone(),
+                    match_consistency: false,
                     media: media.clone(),
                 })
             }
@@ -126,6 +134,8 @@ impl VariantSelector {
                     variant_id: "v1".to_owned(),
                     clip_id: None,
                     selection: None,
+                    source: None,
+                    match_consistency: false,
                     media: clip.clone(),
                 })
             }
@@ -151,6 +161,8 @@ impl VariantSelector {
                     variant_id: variant.variant_id.clone(),
                     clip_id: variant.clip_id.clone(),
                     selection: binding.selection,
+                    source: variant.source.clone(),
+                    match_consistency: false,
                     media: media.clone(),
                 })
             }
@@ -166,7 +178,25 @@ impl VariantSelector {
         requested_tier: Option<u8>,
         session_epoch: u64,
     ) -> Result<SelectedClip, SelectionFailure> {
+        self.select_for_hero(table, event_id, requested_tier, session_epoch, None)
+    }
+
+    /// Apply tier lookup and hero eligibility before the existing arbitration
+    /// and selection rules. A matching hero binding excludes general variants.
+    pub fn select_for_hero(
+        &mut self,
+        table: &PrewarmTable,
+        event_id: EventId,
+        requested_tier: Option<u8>,
+        session_epoch: u64,
+        own_hero: Option<&str>,
+    ) -> Result<SelectedClip, SelectionFailure> {
         self.begin_session(session_epoch);
+        if self.table_fence != Some(table.fence) {
+            self.table_fence = Some(table.fence);
+            self.histories.clear();
+            self.sticky_slots.clear();
+        }
         match table.lookup_binding(event_id, requested_tier) {
             BindingLookup::Unmapped => Err(SelectionFailure::Unmapped),
             BindingLookup::Invalid => Err(SelectionFailure::InvalidMedia),
@@ -177,13 +207,19 @@ impl VariantSelector {
                 variant_id: "v1".to_owned(),
                 clip_id: None,
                 selection: None,
+                source: None,
+                match_consistency: table.match_consistency,
                 media: clip.clone(),
             }),
             BindingLookup::Variants {
                 bound_tier,
                 binding,
             } => {
-                let index = self.choose_index(event_id, bound_tier, binding)?;
+                let eligible = binding.eligible_indices(own_hero);
+                if eligible.is_empty() {
+                    return Err(SelectionFailure::Unmapped);
+                }
+                let index = self.choose_index(table, event_id, bound_tier, binding, &eligible)?;
                 let Some(variant) = binding.variants.get(index) else {
                     return Err(SelectionFailure::InvalidMedia);
                 };
@@ -196,7 +232,9 @@ impl VariantSelector {
                     variant_index: index,
                     variant_id: variant.variant_id.clone(),
                     clip_id: variant.clip_id.clone(),
-                    selection: binding.selection,
+                    selection: self.selected_mode(table, event_id, binding, index),
+                    source: variant.source.clone(),
+                    match_consistency: table.match_consistency,
                     media: media.clone(),
                 })
             }
@@ -216,9 +254,16 @@ impl VariantSelector {
         history.next_order = history.next_order.saturating_add(1);
         history
             .play_order
-            .insert(selected.variant_id.clone(), history.next_order);
+            .insert(source_variant_key(selected), history.next_order);
         if selected.selection == Some(VariantSelection::Sequence) {
             history.last_sequence_index = Some(selected.variant_index);
+        }
+        if selected.match_consistency {
+            if let Some(source) = selected.source.as_ref() {
+                self.sticky_slots
+                    .entry(selected.event_id)
+                    .or_insert(source.slot);
+            }
         }
     }
 
@@ -229,6 +274,7 @@ impl VariantSelector {
         {
             self.session_epoch = Some(session_epoch);
             self.histories.clear();
+            self.sticky_slots.clear();
         }
     }
 
@@ -238,20 +284,53 @@ impl VariantSelector {
 
     fn choose_index(
         &mut self,
+        table: &PrewarmTable,
         event_id: EventId,
         bound_tier: Option<u8>,
         binding: &VariantSet,
+        eligible: &[usize],
     ) -> Result<usize, SelectionFailure> {
-        let ready: Vec<usize> = binding
-            .variants
+        let ready: Vec<usize> = eligible
             .iter()
-            .enumerate()
-            .filter_map(|(index, variant)| variant.media.is_ok().then_some(index))
+            .copied()
+            .filter(|index| binding.variants.get(*index).is_some_and(|variant| variant.media.is_ok()))
             .collect();
-        let Some(first) = ready.first().copied() else {
+        let Some(first_ready) = ready.first().copied() else {
             return Err(SelectionFailure::InvalidMedia);
         };
-        if binding.variants.len() == 1 || binding.selection.is_none() {
+        let sticky_slot = if table.match_consistency {
+            self.sticky_slots.get(&event_id).copied()
+        } else {
+            None
+        };
+        let sticky_ready: Vec<usize> = sticky_slot.map_or_else(Vec::new, |slot| {
+            ready
+                .iter()
+                .copied()
+                .filter(|index| {
+                    binding
+                        .variants
+                        .get(*index)
+                        .and_then(|variant| variant.source.as_ref())
+                        .is_some_and(|source| source.slot == slot)
+                })
+                .collect()
+        });
+        let restricted = !sticky_ready.is_empty();
+        let candidates = if restricted { &sticky_ready } else { &ready };
+        let Some(first) = candidates.first().copied().or(Some(first_ready)) else {
+            return Err(SelectionFailure::InvalidMedia);
+        };
+        let selection = if restricted {
+            binding
+                .variants
+                .get(first)
+                .and_then(|variant| variant.authored_selection)
+                .or(binding.selection)
+        } else {
+            binding.selection
+        };
+        if candidates.len() == 1 || selection.is_none() {
             return Ok(first);
         }
 
@@ -259,15 +338,15 @@ impl VariantSelector {
             event_id,
             bound_tier,
         };
-        match binding.selection {
+        match selection {
             Some(VariantSelection::Random) => {
-                let total: u64 = ready
+                let total: u64 = candidates
                     .iter()
                     .filter_map(|index| binding.variants.get(*index))
                     .map(|variant| u64::from(variant.weight.max(1)))
                     .sum();
                 let mut cursor = self.random_below(total.max(1));
-                for index in ready {
+                for index in candidates.iter().copied() {
                     let weight = binding
                         .variants
                         .get(index)
@@ -289,36 +368,33 @@ impl VariantSelector {
                     .map_or(0, |index| index.saturating_add(1) % len);
                 for offset in 0..len {
                     let index = start.saturating_add(offset) % len;
-                    if binding
-                        .variants
-                        .get(index)
-                        .is_some_and(|variant| variant.media.is_ok())
-                    {
+                    if candidates.contains(&index) {
                         return Ok(index);
                     }
                 }
                 Err(SelectionFailure::InvalidMedia)
             }
             Some(VariantSelection::Shuffle) => {
-                let least_recent = ready
+                let least_recent = candidates
                     .iter()
                     .filter_map(|index| binding.variants.get(*index))
                     .map(|variant| {
                         self.histories
                             .get(&key)
-                            .and_then(|history| history.play_order.get(&variant.variant_id))
+                            .and_then(|history| history.play_order.get(&variant_key(variant)))
                             .copied()
                             .unwrap_or(0)
                     })
                     .min()
                     .unwrap_or(0);
-                let ties: Vec<usize> = ready
-                    .into_iter()
+                let ties: Vec<usize> = candidates
+                    .iter()
+                    .copied()
                     .filter(|index| {
                         binding.variants.get(*index).is_some_and(|variant| {
                             self.histories
                                 .get(&key)
-                                .and_then(|history| history.play_order.get(&variant.variant_id))
+                                .and_then(|history| history.play_order.get(&variant_key(variant)))
                                 .copied()
                                 .unwrap_or(0)
                                 == least_recent
@@ -330,6 +406,32 @@ impl VariantSelector {
             }
             None => Ok(first),
         }
+    }
+
+    fn selected_mode(
+        &self,
+        table: &PrewarmTable,
+        event_id: EventId,
+        binding: &VariantSet,
+        index: usize,
+    ) -> Option<VariantSelection> {
+        let sticky_slot = table
+            .match_consistency
+            .then(|| self.sticky_slots.get(&event_id).copied())
+            .flatten();
+        binding
+            .variants
+            .get(index)
+            .filter(|variant| {
+                sticky_slot.is_some_and(|slot| {
+                    variant
+                        .source
+                        .as_ref()
+                        .is_some_and(|source| source.slot == slot)
+                })
+            })
+            .and_then(|variant| variant.authored_selection)
+            .or(binding.selection)
     }
 
     fn random_below(&mut self, upper_exclusive: u64) -> u64 {
@@ -347,6 +449,26 @@ impl VariantSelector {
             }
         }
     }
+}
+
+fn variant_key(variant: &crate::audio::resolve::VariantMedia) -> (String, String) {
+    (
+        variant
+            .source
+            .as_ref()
+            .map_or_else(String::new, |source| source.install_id.to_string()),
+        variant.variant_id.clone(),
+    )
+}
+
+fn source_variant_key(selected: &SelectedClip) -> (String, String) {
+    (
+        selected
+            .source
+            .as_ref()
+            .map_or_else(String::new, |source| source.install_id.to_string()),
+        selected.variant_id.clone(),
+    )
 }
 
 impl From<SelectionFailure> for Outcome {
@@ -387,7 +509,11 @@ mod tests {
         VariantMedia {
             variant_id: id.to_owned(),
             clip_id: Some(format!("vrzo-th-{id:0>4}")),
+            caption: None,
+            hero: None,
             weight,
+            source: None,
+            authored_selection: None,
             media: media.ok_or("mixed_audio_invalid"),
         }
     }
@@ -441,6 +567,55 @@ mod tests {
             VariantSelector::by_id(&table, EventId::HeroKill, None, "missing").unwrap_err(),
             SelectionFailure::VariantUnavailable
         );
+    }
+
+    #[test]
+    fn matching_hero_binding_outranks_general_and_unknown_hero_skips_it() {
+        let mut general = candidate("general", 1, Some(clip(None, 1)));
+        let mut sniper = candidate("sniper_only", 1, Some(clip(None, 2)));
+        sniper.hero = Some("npc_dota_hero_sniper".to_owned());
+        general.source = Some(crate::audio::resolve::VariantSource {
+            slot: 0,
+            install_id: Arc::from("ins_0000000001"),
+            package_id: Arc::from("general"),
+        });
+        sniper.source = Some(crate::audio::resolve::VariantSource {
+            slot: 1,
+            install_id: Arc::from("ins_0000000002"),
+            package_id: Arc::from("sniper"),
+        });
+        let table = table(
+            EventId::HeroKill,
+            None,
+            set(Some(VariantSelection::Shuffle), vec![general, sniper]),
+        );
+
+        let mut selector = VariantSelector::with_seed(7);
+        let matching = selector
+            .select_for_hero(
+                &table,
+                EventId::HeroKill,
+                None,
+                1,
+                Some("npc_dota_hero_sniper"),
+            )
+            .unwrap();
+        assert_eq!(matching.variant_id, "sniper_only");
+
+        let unknown = selector
+            .select_for_hero(&table, EventId::HeroKill, None, 1, None)
+            .unwrap();
+        assert_eq!(unknown.variant_id, "general");
+        let different = selector
+            .select_for_hero(
+                &table,
+                EventId::HeroKill,
+                None,
+                1,
+                Some("npc_dota_hero_lina"),
+            )
+            .unwrap();
+        assert_eq!(different.variant_id, "general");
     }
 
     #[test]
@@ -522,6 +697,101 @@ mod tests {
         for group in chosen.chunks_exact(4) {
             assert_eq!(group.iter().collect::<BTreeSet<_>>().len(), 4);
         }
+    }
+
+    #[test]
+    fn mixed_pack_variants_with_the_same_id_keep_independent_history() {
+        use crate::audio::resolve::VariantSource;
+
+        let mut first = candidate("v1", 1, Some(clip(None, 1)));
+        first.source = Some(VariantSource {
+            slot: 0,
+            install_id: Arc::from("ins_0000000001"),
+            package_id: Arc::from("voice.main"),
+        });
+        first.authored_selection = Some(VariantSelection::Sequence);
+        let mut second = candidate("v1", 1, Some(clip(None, 2)));
+        second.source = Some(VariantSource {
+            slot: 1,
+            install_id: Arc::from("ins_0000000002"),
+            package_id: Arc::from("voice.special"),
+        });
+        second.authored_selection = Some(VariantSelection::Random);
+        let table = PrewarmTable::new_loadout(
+            9,
+            vec![Arc::from("ins_0000000001"), Arc::from("ins_0000000002")],
+            false,
+            vec![(
+                EventId::HeroKill,
+                None,
+                Entry::Variants(set(Some(VariantSelection::Shuffle), vec![first, second])),
+            )],
+        );
+        let mut selector = VariantSelector::with_seed(24);
+        let a = selector.select(&table, EventId::HeroKill, None, 1).unwrap();
+        let first_id = a.source.as_ref().unwrap().install_id.clone();
+        assert_eq!(a.variant_id, "v1");
+        selector.record_played(&a);
+        let b = selector.select(&table, EventId::HeroKill, None, 1).unwrap();
+        assert_ne!(
+            b.source.as_ref().unwrap().install_id,
+            first_id,
+            "history key includes source pack"
+        );
+        assert_eq!(b.variant_id, "v1", "variant ids remain pack-local");
+    }
+
+    #[test]
+    fn match_consistency_is_sticky_per_event_and_only_after_admission() {
+        use crate::audio::resolve::VariantSource;
+        let source = |slot: u8, id: &'static str, package: &'static str| VariantSource {
+            slot,
+            install_id: Arc::from(id),
+            package_id: Arc::from(package),
+        };
+        let mut kill_a = candidate("v1", 1, Some(clip(None, 1)));
+        kill_a.source = Some(source(0, "ins_0000000001", "voice.main"));
+        kill_a.authored_selection = Some(VariantSelection::Sequence);
+        let mut kill_b = candidate("v1", 1, Some(clip(None, 2)));
+        kill_b.source = Some(source(1, "ins_0000000002", "voice.special"));
+        kill_b.authored_selection = Some(VariantSelection::Random);
+        let mut other_event = candidate("v1", 1, Some(clip(None, 3)));
+        other_event.source = Some(source(1, "ins_0000000002", "voice.special"));
+        let table = PrewarmTable::new_loadout(
+            12,
+            vec![Arc::from("ins_0000000001"), Arc::from("ins_0000000002")],
+            true,
+            vec![
+                (
+                    EventId::HeroKill,
+                    None,
+                    Entry::Variants(set(Some(VariantSelection::Shuffle), vec![kill_a, kill_b])),
+                ),
+                (
+                    EventId::HeroDeath,
+                    None,
+                    Entry::Variants(set(Some(VariantSelection::Shuffle), vec![other_event])),
+                ),
+            ],
+        );
+        let mut selector = VariantSelector::with_seed(5);
+        let first = selector.select(&table, EventId::HeroKill, None, 1).unwrap();
+        let sticky_slot = first.source.as_ref().unwrap().slot;
+        selector.record_played(&first);
+        let next = selector.select(&table, EventId::HeroKill, None, 1).unwrap();
+        assert_eq!(
+            next.source.as_ref().unwrap().slot,
+            sticky_slot,
+            "same event stays with its admitted pack"
+        );
+        let other = selector
+            .select(&table, EventId::HeroDeath, None, 1)
+            .unwrap();
+        assert_eq!(
+            other.source.as_ref().unwrap().slot,
+            1,
+            "a different event can use its own pack source"
+        );
     }
 
     #[test]

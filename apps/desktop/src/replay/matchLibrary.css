@@ -1,0 +1,73 @@
+.replay-library__header,
+.replay-library__item,
+.replay-library__actions,
+.replay-library__row-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.replay-library__header,
+.replay-library__item {
+  justify-content: space-between;
+}
+
+.replay-library__header {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.replay-library__watch,
+.replay-library__privacy {
+  color: var(--muted, #a9a39a);
+}
+
+.replay-library__list {
+  display: grid;
+  gap: 0.55rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.replay-library__item {
+  align-items: flex-start;
+  border: 1px solid var(--line, #504d48);
+  border-radius: 0.65rem;
+  gap: 1rem;
+  padding: 0.75rem;
+}
+
+.replay-library__details {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.replay-library__state {
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  display: inline-block;
+  justify-self: start;
+  padding: 0.12rem 0.55rem;
+}
+
+.replay-library__state--ready { color: var(--good, #77c797); }
+.replay-library__state--failed,
+.replay-library__state--needs_pack { color: var(--warn, #e6b85c); }
+.replay-library__state--parsing,
+.replay-library__state--queued { color: var(--accent, #77bad1); }
+.replay-library__state--available { color: var(--muted, #b6b0a6); }
+
+.replay-library__row-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.replay-library__hidden-picker { display: none; }
+.replay-library__viewer { margin-top: 1rem; }
+
+@media (max-width: 720px) {
+  .replay-library__item { flex-direction: column; }
+  .replay-library__row-actions { justify-content: flex-start; }
+}

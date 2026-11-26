@@ -1,4 +1,4 @@
-//! Developer tool: export the Match view's card images from the owner's
+//! Developer tool: export the Match view's card images and stats from the owner's
 //! installed Dota 2 into Kohbor's source tree. Not shipped in the app.
 //!
 //! Authority: DEC-REPLAY-INTEGRATION item 3 (hero, ability and item images may
@@ -11,15 +11,22 @@
 //! Usage:
 //!   kohbor-asset-export --out <dir> [--game <dota 2 beta dir>] [--map-entry <vpk path>]
 //!   kohbor-asset-export --preview <vpk path> <out.png> [--game <dir>]
+//!   kohbor-asset-export --list-prefix <vpk path prefix> <extension> <path fragment> [--game <dir>]
+//!   kohbor-asset-export --stat-icon-formats [--game <dir>]
+//!   kohbor-asset-export --refresh-stat-icons --out <dir> [--game <dir>]
 
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
-use kohbor_game_assets::{decode_vtex_c, icon_name, IconKind, Image, Vpk};
+use kohbor_game_assets::{
+    decode_vtex_c_for_display, decode_vtex_c_for_display_with_format, game_stats, icon_name,
+    IconKind, Image, TextureDecodeFlags, Vpk, STAT_ICON_SOURCES,
+};
 use std::fmt::Write as _;
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::{collections::BTreeSet, error::Error};
 
 /// Minimap overview. The Match view's prototype calibration (matchTables.mjs
 /// `MAP`) was fitted on a 1024 px 7.41 minimap whose frame and art match this
@@ -41,10 +48,16 @@ struct Args {
     game: Option<PathBuf>,
     map_entry: Option<String>,
     preview: Option<(String, PathBuf)>,
+    stats_only: bool,
+    stat_icons_only: bool,
+    refresh_stat_icons: bool,
+    stat_icon_formats: bool,
+    list_prefix: Option<(String, String, String)>,
 }
 
 struct Written {
     rel: String,
+    source_path: Option<String>,
     bytes: u64,
     sha256: String,
 }
@@ -66,10 +79,50 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let vpk_path = game.join("game/dota/pak01_dir.vpk");
     let vpk = Vpk::open(&vpk_path)?;
 
+    if let Some((prefix, extension, fragment)) = args.list_prefix {
+        let fragments: Vec<String> = fragment
+            .split('|')
+            .map(|part| part.to_ascii_lowercase())
+            .filter(|part| !part.is_empty())
+            .collect();
+        for entry in vpk.list_prefix(&prefix, &extension)? {
+            if fragments.iter().any(|part| entry.path().contains(part)) {
+                println!("{}", entry.path());
+            }
+        }
+        return Ok(());
+    }
+
+    if args.stat_icon_formats {
+        for source in &STAT_ICON_SOURCES {
+            let entry = vpk.find(source.source_path).ok_or_else(|| {
+                format!("{} is absent from the installed VPK", source.source_path)
+            })?;
+            let bytes = vpk.read(&entry)?;
+            let (image, format, flags) = decode_vtex_c_for_display_with_format(&bytes)?;
+            println!(
+                "stat_icon={} source_path={} format={} ({}) flags={} dimensions={}x{}",
+                source.name,
+                entry.path(),
+                format,
+                image_format_name(format),
+                format_decode_flags(flags),
+                image.width,
+                image.height,
+            );
+        }
+        return Ok(());
+    }
+
     if let Some((entry, out)) = args.preview {
         refuse_inside(&out, &game)?;
-        let image = load(&vpk, &entry)?;
-        println!("{entry}: {}x{}", image.width, image.height);
+        let (image, format, flags) = load_with_format(&vpk, &entry)?;
+        println!(
+            "{entry}: format={format} flags={} {}x{}",
+            format_decode_flags(flags),
+            image.width,
+            image.height
+        );
         write_new(&out, &encode_png(&image)?)?;
         return Ok(());
     }
@@ -80,6 +133,47 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let out_root = fs::canonicalize(&out_root)?;
     refuse_inside(&out_root, &game)?;
     let out = out_root.join(&build);
+    if args.stat_icons_only {
+        if out.exists() {
+            return Err(
+                format!("{} already exists; refusing to mix exports", out.display()).into(),
+            );
+        }
+        fs::create_dir_all(&out)?;
+        let out = fs::canonicalize(&out)?;
+        refuse_inside(&out, &game)?;
+        let written = export_stat_icons(&vpk, &out, false)?;
+        let provenance = stat_icons_provenance_json(&build, &game, &written);
+        write_new(&out.join("provenance.json"), provenance.as_bytes())?;
+        return Ok(());
+    }
+    if args.refresh_stat_icons {
+        if !out.exists() {
+            return Err(format!(
+                "{} does not exist; refusing to create a refresh target",
+                out.display()
+            )
+            .into());
+        }
+        validate_stat_icons_refresh_target(&out)?;
+        let out = fs::canonicalize(&out)?;
+        refuse_inside(&out, &game)?;
+        let written = export_stat_icons(&vpk, &out, true)?;
+        let provenance = stat_icons_provenance_json(&build, &game, &written);
+        write_replace(&out.join("provenance.json"), provenance.as_bytes())?;
+        return Ok(());
+    }
+    if args.stats_only {
+        fs::create_dir_all(&out)?;
+        let out = fs::canonicalize(&out)?;
+        refuse_inside(&out, &game)?;
+        let stats_path = out.join("stats.json");
+        let json = stats_json(&vpk, &game, &build)?;
+        write_new(&stats_path, json.as_bytes())?;
+        println!("stats.json: {} bytes", json.len());
+        println!("sha256: {}", hex(&sha256(json.as_bytes())));
+        return Ok(());
+    }
     if out.exists() {
         return Err(format!("{} already exists; remove it first", out.display()).into());
     }
@@ -101,7 +195,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 // `item_x` and `x` both map to `x`; keep the first (sorted) one.
                 continue;
             }
-            let image = match vpk.read(&entry).and_then(|bytes| decode_vtex_c(&bytes)) {
+            let image = match vpk
+                .read(&entry)
+                .and_then(|bytes| decode_vtex_c_for_display(&bytes))
+            {
                 Ok(image) => image,
                 Err(error) => {
                     failures.push(format!("{}: {error}", entry.path()));
@@ -109,7 +206,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 }
             };
             let png = encode_png(&fit(&image, w, h))?;
-            written.push(record(&out, &file, &png)?);
+            written.push(record_from_source(&out, &file, &png, entry.path())?);
             write_new(&file, &png)?;
             count += 1;
         }
@@ -127,7 +224,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             Ok(image) => {
                 let png = encode_png(&fit(&image, MAP_SIZE, MAP_SIZE))?;
                 let file = out.join("map.png");
-                written.push(record(&out, &file, &png)?);
+                written.push(record_from_source(&out, &file, &png, entry)?);
                 write_new(&file, &png)?;
                 println!("map: {entry} ({}x{})", image.width, image.height);
                 map_source = Some(entry.clone());
@@ -162,6 +259,11 @@ fn parse_args(mut args: impl Iterator<Item = String>) -> Result<Args, String> {
         game: None,
         map_entry: None,
         preview: None,
+        stats_only: false,
+        stat_icons_only: false,
+        refresh_stat_icons: false,
+        stat_icon_formats: false,
+        list_prefix: None,
     };
     while let Some(arg) = args.next() {
         let mut value = |name: &str| args.next().ok_or(format!("{name} needs a value"));
@@ -169,6 +271,16 @@ fn parse_args(mut args: impl Iterator<Item = String>) -> Result<Args, String> {
             "--out" => parsed.out = Some(PathBuf::from(value("--out")?)),
             "--game" => parsed.game = Some(PathBuf::from(value("--game")?)),
             "--map-entry" => parsed.map_entry = Some(value("--map-entry")?),
+            "--stats-only" => parsed.stats_only = true,
+            "--stat-icons-only" => parsed.stat_icons_only = true,
+            "--refresh-stat-icons" => parsed.refresh_stat_icons = true,
+            "--stat-icon-formats" => parsed.stat_icon_formats = true,
+            "--list-prefix" => {
+                let prefix = value("--list-prefix")?;
+                let extension = value("--list-prefix")?;
+                let fragment = value("--list-prefix")?;
+                parsed.list_prefix = Some((prefix, extension, fragment));
+            }
             "--preview" => {
                 let entry = value("--preview")?;
                 let out = PathBuf::from(value("--preview")?);
@@ -177,12 +289,34 @@ fn parse_args(mut args: impl Iterator<Item = String>) -> Result<Args, String> {
             other => return Err(format!("unknown argument {other}")),
         }
     }
+    let export_modes = [
+        parsed.stats_only,
+        parsed.stat_icons_only,
+        parsed.refresh_stat_icons,
+    ]
+    .into_iter()
+    .filter(|selected| *selected)
+    .count();
+    if export_modes > 1 || (parsed.stat_icon_formats && export_modes > 0) {
+        return Err(
+            "--stats-only, --stat-icons-only, --refresh-stat-icons and --stat-icon-formats are mutually exclusive"
+                .into(),
+        );
+    }
     Ok(parsed)
 }
 
 fn load(vpk: &Vpk, path: &str) -> Result<Image, Box<dyn std::error::Error>> {
     let entry = vpk.find(path).ok_or_else(|| format!("{path} not found"))?;
-    Ok(decode_vtex_c(&vpk.read(&entry)?)?)
+    Ok(decode_vtex_c_for_display(&vpk.read(&entry)?)?)
+}
+
+fn load_with_format(
+    vpk: &Vpk,
+    path: &str,
+) -> Result<(Image, u8, TextureDecodeFlags), Box<dyn std::error::Error>> {
+    let entry = vpk.find(path).ok_or_else(|| format!("{path} not found"))?;
+    Ok(decode_vtex_c_for_display_with_format(&vpk.read(&entry)?)?)
 }
 
 fn record(root: &Path, file: &Path, bytes: &[u8]) -> io::Result<Written> {
@@ -193,9 +327,179 @@ fn record(root: &Path, file: &Path, bytes: &[u8]) -> io::Result<Written> {
         .replace('\\', "/");
     Ok(Written {
         rel,
+        source_path: None,
         bytes: bytes.len() as u64,
         sha256: hex(&sha256(bytes)),
     })
+}
+
+fn record_from_source(
+    root: &Path,
+    file: &Path,
+    bytes: &[u8],
+    source_path: &str,
+) -> io::Result<Written> {
+    let mut written = record(root, file, bytes)?;
+    written.source_path = Some(source_path.to_owned());
+    Ok(written)
+}
+
+fn export_stat_icons(
+    vpk: &Vpk,
+    out: &Path,
+    replace: bool,
+) -> Result<Vec<Written>, Box<dyn std::error::Error>> {
+    let directory = out.join("stat-icons");
+    fs::create_dir_all(&directory)?;
+    let mut written = Vec::with_capacity(STAT_ICON_SOURCES.len());
+    for source in &STAT_ICON_SOURCES {
+        let entry = vpk
+            .find(source.source_path)
+            .ok_or_else(|| format!("{} is absent from the installed VPK", source.source_path))?;
+        let (image, format, flags) = decode_vtex_c_for_display_with_format(&vpk.read(&entry)?)?;
+        let png = encode_png(&image)?;
+        let file = directory.join(format!("{}.png", source.name));
+        let item = record_from_source(out, &file, &png, entry.path())?;
+        if replace {
+            write_replace(&file, &png)?;
+        } else {
+            write_new(&file, &png)?;
+        }
+        let pixel_check = match source.name {
+            "primary_strength" => dominant_pixel(&image, 0),
+            "primary_agility" => dominant_pixel(&image, 1),
+            "primary_intelligence" => dominant_pixel(&image, 2),
+            _ => None,
+        };
+        let pixel_log = pixel_check
+            .map(|(x, y, rgba)| {
+                format!(
+                    " dominant_pixel=({x},{y}) rgba=[{},{},{},{}]",
+                    rgba[0], rgba[1], rgba[2], rgba[3]
+                )
+            })
+            .unwrap_or_default();
+        println!(
+            "stat_icon={} source_path={} format={} ({}) flags={} out={} dimensions={}x{} bytes={} sha256={}{}",
+            source.name,
+            entry.path(),
+            format,
+            image_format_name(format),
+            format_decode_flags(flags),
+            item.rel,
+            image.width,
+            image.height,
+            item.bytes,
+            item.sha256,
+            pixel_log,
+        );
+        written.push(item);
+    }
+    Ok(written)
+}
+
+fn image_format_name(format: u8) -> &'static str {
+    match format {
+        1 => "DXT1",
+        2 => "DXT5",
+        4 => "RGBA8888",
+        16 | 18 => "PNG-encoded",
+        28 => "BGRA8888",
+        _ => "unknown",
+    }
+}
+
+fn format_decode_flags(flags: TextureDecodeFlags) -> String {
+    let mut names = Vec::new();
+    if flags.ycocg_conversion {
+        names.push("ycocg");
+    }
+    if flags.normalize {
+        names.push("normalize");
+    }
+    if flags.hemi_oct {
+        names.push("hemi-oct");
+    }
+    if flags.invert {
+        names.push("invert");
+    }
+    if names.is_empty() {
+        "none".to_owned()
+    } else {
+        names.join(",")
+    }
+}
+
+fn dominant_pixel(image: &Image, channel: usize) -> Option<(u32, u32, [u8; 4])> {
+    let mut best = None;
+    let mut best_margin = 0_i16;
+    for (index, pixel) in image.rgba.chunks_exact(4).enumerate() {
+        if pixel[3] == 0 {
+            continue;
+        }
+        let other_max = (0..3)
+            .filter(|&other| other != channel)
+            .map(|other| pixel[other])
+            .max()?;
+        let margin = i16::from(pixel[channel]) - i16::from(other_max);
+        if margin > best_margin {
+            best_margin = margin;
+            let pixel_index = u32::try_from(index).ok()?;
+            best = Some((
+                pixel_index % image.width,
+                pixel_index / image.width,
+                [pixel[0], pixel[1], pixel[2], pixel[3]],
+            ));
+        }
+    }
+    best
+}
+
+fn validate_stat_icons_refresh_target(out: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    let root_type = fs::symlink_metadata(out)?.file_type();
+    if !root_type.is_dir() || root_type.is_symlink() {
+        return Err(format!("{} is not a plain directory", out.display()).into());
+    }
+
+    let expected_root = BTreeSet::from(["provenance.json".to_owned(), "stat-icons".to_owned()]);
+    let actual_root = fs::read_dir(out)?
+        .map(|entry| entry.map(|entry| entry.file_name().to_string_lossy().into_owned()))
+        .collect::<Result<BTreeSet<_>, _>>()?;
+    if !expected_root.is_subset(&actual_root) {
+        return Err(format!("{} is missing provenance.json or stat-icons", out.display()).into());
+    }
+    let provenance_type = fs::symlink_metadata(out.join("provenance.json"))?.file_type();
+    let icon_dir = out.join("stat-icons");
+    let icon_dir_type = fs::symlink_metadata(&icon_dir)?.file_type();
+    if !provenance_type.is_file()
+        || provenance_type.is_symlink()
+        || !icon_dir_type.is_dir()
+        || icon_dir_type.is_symlink()
+    {
+        return Err("stat icon refresh target contains a non-regular path".into());
+    }
+
+    let expected_files = STAT_ICON_SOURCES
+        .iter()
+        .map(|source| format!("{}.png", source.name))
+        .collect::<BTreeSet<_>>();
+    let mut actual_files = BTreeSet::new();
+    for entry in fs::read_dir(&icon_dir)? {
+        let entry = entry?;
+        let file_type = entry.file_type()?;
+        if !file_type.is_file() || file_type.is_symlink() {
+            return Err(format!("{} is not a plain file", entry.path().display()).into());
+        }
+        actual_files.insert(entry.file_name().to_string_lossy().into_owned());
+    }
+    if actual_files != expected_files {
+        return Err(format!(
+            "{} does not contain exactly the 13 registered stat icons",
+            icon_dir.display()
+        )
+        .into());
+    }
+    Ok(())
 }
 
 fn refuse_inside(path: &Path, game: &Path) -> Result<(), String> {
@@ -217,6 +521,19 @@ fn refuse_inside(path: &Path, game: &Path) -> Result<(), String> {
 
 fn write_new(path: &Path, bytes: &[u8]) -> io::Result<()> {
     let mut file = OpenOptions::new().write(true).create_new(true).open(path)?;
+    file.write_all(bytes)?;
+    file.flush()
+}
+
+fn write_replace(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    let metadata = fs::symlink_metadata(path)?;
+    if !metadata.file_type().is_file() || metadata.file_type().is_symlink() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "refusing to replace a non-regular file",
+        ));
+    }
+    let mut file = OpenOptions::new().write(true).truncate(true).open(path)?;
     file.write_all(bytes)?;
     file.flush()
 }
@@ -301,6 +618,15 @@ fn git_head() -> String {
         .unwrap_or_else(|| "unknown".to_owned())
 }
 
+fn git_dirty() -> bool {
+    Command::new("git")
+        .args(["status", "--porcelain"])
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .is_some_and(|output| !output.stdout.is_empty())
+}
+
 /* ---------------- provenance ---------------- */
 
 fn provenance_json(
@@ -382,11 +708,61 @@ fn provenance_json(
     let files: Vec<String> = written
         .iter()
         .map(|w| {
+            let source_path = w
+                .source_path
+                .as_ref()
+                .map(|path| format!(", \"sourcePath\": {}", json_str(path)))
+                .unwrap_or_default();
             format!(
-                "    {{ \"path\": {}, \"bytes\": {}, \"sha256\": \"{}\" }}",
+                "    {{ \"path\": {}{}, \"bytes\": {}, \"sha256\": \"{}\" }}",
                 json_str(&w.rel),
+                source_path,
                 w.bytes,
                 w.sha256
+            )
+        })
+        .collect();
+    let _ = writeln!(s, "  \"files\": [\n{}\n  ]", files.join(",\n"));
+    let _ = writeln!(s, "}}");
+    s
+}
+
+fn stat_icons_provenance_json(build: &str, game: &Path, written: &[Written]) -> String {
+    let mut s = String::new();
+    let _ = writeln!(s, "{{");
+    let _ = writeln!(s, "  \"schema\": \"kohbor.dota-stat-icons/1\",");
+    let _ = writeln!(s, "  \"gameBuild\": {},", json_str(build));
+    let _ = writeln!(s, "  \"source\": {{");
+    let _ = writeln!(
+        s,
+        "    \"install\": \"installed Dota 2 on the owner's machine, read only, no download\","
+    );
+    let vpk = relative_game_path(game, &game.join("game/dota/pak01_dir.vpk"))
+        .unwrap_or_else(|_| "game/dota/pak01_dir.vpk".to_owned());
+    let _ = writeln!(s, "    \"vpk\": {}", json_str(&vpk));
+    let _ = writeln!(s, "  }},");
+    let _ = writeln!(
+        s,
+        "  \"tool\": {{ \"name\": \"kohbor-asset-export\", \"commit\": {} }},",
+        json_str(&git_head())
+    );
+    let _ = writeln!(s, "  \"date\": {},", json_str(&utc_date()));
+    let _ = writeln!(s, "  \"authority\": \"DEC-REPLAY-INTEGRATION item 3\",");
+    let _ = writeln!(
+        s,
+        "  \"rights\": \"Valve game art. Rights review required before public release.\","
+    );
+    let total: u64 = written.iter().map(|item| item.bytes).sum();
+    let _ = writeln!(s, "  \"totalBytes\": {total},");
+    let files: Vec<String> = written
+        .iter()
+        .map(|item| {
+            format!(
+                "    {{ \"path\": {}, \"sourcePath\": {}, \"bytes\": {}, \"sha256\": \"{}\" }}",
+                json_str(&item.rel),
+                json_str(item.source_path.as_deref().unwrap_or("")),
+                item.bytes,
+                item.sha256
             )
         })
         .collect();
@@ -410,6 +786,218 @@ fn json_str(value: &str) -> String {
     }
     out.push('"');
     out
+}
+
+fn stats_json(vpk: &Vpk, game: &Path, build: &str) -> Result<String, Box<dyn Error>> {
+    let data = game_stats::extract(vpk)?;
+    let mut physical_vpks = BTreeSet::new();
+    physical_vpks.insert(game.join("game/dota/pak01_dir.vpk"));
+    for source in &data.source_blobs {
+        physical_vpks.insert(source.archive.clone());
+    }
+
+    let mut s = String::new();
+    let _ = writeln!(s, "{{");
+    let _ = writeln!(s, "  \"schema\": \"kohbor.dota-derived-stats/1\",");
+    let build_number = build.parse::<u32>()?;
+    let _ = writeln!(s, "  \"build\": {build_number},");
+    let _ = writeln!(s, "  \"patch\": \"unverified\",");
+    let _ = writeln!(s, "  \"provenance\": {{");
+    let _ = writeln!(
+        s,
+        "    \"install\": \"installed Dota 2; read only; no download\","
+    );
+    let _ = writeln!(
+        s,
+        "    \"patchEvidence\": \"no explicit 7.41f or 7.42 string found in inspected game files\","
+    );
+    let _ = writeln!(s, "    \"exportedOn\": {},", json_str(&utc_date()));
+    let _ = writeln!(
+        s,
+        "    \"authority\": \"DEC-REPLAY-INTEGRATION item 3; owner decision for local extraction\","
+    );
+    let _ = writeln!(
+        s,
+        "    \"rights\": \"public redistribution rights are not established; rights review required before public release\","
+    );
+    let _ = writeln!(s, "    \"vpk\": [");
+    let mut vpk_records = Vec::new();
+    for path in physical_vpks {
+        let bytes = fs::read(&path)?;
+        let relative = relative_game_path(game, &path)?;
+        vpk_records.push(format!(
+            "      {{ \"path\": {}, \"bytes\": {}, \"sha256\": \"{}\" }}",
+            json_str(&relative),
+            bytes.len(),
+            hex(&sha256(&bytes))
+        ));
+    }
+    let _ = writeln!(s, "{}", vpk_records.join(",\n"));
+    let _ = writeln!(s, "    ],");
+    let _ = writeln!(s, "    \"scripts\": [");
+    let mut script_records = Vec::new();
+    for source in &data.source_blobs {
+        let relative_vpk = relative_game_path(game, &source.archive)?;
+        script_records.push(format!(
+            "      {{ \"path\": {}, \"vpk\": {}, \"bytes\": {}, \"sha256\": \"{}\" }}",
+            json_str(&source.path),
+            json_str(&relative_vpk),
+            source.bytes.len(),
+            hex(&sha256(&source.bytes))
+        ));
+    }
+    let _ = writeln!(s, "{}", script_records.join(",\n"));
+    let _ = writeln!(s, "    ],");
+    let _ = writeln!(
+        s,
+        "    \"tool\": {{ \"name\": \"kohbor-asset-export\", \"commit\": {}, \"workingTree\": {} }}",
+        json_str(&git_head()),
+        json_str(if git_dirty() { "dirty" } else { "clean" })
+    );
+    let _ = writeln!(s, "  }},");
+    let _ = writeln!(s, "  \"heroes\": {{");
+    let hero_records: Vec<String> = data
+        .heroes
+        .iter()
+        .map(|(id, hero)| {
+            let v = &hero.values;
+            let source_list = hero
+                .sources
+                .iter()
+                .map(|source| json_str(source))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!(
+                concat!(
+                    "    {}: {{ ",
+                    "\"primaryAttribute\": {}, ",
+                    "\"attributes\": {{ ",
+                    "\"strength\": {{ \"base\": {}, \"gain\": {} }}, ",
+                    "\"agility\": {{ \"base\": {}, \"gain\": {} }}, ",
+                    "\"intelligence\": {{ \"base\": {}, \"gain\": {} }} }}, ",
+                    "\"armor\": {}, ",
+                    "\"attack\": {{ \"type\": {}, \"baseAttackSpeed\": {}, \"baseAttackTime\": {}, ",
+                    "\"damageMin\": {}, \"damageMax\": {}, \"range\": {} }}, ",
+                    "\"moveSpeed\": {}, ",
+                    "\"health\": {{ \"base\": {}, \"regen\": {} }}, ",
+                    "\"mana\": {{ \"base\": {}, \"regen\": {} }}, ",
+                    "\"magicResistance\": {}, \"abilities\": [{}], \"sources\": [{}] }}"
+                ),
+                json_str(id),
+                hero.primary_attribute
+                    .as_deref()
+                    .map_or_else(|| "null".to_owned(), json_str),
+                number_value(v, "baseStrength"),
+                number_value(v, "strengthGain"),
+                number_value(v, "baseAgility"),
+                number_value(v, "agilityGain"),
+                number_value(v, "baseIntelligence"),
+                number_value(v, "intelligenceGain"),
+                number_value(v, "baseArmor"),
+                hero.attack_type
+                    .as_deref()
+                    .map_or_else(|| "null".to_owned(), json_str),
+                number_value(v, "baseAttackSpeed"),
+                number_value(v, "baseAttackTime"),
+                number_value(v, "baseDamageMin"),
+                number_value(v, "baseDamageMax"),
+                number_value(v, "attackRange"),
+                number_value(v, "baseMoveSpeed"),
+                number_value(v, "baseHealth"),
+                number_value(v, "baseHealthRegen"),
+                number_value(v, "baseMana"),
+                number_value(v, "baseManaRegen"),
+                number_value(v, "baseMagicResistance"),
+                hero_abilities_json(&hero.abilities),
+                source_list
+            )
+        })
+        .collect();
+    let _ = writeln!(s, "{}", hero_records.join(",\n"));
+    let _ = writeln!(s, "  }},");
+    let _ = writeln!(s, "  \"items\": {{");
+    let item_records: Vec<String> = data
+        .items
+        .iter()
+        .map(|(id, item)| {
+            let attributes = json_number_map(&item.attributes);
+            let effects = json_number_map(&item.effects);
+            let unknown = item
+                .unknown
+                .iter()
+                .map(|(key, value)| format!("{}: {}", json_str(key), json_str(value)))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!(
+                concat!(
+                    "    {}: {{ \"attributes\": {{ {} }}, \"effects\": {{ {} }}, ",
+                    "\"unknown\": {{ {} }} }}"
+                ),
+                json_str(id),
+                attributes,
+                effects,
+                unknown
+            )
+        })
+        .collect();
+    let _ = writeln!(s, "{}", item_records.join(",\n"));
+    let _ = writeln!(s, "  }}");
+    let _ = writeln!(s, "}}");
+    Ok(s)
+}
+
+fn number_value(values: &std::collections::BTreeMap<String, Option<f64>>, key: &str) -> String {
+    number_json(values.get(key).copied().flatten())
+}
+
+fn number_json(value: Option<f64>) -> String {
+    value
+        .filter(|value| value.is_finite())
+        .map_or_else(|| "null".to_owned(), |value| value.to_string())
+}
+
+fn json_number_map(values: &std::collections::BTreeMap<String, Option<f64>>) -> String {
+    values
+        .iter()
+        .map(|(key, value)| format!("{}: {}", json_str(key), number_json(*value)))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn json_string_array(values: &[String]) -> String {
+    values
+        .iter()
+        .map(|value| json_str(value))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn hero_abilities_json(abilities: &[game_stats::HeroAbility]) -> String {
+    abilities
+        .iter()
+        .map(|ability| {
+            let ultimate = ability
+                .is_ultimate
+                .map_or_else(|| "null".to_owned(), |value| value.to_string());
+            format!(
+                "{{ \"slot\": {}, \"name\": {}, \"ultimate\": {}, \"behavior\": [{}], \"modifiers\": [{}] }}",
+                ability.slot,
+                json_str(&ability.name),
+                ultimate,
+                json_string_array(&ability.behavior),
+                json_string_array(&ability.modifiers),
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn relative_game_path(game: &Path, file: &Path) -> io::Result<String> {
+    Ok(file
+        .strip_prefix(game)
+        .map_err(|_| io::Error::other("source file is outside the game directory"))?
+        .to_string_lossy()
+        .replace('\\', "/"))
 }
 
 fn utc_date() -> String {
@@ -800,6 +1388,53 @@ mod tests {
             rgba: vec![1, 2, 3, 4],
         };
         assert_eq!(encode_png(&alpha).expect("encode")[25], 6);
+    }
+
+    #[test]
+    fn unflagged_texture_png_output_is_byte_identical_for_supported_formats() {
+        let samples = [
+            (1, vec![0x00, 0xf8, 0, 0, 0, 0, 0, 0]),
+            (
+                2,
+                vec![113, 113, 0, 0, 0, 0, 0, 0, 0x00, 0xf8, 0, 0, 0, 0, 0, 0],
+            ),
+            (4, vec![10, 20, 30, 40]),
+            (28, vec![30, 20, 10, 40]),
+        ];
+
+        for (format, payload) in samples {
+            let resource = make_export_test_vtex(format, &payload);
+            let legacy = kohbor_game_assets::decode_vtex_c(&resource).expect("legacy decode");
+            let display = decode_vtex_c_for_display(&resource).expect("display decode");
+
+            assert_eq!(display.rgba, legacy.rgba, "format {format} pixels changed");
+            assert_eq!(
+                encode_png(&display).expect("display PNG"),
+                encode_png(&legacy).expect("legacy PNG"),
+                "format {format} PNG bytes changed"
+            );
+        }
+    }
+
+    fn make_export_test_vtex(format: u8, payload: &[u8]) -> Vec<u8> {
+        let data_start = 44_usize;
+        let metadata_len = data_start + 28;
+        let mut bytes = vec![0_u8; metadata_len];
+        bytes[0..4].copy_from_slice(&(metadata_len as u32).to_le_bytes());
+        bytes[4..8].copy_from_slice(&0x0001_000c_u32.to_le_bytes());
+        bytes[8..12].copy_from_slice(&8_u32.to_le_bytes());
+        bytes[12..16].copy_from_slice(&1_u32.to_le_bytes());
+        bytes[16..20].copy_from_slice(b"DATA");
+        bytes[20..24].copy_from_slice(&24_u32.to_le_bytes());
+        bytes[24..28].copy_from_slice(&28_u32.to_le_bytes());
+        bytes[data_start..data_start + 2].copy_from_slice(&1_u16.to_le_bytes());
+        bytes[data_start + 20..data_start + 22].copy_from_slice(&1_u16.to_le_bytes());
+        bytes[data_start + 22..data_start + 24].copy_from_slice(&1_u16.to_le_bytes());
+        bytes[data_start + 24..data_start + 26].copy_from_slice(&1_u16.to_le_bytes());
+        bytes[data_start + 26] = format;
+        bytes[data_start + 27] = 1;
+        bytes.extend_from_slice(payload);
+        bytes
     }
 
     #[test]

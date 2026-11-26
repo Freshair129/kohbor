@@ -46,12 +46,14 @@ test("status line maps live GSI, phase, age and capture values and routes setup 
       gamePhase: "ระยะเกม",
       gameAge: "ข้อมูลเกม",
       capture: "จับภาพ",
+      minimapRecording: "เปิดบันทึกภาพมินิแมป (Lab)",
       gsiSetup: "ตั้งค่า GSI",
     },
     gsi: { label: "กำลังรับข้อมูล", tone: "fresh" },
     phase: { label: "กำลังเล่น", tone: "fresh" },
     gameAge: "1.2 วิ",
     capture: { label: "ภาพสด · ทำงาน", tone: "fresh" },
+    minimapRecording: true,
     deck: { label: "แสดงสถานะ", tone: "fresh", reason: "ข้อมูลจากสถานะปัจจุบัน" },
     setupAvailable: true,
     hostLost: false,
@@ -62,6 +64,7 @@ test("status line maps live GSI, phase, age and capture values and routes setup 
     { id: "phase", label: "ระยะเกม: กำลังเล่น", tone: "fresh" },
     { id: "age", label: "ข้อมูลเกม: 1.2 วิ", tone: "unknown" },
     { id: "capture", label: "จับภาพ · ภาพสด · ทำงาน", tone: "fresh" },
+    { id: "recording", label: "เปิดบันทึกภาพมินิแมป (Lab)", tone: "warn" },
     { id: "deck", label: "แสดงสถานะ", tone: "fresh", detail: "ข้อมูลจากสถานะปัจจุบัน" },
   ]);
   assert.deepEqual(model.setupAction, { label: "ตั้งค่า GSI", destination: "status" });

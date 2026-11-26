@@ -1,10 +1,10 @@
 ---
 domain: events-audio
 tier: A
-card_version: 1
-verified_at_commit: 0997546
-verified_on: 2026-11-13
-verified_by: "claude-code subagent draft (read-only), integrated by the governance lead; agent work, not human review"
+card_version: 3
+verified_at_commit: a8b636b
+verified_on: 2026-11-25
+verified_by: "Codex worker; reviewed listed source changes, not human or owner approval"
 ---
 
 # events-audio: event detection, arbitration, native audio, critical warning path
@@ -13,7 +13,7 @@ A map, not evidence. Decisions, requirements, contracts, code and tests outrank 
 
 ## 1. Purpose and boundary
 
-- **Owns (write areas):** `crates/kohbor-events` (detector, arbiter, `kohbor-replay` tool), `crates/kohbor-audio` (pure audio owner, readiness, WAV decode), `crates/kohbor-audio-native` (WASAPI sink, Windows only), and the host critical path in `apps/desktop/src-tauri/src/audio/`, `media/`, `host.rs`, `commands.rs`, `clock.rs`.
+- **Owns (write areas):** `crates/kohbor-events` (detector, arbiter, `kohbor-replay` tool), `crates/kohbor-audio` (pure audio owner, readiness, WAV decode), `crates/kohbor-audio-native` (WASAPI sink, Windows only), `crates/kohbor-lab` (dev-only event profile and replay sandbox), and the host critical path in `apps/desktop/src-tauri/src/audio/`, `media/`, `host.rs`, `commands.rs`, `clock.rs`.
 - **Must not touch:** `crates/kohbor-pack*` internals (`packs`); `intake.rs` admission, `status.rs`, `settings.rs` (`host-core`); `apps/desktop/src/**` (`ui-overlay`); shared contracts and generated files such as `contracts/event-catalog.json`, `docs/requirements/RTM.csv`, `package-manifest.json` (integration owner, AGENTS.md "Work policy").
 - **Interfaces:**
   - `packs`: the host prewarm table is filled from `Store::resolve` (exact tier); the tier fallback rule lives in the host table.
@@ -23,32 +23,21 @@ A map, not evidence. Decisions, requirements, contracts, code and tests outrank 
 
 ## 2. Owner decisions (ids only; text in contracts/decisions.json)
 
-- **Decided:** DEC-HEALTH-DANGER, DEC-PACK-AUDIO-OPTIONAL-VISUAL, DEC-BANNER-LAB-STYLE (consumer side only), DEC-EVENT-RUNE-SPAWN (revision 5, 2026-11-22: map-objective timers as a HUD card under the danger meter with per-objective tones and lead times, ALERT-008, UI-015).
+- **Decided:** DEC-HEALTH-DANGER, DEC-CRITICAL-MEDIA, DEC-PACK-AUDIO-OPTIONAL-VISUAL, DEC-BANNER-LAB-STYLE (consumer side only), DEC-EVENT-RUNE-SPAWN, DEC-MULTI-PACK, DEC-HERO-PACK-SNIPER-ULT.
 - **Proposed, not decided:** DEC-EVENT-AUDIO (owner acknowledgements are recorded inside it; the decision as a whole is not approved).
-- **Open:** DEC-CRITICAL-MEDIA, DEC-INTERFACES, DEC-PACK-CRYPTO, DEC-NATIVE-EVIDENCE.
+- **Open:** DEC-INTERFACES, DEC-PACK-CRYPTO, DEC-NATIVE-EVIDENCE.
 - **Deferred:** DEC-PACK-BANNER-ADDON.
 - Agent decisions in the S3-5 design (P1..P8) have no DEC id: see section 4.
 
 ## 3. Now / Next / Blocked
 
-Now
-- Detector, arbiter and replay tool exist; `first_blood` is held back by an unavailable list because E-1 is open: `apps/desktop/src-tauri/src/intake.rs`
-- S3-5a..5l, S3-6a, S3-6b and S3-7 are committed on main (PR #10), including the wiring into `run()`; test results at this revision are UNVERIFIED here: `apps/desktop/src-tauri/src/lib.rs`
-- Thread priorities, three lexical source guards and panic containment are present in the host code: `apps/desktop/src-tauri/src/host.rs`
-- No audible critical warning on real media today: readiness is designed to report not_ready (reason MEDIA_UNMAPPED) until authorized critical media exists; the rule itself is decided; behaviour in the running app is UNVERIFIED: DEC-HEALTH-DANGER, DEC-CRITICAL-MEDIA, ALERT-007
-
-- Owner 2026-11-23: MEDIA-002 announcer preemption: a strictly higher-rank ordinary clip preempts a playing one; the new clip starts at once while the old fades out under it (linear 100 ms, 4,800 samples), also when a critical, correction or notice cue preempts an ordinary clip; equal or lower rank still drops `channel_busy`; log `audio/clip_preempted` (`crates/kohbor-audio/src/owner.rs`, `crates/kohbor-audio-native/src/engine.rs`). ALERT-001 / MEDIA-005 (option ข): a critical warning during a banner shows as a 40 px strip 4 px below the yielding banner (up 8 %, 88 %), strip bottom within 32 px scaled below the banner stage, overlay window 295 logical units (`apps/desktop/src/playback.ts`, `apps/desktop/src/critical-stack.css`); Thai-only strip text. Synthetic and mock evidence only: MEDIA-002, ALERT-001
-- ALERT-008 map-objective timers: pure scheduler and patch-versioned timing table in `crates/kohbor-events/src/objectives.rs` and `crates/kohbor-events/data/objective-timings.json`; host wiring in `apps/desktop/src-tauri/src/objectives/`. Each objective has its own synthesized tone (`objectives/tone.rs`); one tone per batch by fixed priority. The tone uses the single-slot sink only when it is idle: it waits at most 5 s after the due time for a playing clip to end, then is dropped and logged as suppressed (`audio/engine.rs`); a game clip still preempts it, and mixing under a playing clip is not implemented. Lead times come from prefs schema_version 2 (`objectives/prefs.rs`). Owner-observed live run on integ 9c96013 (2026-11-22): card colour, position under RISK, Thai copy, power/wisdom timings and tone outcomes OK; receipt `docs/delivery/evidence/objective-timers-live/owner-live-9c96013.receipt.json` is PASS for that named scenario only (exe hash bound); the requirement stays NOT_RUN until Tormentor, banner overlap and the native layout editor are covered: ALERT-008
-
-Next
-- S3-6a and S3-6b latency receipts are INDETERMINATE (distributions on one machine under uncontrolled load); QUALITY-001 stays NOT_RUN and needs a controlled owner measurement: `docs/delivery/evidence/s3-6a/`
-- The S3-7 review findings are fixed or recorded; the `kohbor-media` origin and authority risk is accepted and not proven closed: `docs/design/S3-5-HOST-CRITICAL-PATH.md` section 13
-
-Blocked
-- No `ready` state on real media and no QUALITY-001 acceptance until authorized critical media exists: DEC-CRITICAL-MEDIA
-- Device loss, default-device change and acoustic latency are NOT_RUN and need an owner hardware session: `docs/delivery/S3-1-AUDIO-SPIKE.md`
-- First blood credited to self was never captured, so E-1 stays open and the event stays unavailable: DEC-EVENT-AUDIO
-- Freezing the media_*, set_muted and audio_history command names as a contract waits on: DEC-INTERFACES
+- Event intake, arbitration, host wiring and the `kohbor-lab` profile/replay sandbox map to `apps/desktop/src-tauri/src/intake.rs`, `apps/desktop/src-tauri/src/host.rs`, `crates/kohbor-events`, `crates/kohbor-lab` and [EVENT-AUDIO-SPEC](../../design/EVENT-AUDIO-SPEC.md).
+- Objective timing implementation and its patch-versioned table map to `crates/kohbor-events/src/objectives.rs`, `crates/kohbor-events/data/objective-timings.json` and `apps/desktop/src-tauri/src/objectives/` (ALERT-008).
+- Critical-media readiness and its authorized-media gate map to DEC-HEALTH-DANGER, DEC-CRITICAL-MEDIA and ALERT-007.
+- `first_blood` remains unavailable while E-1 is open (DEC-EVENT-AUDIO; `contracts/event-catalog.json`).
+- Special voice-pack events remain `proposed_unavailable` until live captures confirm their detectors (DEC-MULTI-PACK; `contracts/event-catalog.json`).
+- Device, acoustic and current-build owner/native acceptance remain pending in [SPRINT-ROADMAP](../../delivery/SPRINT-ROADMAP.md) (DEC-NATIVE-EVIDENCE; QUALITY-001).
+- Command names and contract ownership remain open under DEC-INTERFACES.
 
 ## 4. Open questions (no DEC id)
 
@@ -57,7 +46,9 @@ Blocked
 ## 5. Artefacts (machine list: state.json)
 
 - Spec: `docs/design/EVENT-AUDIO-SPEC.md` (catalog, tiers, arbitration, priority matrix, outcome reasons, formats); `docs/design/S3-5-HOST-CRITICAL-PATH.md` (threads, lanes, prewarm, probe, readiness, tasks 5a..5l, 6a, 6b, S3-7).
+- Dev-only event-logic Lab: `docs/design/KOHBOR-LAB.md`, `crates/kohbor-lab`.
 - Spike: `docs/delivery/S3-1-AUDIO-SPIKE.md` (WASAPI choice; silence-only observations). Standalone workspace `spikes/audio/`.
+- Local event recap and playback outcome contract: [EVENT-AUDIO-SPEC](../../design/EVENT-AUDIO-SPEC.md#local-match-recap); separate from own-match history (MEM-006).
 - Backlog: S1-* and S3-* rows in `docs/delivery/SPRINT-ROADMAP.md`.
 - Contracts and fixtures: `contracts/event-catalog.json`, `contracts/audio-outcome.schema.json`, `fixtures/health-danger-golden.json` (replayed by `tools/validate_spec.py`).
 - Evidence: `docs/delivery/evidence/objective-timers-live/README.md` (owner-observed live run of the map-objective card on integ 9c96013; receipt PASS for its named scenario only).

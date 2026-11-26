@@ -1,7 +1,7 @@
 //! Bounded command bridge and single-owner package-store thread.
 
 use std::collections::{HashMap, HashSet};
-use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, SyncSender, TrySendError};
@@ -13,19 +13,19 @@ use kohbor_events::EventId;
 use kohbor_pack::catalog::Catalog;
 use kohbor_pack::container;
 use kohbor_pack::store::{
-    ActivationPolicy, ActivationState, InstallRequest, NoHook, Status, Store,
+    ActivationPolicy, ActivationState, InstallRequest, LoadoutDesired, LoadoutResult,
+    LoadoutStatus, MAX_EQUIPPED_PACKS, NoHook, Status, Store, StoreError,
 };
-use kohbor_pack::{limits::MAX_CONTAINER_BYTES, Limits};
-use serde_json::{json, Value};
+use kohbor_pack::{Limits, limits::MAX_CONTAINER_BYTES};
+use serde_json::{Value, json};
 
 use crate::audio::lanes::{
-    AuditionRefusal, AuditionRequest, Control, EngineShared, EngineTx, AUDITION_ADMISSION_TIMEOUT,
+    AUDITION_ADMISSION_TIMEOUT, AuditionRefusal, AuditionRequest, Control, EngineShared, EngineTx,
 };
 use crate::audio::resolve::{BindingLookup, PrewarmTable};
-use crate::media::inventory::{facts_from_table, MediaFacts};
-use crate::media::prewarm::{build_table, VisualEntry, VisualIndexHandle};
+use crate::media::inventory::{MediaFacts, facts_from_table};
+use crate::media::prewarm::{VisualEntry, VisualIndexHandle, build_table};
 use crate::media::probe::{ProbeItem, ProbeRequest, ProbeState};
-use crate::media::selection::VariantSelector;
 
 pub type ProbeEmitter = Arc<dyn Fn(Value) + Send + Sync>;
 
@@ -95,6 +95,10 @@ impl MediaHandle {
         self.request(JobKind::Install(request_json.to_vec()))
     }
 
+    pub fn uninstall(&self, install_id: &str) -> Result<Value, String> {
+        self.request(JobKind::Uninstall(install_id.to_owned()))
+    }
+
     pub fn activate(
         &self,
         request_id: &str,
@@ -110,6 +114,19 @@ impl MediaHandle {
 
     pub fn cancel_pending_activation(&self, install_id: &str) -> Result<Value, String> {
         self.request(JobKind::CancelPendingActivation(install_id.to_owned()))
+    }
+
+    pub fn loadout(&self) -> Result<Value, String> {
+        self.request(JobKind::LoadoutGet)
+    }
+
+    pub fn set_loadout(&self, request: &Value) -> Result<Value, String> {
+        let bytes = serde_json::to_vec(request).map_err(|_| "MEDIA_INVALID".to_owned())?;
+        self.request(JobKind::LoadoutSet(bytes))
+    }
+
+    pub fn cancel_loadout(&self) -> Result<Value, String> {
+        self.request(JobKind::LoadoutCancel)
     }
 
     pub fn list(&self) -> Result<Value, String> {
@@ -295,12 +312,16 @@ enum JobKind {
         install: Option<(String, String)>,
     },
     Install(Vec<u8>),
+    Uninstall(String),
     Activate {
         request_id: String,
         install_id: String,
         policy: ActivationPolicy,
     },
     CancelPendingActivation(String),
+    LoadoutGet,
+    LoadoutSet(Vec<u8>),
+    LoadoutCancel,
     List,
     PackSummaries,
     PreviewAudition {
@@ -346,6 +367,20 @@ struct ServiceState {
     stripped_visuals: Vec<EventId>,
 }
 
+/// Kind and reason of a failed `Store::open`, for the local log. The store's messages name
+/// the step and the OS error (for example "create staging: Access is denied. (os error 5)"),
+/// never a file path; the reason is capped so a long message cannot flood the log.
+fn store_open_failure(error: &StoreError) -> (&'static str, String) {
+    const MAX_REASON_CHARS: usize = 240;
+    let (kind, reason) = match error {
+        StoreError::Io(message) => ("io", message.clone()),
+        StoreError::Corrupt(message) => ("corrupt", message.clone()),
+        StoreError::Interrupted(step) => ("interrupted", format!("{step:?}")),
+        StoreError::UninstallRefused(_) => ("uninstall_refused", String::new()),
+    };
+    (kind, reason.chars().take(MAX_REASON_CHARS).collect())
+}
+
 fn run_service(
     config: ServiceConfig,
     jobs: Receiver<Job>,
@@ -376,7 +411,15 @@ fn run_service(
                 state.publish_current_facts(true);
             }
         }
-        Err(_) => {
+        Err(error) => {
+            let (kind, reason) = store_open_failure(&error);
+            crate::log_warn!(
+                "audio",
+                "media_store_open_failed",
+                "the announcer pack store could not be opened",
+                kind = kind,
+                reason = reason,
+            );
             replace_mutex_value(
                 &state.config.facts,
                 MediaFacts {
@@ -501,6 +544,9 @@ impl ServiceState {
                 .summarize_package(Path::new(source_path))
                 .map_err(|_| "MEDIA_INVALID".to_owned());
         }
+        if matches!(&kind, JobKind::Uninstall(_)) && (self.config.match_active)() {
+            return Err("MATCH_ACTIVE".to_owned());
+        }
         if self.store.is_none() {
             return Err("MEDIA_INVALID".to_owned());
         }
@@ -529,6 +575,28 @@ impl ServiceState {
                     .install(&request)
                     .map_err(|_| "MEDIA_INVALID".to_owned())?;
                 Ok(result.to_json())
+            }
+            JobKind::Uninstall(install_id) => {
+                let result = self
+                    .store
+                    .as_mut()
+                    .ok_or_else(|| "MEDIA_INVALID".to_owned())?
+                    .uninstall(&install_id);
+                match result {
+                    Ok(()) => {}
+                    Err(StoreError::UninstallRefused(reason)) => {
+                        return Err(reason.as_str().to_owned());
+                    }
+                    Err(_) => return Err("MEDIA_INVALID".to_owned()),
+                }
+                let store = self
+                    .store
+                    .as_ref()
+                    .ok_or_else(|| "MEDIA_INVALID".to_owned())?;
+                let (_, covers) = pack_summaries_json(store);
+                let mut index = lock_recover(&self.config.visual_index);
+                Arc::make_mut(&mut *index).covers = Arc::new(covers);
+                Ok(json!({"install_id": install_id, "removed": true}))
             }
             JobKind::Activate {
                 request_id,
@@ -562,6 +630,44 @@ impl ServiceState {
                     "install_id": install_id,
                     "cancelled": cancelled,
                 }))
+            }
+            JobKind::LoadoutGet => {
+                let store = self
+                    .store
+                    .as_ref()
+                    .ok_or_else(|| "MEDIA_INVALID".to_owned())?;
+                Ok(loadout_json(store))
+            }
+            JobKind::LoadoutSet(request_bytes) => {
+                let (request_id, desired, policy) = parse_loadout_request(&request_bytes)?;
+                let activation_state = self.activation_state();
+                let (result, changed) = {
+                    let store = self
+                        .store
+                        .as_mut()
+                        .ok_or_else(|| "MEDIA_INVALID".to_owned())?;
+                    let previous_generation = store.loadout().generation;
+                    let result = store
+                        .set_loadout(&request_id, &desired, policy, &activation_state)
+                        .map_err(|_| "MEDIA_INVALID".to_owned())?;
+                    let changed = result.status == LoadoutStatus::Active
+                        && store.loadout().generation != previous_generation;
+                    (result, changed)
+                };
+                if changed {
+                    self.prewarm_and_swap()?;
+                }
+                Ok(loadout_result_json(&result))
+            }
+            JobKind::LoadoutCancel => {
+                let store = self
+                    .store
+                    .as_mut()
+                    .ok_or_else(|| "MEDIA_INVALID".to_owned())?;
+                let cancelled = store
+                    .cancel_pending_loadout()
+                    .map_err(|_| "MEDIA_INVALID".to_owned())?;
+                Ok(json!({ "cancelled": cancelled, "loadout": loadout_value(store.loadout()) }))
             }
             JobKind::List => {
                 let store = self
@@ -648,14 +754,12 @@ impl ServiceState {
         tier: Option<u8>,
         variant_id: &str,
     ) -> Result<Option<String>, String> {
-        let store = self
-            .store
-            .as_ref()
-            .ok_or_else(|| "MEDIA_INVALID".to_owned())?;
-        if store
-            .active()
-            .is_none_or(|active| active.install_id != install_id)
-        {
+        let is_equipped = self
+            .table
+            .equipped
+            .iter()
+            .any(|id| id.as_ref() == install_id);
+        if !is_equipped {
             return self
                 .prepare_preview(install_id, event_id, tier, variant_id)
                 .map(|(_, url)| url);
@@ -663,21 +767,9 @@ impl ServiceState {
         if (self.config.match_active)() || self.config.engine.audition_match_active() {
             return Err(AuditionRefusal::MatchActive.code().to_owned());
         }
-        if self.table.install_id.as_deref() != Some(install_id) {
-            return Err("MEDIA_STATE_UNKNOWN".to_owned());
-        }
-        let event = crate::demo::demo_event(event_id, tier)
+        let event = media_demo_event(event_id, tier)
             .map_err(|_| AuditionRefusal::EventUnavailable.code().to_owned())?;
-        let selected = VariantSelector::by_id(&self.table, event.id, tier, variant_id)
-            .map_err(|_| AuditionRefusal::VariantUnavailable.code().to_owned())?;
-        store
-            .resolve_installed_variant(
-                install_id,
-                event_id,
-                selected.bound_tier.map(u32::from),
-                variant_id,
-            )
-            .map_err(|_| "MEDIA_INVALID".to_owned())?;
+        let selected = table_variant(&self.table, event.id, tier, variant_id, install_id)?;
         if (self.config.match_active)() || self.config.engine.audition_match_active() {
             return Err(AuditionRefusal::MatchActive.code().to_owned());
         }
@@ -698,17 +790,20 @@ impl ServiceState {
             .store
             .as_ref()
             .ok_or_else(|| "MEDIA_INVALID".to_owned())?;
-        if store
-            .active()
-            .as_ref()
-            .is_some_and(|active| active.install_id == install_id)
-        {
-            return Err(AuditionRefusal::ActivePack.code().to_owned());
-        }
-        let event = crate::demo::demo_event(event_id, tier)
+        let event = media_demo_event(event_id, tier)
             .map_err(|_| AuditionRefusal::EventUnavailable.code().to_owned())?;
         if !event.id.voiced() {
             return Err(AuditionRefusal::EventUnavailable.code().to_owned());
+        }
+        if self
+            .table
+            .equipped
+            .iter()
+            .any(|id| id.as_ref() == install_id)
+        {
+            let selected = table_variant(&self.table, event.id, tier, variant_id, install_id)?;
+            let visual = selected.media.visual_url.as_deref().map(str::to_owned);
+            return Ok((selected, visual));
         }
         let preview =
             crate::media::prewarm::build_preview_variant(store, install_id, event, variant_id)
@@ -745,7 +840,7 @@ impl ServiceState {
         self.config
             .engine
             .offer_audition(AuditionRequest {
-                event: crate::demo::demo_event(event_id, tier)
+                event: media_demo_event(event_id, tier)
                     .map_err(|_| AuditionRefusal::EventUnavailable.code().to_owned())?,
                 variant_id: Some(variant_id.to_owned()),
                 install_id: install_id.to_owned(),
@@ -809,10 +904,9 @@ impl ServiceState {
             .load(Ordering::Acquire)
         {
             self.table
-                .install_id
-                .as_deref()
-                .map(str::to_owned)
-                .into_iter()
+                .equipped
+                .iter()
+                .map(|install_id| install_id.to_string())
                 .collect()
         } else {
             Vec::new()
@@ -825,19 +919,22 @@ impl ServiceState {
 
     fn resume_deferred(&mut self) {
         let state = self.activation_state();
-        let results = {
+        let (results, loadout_changed) = {
             let Some(store) = self.store.as_mut() else {
                 return;
             };
-            if store.pending_activations().is_empty() {
+            if store.pending_activations().is_empty() && store.pending_loadout().is_none() {
                 return;
             }
-            store.resume_deferred(&state)
+            let previous_generation = store.loadout().generation;
+            let result = store.resume_deferred(&state);
+            let changed = store.loadout().generation != previous_generation;
+            (result, changed)
         };
-        if let Ok(results) = results {
-            if results.iter().any(|result| result.status == Status::Active) {
-                let _ = self.prewarm_and_swap();
-            }
+        if results.is_ok_and(|results| {
+            loadout_changed || results.iter().any(|result| result.status == Status::Active)
+        }) {
+            let _ = self.prewarm_and_swap();
         }
     }
 
@@ -845,8 +942,14 @@ impl ServiceState {
         let Some(store) = self.store.as_ref() else {
             return Err("MEDIA_INVALID".to_owned());
         };
-        let Some(active) = store.active() else {
-            let table = PrewarmTable::empty();
+        let expected_loadout = store.loadout().clone();
+        if expected_loadout.equipped.is_empty() {
+            let table = Arc::new(PrewarmTable::new_loadout(
+                expected_loadout.generation,
+                Vec::new(),
+                expected_loadout.match_consistency,
+                Vec::new(),
+            ));
             let visuals = Arc::new(crate::media::prewarm::VisualIndex::default());
             self.probe_state.clear();
             self.probe_request = None;
@@ -854,18 +957,32 @@ impl ServiceState {
             let facts = self.facts_from_table(&table, true);
             self.publish(table, visuals, facts);
             return Ok(());
-        };
+        }
 
         let (table, visuals) = self.build_active_table();
-        if table.install_id.as_deref() != Some(active.install_id.as_str()) {
+        let expected_ids: Vec<_> = expected_loadout
+            .equipped
+            .iter()
+            .map(|pack| pack.install_id.as_str())
+            .collect();
+        let table_ids: Vec<_> = table
+            .equipped
+            .iter()
+            .map(|install_id| install_id.as_ref())
+            .collect();
+        if table.fence != expected_loadout.generation || table_ids != expected_ids {
             return Err("CAPABILITY_UNAVAILABLE".to_owned());
         }
-        let still_active = self
-            .store
-            .as_ref()
-            .and_then(Store::active)
-            .is_some_and(|current| current.install_id == active.install_id);
-        if !still_active {
+        let still_current = self.store.as_ref().is_some_and(|store| {
+            store.loadout().generation == expected_loadout.generation
+                && store
+                    .loadout()
+                    .equipped
+                    .iter()
+                    .map(|pack| pack.install_id.as_str())
+                    .eq(expected_ids.iter().copied())
+        });
+        if !still_current {
             return Err("CAPABILITY_UNAVAILABLE".to_owned());
         }
         // Evaluate injected probe/test dependencies before queuing a swap, so a
@@ -1229,19 +1346,52 @@ fn active_bindings_json(store: &Store<NoHook>, catalog: &Catalog, table: &Prewar
 /// Test-only catalog entries are excluded by `Catalog::from_json`; no renderer-side
 /// catalog comparison is needed to decide which rows exist.
 fn active_event_map_json(store: &Store<NoHook>, catalog: &Catalog, table: &PrewarmTable) -> Value {
-    let active_revision = store.active();
-    let active = active_revision.as_ref().map(|active| {
+    let active = store.active().map(|active| {
         json!({
             "install_id": active.install_id,
             "package_id": active.package_id,
             "revision": active.revision,
         })
     });
-    let table_matches_active = active_revision
-        .as_ref()
-        .is_some_and(|active| table.install_id.as_deref() == Some(active.install_id.as_str()));
-    event_map_json(catalog, active, |event, tier| {
-        event_map_row(event, tier, store, table, table_matches_active)
+    let loadout = store.loadout();
+    let loadout_json = loadout_value(&loadout);
+    let pending = store.pending_loadout().map(loadout_value);
+    let table_matches_loadout = loadout.generation == table.fence
+        && loadout
+            .equipped
+            .iter()
+            .map(|pack| pack.install_id.as_str())
+            .eq(table.equipped.iter().map(|install_id| install_id.as_ref()));
+    event_map_json(
+        catalog,
+        active,
+        loadout_json,
+        pending,
+        table,
+        |event, tier| event_map_row(event, tier, &loadout, table, table_matches_loadout),
+    )
+}
+
+fn media_demo_event(id: &str, tier: Option<u8>) -> Result<kohbor_events::Event, &'static str> {
+    if let Ok(event) = crate::demo::demo_event(id, tier) {
+        return Ok(event);
+    }
+    let event_id = [
+        EventId::ClutchKill,
+        EventId::PosthumousKill,
+        EventId::ComebackKill,
+    ]
+    .into_iter()
+    .find(|event_id| event_id.as_str() == id)
+    .ok_or("DEMO_EVENT_UNAVAILABLE")?;
+    if tier.is_some() {
+        return Err("DEMO_EVENT_UNAVAILABLE");
+    }
+    Ok(kohbor_events::Event {
+        id: event_id,
+        tier: None,
+        at_ms: 0,
+        payload: None,
     })
 }
 
@@ -1270,38 +1420,76 @@ fn installed_event_map_json(
         "package_id": record.package_id,
         "revision": record.revision,
     });
+    let single_loadout = json!({"generation": 0, "equipped": [{
+        "install_id": record.install_id, "package_id": record.package_id, "revision": record.revision,
+        "container_sha256": record.container_sha256,
+    }], "event_locks": {}, "match_consistency": false});
+    let install_id = record.install_id.as_str();
+    let package_id = record.package_id.as_str();
     Ok(event_map_json(
         catalog,
         Some(selected_pack),
+        single_loadout,
+        None,
+        table,
         |event, tier| {
-            let binding = bindings.iter().find(|binding| {
+            let matching_bindings: Vec<_> = bindings.iter().filter(|binding| {
                 binding.event_id == event.id && binding.tier == tier.map(u32::from)
-            });
-            let selection = binding
+            }).collect();
+            let selection = matching_bindings.first()
                 .and_then(|binding| binding.selection)
                 .map(|selection| selection.as_str());
-            let variants: Vec<_> = binding
-                .into_iter()
-                .flat_map(|binding| &binding.variants)
-                .filter_map(|variant| {
+            let variants: Vec<_> = matching_bindings
+                .iter()
+                .flat_map(|binding| {
+                    binding.variants.iter().filter_map(move |variant| {
                     let media = variant.media.as_ref().ok()?;
-                    Some(event_map_variant(
-                        variant,
-                        media.duration_ms,
-                        media.silent_visual.is_some(),
-                    ))
+                    let mut value = json!({
+                        "variant_id": variant.variant_id,
+                        "duration_ms": media.duration_ms,
+                        "has_visual": media.silent_visual.is_some(),
+                        "install_id": install_id,
+                        "package_id": package_id,
+                        "equipped_slot": 0,
+                        "state": "ready",
+                        "reason": "NONE",
+                    });
+                    if let Some(clip_id) = variant.clip_id.as_ref() {
+                        value["clip_id"] = json!(clip_id);
+                    }
+                    if let Some(caption) = variant.caption.as_ref() {
+                        value["caption"] = json!(caption);
+                    }
+                    if let Some(hero) = binding.hero.as_ref() {
+                        value["hero"] = json!(hero);
+                    }
+                    Some(value)
+                    })
                 })
                 .collect();
             let (state, reason) = if !event.media_mappable {
                 ("not_voiced", "NOT_VOICED")
-            } else if crate::demo::demo_event(&event.id, tier).is_err() {
+            } else if crate::media::inventory::EVENTS_PENDING_LIVE_CAPTURE
+                .iter()
+                .any(|id| id.as_str() == event.id.as_str())
+            {
+                ("detector_unavailable", "LIVE_CAPTURE_REQUIRED")
+            } else if media_demo_event(&event.id, tier).is_err() {
                 ("detector_unavailable", "DETECTOR_UNAVAILABLE")
-            } else if binding.is_none() {
+            } else if matching_bindings.is_empty() {
                 ("unmapped", "MEDIA_UNMAPPED")
             } else if variants.is_empty() {
                 ("invalid_media", "MEDIA_INVALID")
             } else {
                 ("ready", "NONE")
+            };
+            let sources = if variants.is_empty() {
+                Vec::new()
+            } else {
+                vec![json!({
+                    "slot": 0, "install_id": record.install_id, "package_id": record.package_id,
+                    "variant_count": variants.len(), "state": if variants.is_empty() { "invalid_media" } else { "ready" },
+                })]
             };
             event_map_binding(
                 event,
@@ -1311,6 +1499,9 @@ fn installed_event_map_json(
                 None,
                 selection,
                 Value::Array(variants),
+                Value::Array(sources),
+                Value::Null,
+                "none",
             )
         },
     ))
@@ -1319,6 +1510,9 @@ fn installed_event_map_json(
 fn event_map_json(
     catalog: &Catalog,
     selected_pack: Option<Value>,
+    loadout: Value,
+    pending_loadout: Option<Value>,
+    table: &PrewarmTable,
     row: impl Fn(&kohbor_pack::catalog::CatalogEvent, Option<u8>) -> Value,
 ) -> Value {
     let events = catalog
@@ -1341,9 +1535,15 @@ fn event_map_json(
         })
         .collect::<Vec<_>>();
     json!({
-        "schema_version": "1.1.0",
-        // This field carries the map subject in the existing 1.1.0 shape.
+        "schema_version": "1.3.0",
         "active": selected_pack,
+        "loadout": loadout,
+        "pending_loadout": pending_loadout,
+        "prewarm": {
+            "used_samples": table.used_samples,
+            "cap_samples": crate::media::prewarm::MAX_PREWARMED_SAMPLES,
+            "skipped_variants": table.skipped_variants,
+        },
         "events": events,
     })
 }
@@ -1356,20 +1556,27 @@ fn event_map_binding(
     resolved_from_tier: Option<u8>,
     selection: Option<&str>,
     variants: Value,
+    sources: Value,
+    lock: Value,
+    lock_state: &str,
 ) -> Value {
     json!({
         "event_id": event.id.as_str(),
+        "event_group": event.event_group.as_str(),
         "tier": tier,
         "state": state,
         "reason": reason,
         "resolved_from_tier": resolved_from_tier,
         "selection": selection,
         "variants": variants,
+        "sources": sources,
+        "lock": lock,
+        "lock_state": lock_state,
     })
 }
 
 fn event_map_variant(
-    variant: &kohbor_pack::store::ResolvedVariant,
+    variant: &crate::audio::resolve::VariantMedia,
     duration_ms: u32,
     has_visual: bool,
 ) -> Value {
@@ -1384,15 +1591,34 @@ fn event_map_variant(
     if let Some(caption) = variant.caption.as_ref() {
         value["caption"] = json!(caption);
     }
+    if let Some(hero) = variant.hero.as_ref() {
+        value["hero"] = json!(hero);
+    }
+    if let Some(source) = variant.source.as_ref() {
+        value["install_id"] = json!(source.install_id);
+        value["package_id"] = json!(source.package_id);
+        value["equipped_slot"] = json!(source.slot);
+    }
+    if let Err(reason) = variant.media.as_ref() {
+        value["state"] = json!(if *reason == crate::audio::resolve::PREWARM_CAP_REASON {
+            "not_loaded"
+        } else {
+            "invalid_media"
+        });
+        value["reason"] = json!(reason.to_ascii_uppercase());
+    } else {
+        value["state"] = json!("ready");
+        value["reason"] = json!("NONE");
+    }
     value
 }
 
 fn event_map_row(
     event: &kohbor_pack::catalog::CatalogEvent,
     tier: Option<u8>,
-    store: &Store<NoHook>,
+    loadout: &kohbor_pack::store::Loadout,
     table: &PrewarmTable,
-    table_matches_active: bool,
+    table_matches_loadout: bool,
 ) -> Value {
     let detector = crate::media::inventory::ALL_EVENTS
         .iter()
@@ -1403,7 +1629,10 @@ fn event_map_row(
                reason: &str,
                resolved_from_tier: Option<u8>,
                selection: Option<&str>,
-               variants: Value| {
+               variants: Value,
+               sources: Value,
+               lock: Value,
+               lock_state: &str| {
         event_map_binding(
             event,
             tier,
@@ -1412,11 +1641,23 @@ fn event_map_row(
             resolved_from_tier,
             selection,
             variants,
+            sources,
+            lock,
+            lock_state,
         )
     };
 
     if !event.media_mappable || detector.is_some_and(|id| !id.voiced()) {
-        return row("not_voiced", "NOT_VOICED", None, None, empty_variants());
+        return row(
+            "not_voiced",
+            "NOT_VOICED",
+            None,
+            None,
+            empty_variants(),
+            empty_variants(),
+            Value::Null,
+            "none",
+        );
     }
     let Some(id) = detector else {
         return row(
@@ -1425,34 +1666,58 @@ fn event_map_row(
             None,
             None,
             empty_variants(),
+            empty_variants(),
+            Value::Null,
+            "none",
         );
     };
-    let detector_unavailable = crate::intake::EVENT_UNAVAILABLE.contains(&id);
+    let detector_unavailable = crate::intake::EVENT_UNAVAILABLE.contains(&id)
+        || crate::media::inventory::EVENTS_PENDING_LIVE_CAPTURE.contains(&id);
     let unavailable_reason = if detector_unavailable {
-        "EVENT_UNAVAILABLE"
+        if crate::media::inventory::EVENTS_PENDING_LIVE_CAPTURE.contains(&id) {
+            "LIVE_CAPTURE_REQUIRED"
+        } else {
+            "EVENT_UNAVAILABLE"
+        }
     } else {
         "DETECTOR_UNAVAILABLE"
     };
-    if detector_unavailable && (store.active().is_none() || !table_matches_active) {
+    if detector_unavailable && (!table_matches_loadout || loadout.equipped.is_empty()) {
         return row(
             "detector_unavailable",
             unavailable_reason,
             None,
             None,
             empty_variants(),
+            empty_variants(),
+            Value::Null,
+            "none",
         );
     }
-    if store.active().is_none() || !table_matches_active {
+    if !table_matches_loadout {
         return row(
             "unknown",
             "MEDIA_STATE_UNKNOWN",
             None,
             None,
             empty_variants(),
+            empty_variants(),
+            Value::Null,
+            "none",
         );
     }
 
-    let (bound_tier, selection, variants) = match table.lookup_binding(id, tier) {
+    let lock = loadout.event_locks.get(event.id.as_str()).cloned();
+    let lock_json = lock.clone().map_or(Value::Null, |package| json!(package));
+    let lock_state = if lock.is_some() {
+        "unsatisfied"
+    } else {
+        "none"
+    };
+
+    let (bound_tier, selection, variants, sources, lock_state) = match table
+        .lookup_binding(id, tier)
+    {
         BindingLookup::Unmapped => {
             return if detector_unavailable {
                 row(
@@ -1461,9 +1726,21 @@ fn event_map_row(
                     None,
                     None,
                     empty_variants(),
+                    empty_variants(),
+                    lock_json.clone(),
+                    lock_state,
                 )
             } else {
-                row("unmapped", "MEDIA_UNMAPPED", None, None, empty_variants())
+                row(
+                    "unmapped",
+                    "MEDIA_UNMAPPED",
+                    None,
+                    None,
+                    empty_variants(),
+                    empty_variants(),
+                    lock_json.clone(),
+                    lock_state,
+                )
             };
         }
         BindingLookup::Invalid => {
@@ -1474,6 +1751,9 @@ fn event_map_row(
                     None,
                     None,
                     empty_variants(),
+                    empty_variants(),
+                    lock_json.clone(),
+                    lock_state,
                 )
             } else {
                 row(
@@ -1482,19 +1762,14 @@ fn event_map_row(
                     None,
                     None,
                     empty_variants(),
+                    empty_variants(),
+                    lock_json.clone(),
+                    lock_state,
                 )
             };
         }
         BindingLookup::Ready { bound_tier, clip } => {
-            let resolved_v1 = store
-                .resolve_variants(event.id.as_str(), bound_tier.map(u32::from))
-                .ok()
-                .and_then(|resolved| {
-                    resolved
-                        .into_iter()
-                        .find(|variant| variant.variant_id == "v1" && variant.media.is_ok())
-                });
-            if resolved_v1.is_none() {
+            if clip.pcm.is_empty() {
                 return if detector_unavailable {
                     row(
                         "detector_unavailable",
@@ -1502,6 +1777,9 @@ fn event_map_row(
                         None,
                         None,
                         empty_variants(),
+                        empty_variants(),
+                        lock_json.clone(),
+                        lock_state,
                     )
                 } else {
                     row(
@@ -1510,36 +1788,89 @@ fn event_map_row(
                         None,
                         None,
                         empty_variants(),
+                        empty_variants(),
+                        lock_json.clone(),
+                        lock_state,
                     )
                 };
             }
-            let variant = resolved_v1.expect("resolved v1 checked above");
-            let value = event_map_variant(&variant, clip.audio_ms, clip.visual_url.is_some());
-            (bound_tier, None, Value::Array(vec![value]))
+            let (sources, value) = table.equipped.first().and_then(|install_id| {
+                loadout.equipped.first().map(|pack| {
+                    let source = json!({ "slot": 0, "install_id": install_id, "package_id": pack.package_id,
+                        "variant_count": 1, "state": "ready" });
+                    let variant = json!({ "variant_id": "v1", "duration_ms": clip.audio_ms,
+                        "has_visual": clip.visual_url.is_some(), "install_id": install_id,
+                        "package_id": pack.package_id, "equipped_slot": 0, "state": "ready", "reason": "NONE" });
+                    (Value::Array(vec![source]), variant)
+                })
+            }).unwrap_or_else(|| (empty_variants(), json!({"variant_id":"v1", "duration_ms":clip.audio_ms,
+                "has_visual":clip.visual_url.is_some(), "state":"ready", "reason":"NONE"})));
+            let lock_honored = lock.as_ref().is_some_and(|package| {
+                loadout
+                    .equipped
+                    .first()
+                    .is_some_and(|pack| pack.package_id.as_str() == package.as_str())
+            });
+            let effective_lock_state = if lock.is_none() {
+                "none"
+            } else if lock_honored {
+                "honored"
+            } else {
+                "unsatisfied"
+            };
+            (
+                bound_tier,
+                None,
+                Value::Array(vec![value]),
+                sources,
+                effective_lock_state,
+            )
         }
         BindingLookup::Variants {
             bound_tier,
             binding,
         } => {
-            let resolved = store
-                .resolve_variants(event.id.as_str(), bound_tier.map(u32::from))
-                .unwrap_or_default();
             let variants = binding
                 .variants
                 .iter()
                 .filter_map(|candidate| {
-                    let clip = candidate.media.as_ref().ok()?;
-                    let resolved_variant = resolved.iter().find(|variant| {
-                        variant.variant_id == candidate.variant_id && variant.media.is_ok()
-                    })?;
-                    Some(event_map_variant(
-                        resolved_variant,
-                        clip.audio_ms,
-                        clip.visual_url.is_some(),
-                    ))
+                    let duration = candidate
+                        .media
+                        .as_ref()
+                        .map(|clip| clip.audio_ms)
+                        .unwrap_or(0);
+                    let has_visual = candidate
+                        .media
+                        .as_ref()
+                        .is_ok_and(|clip| clip.visual_url.is_some());
+                    Some(event_map_variant(candidate, duration, has_visual))
                 })
                 .collect::<Vec<_>>();
-            if variants.is_empty() {
+            let sources = binding.variants.iter().fold(std::collections::BTreeMap::<(u8, String, String), (usize, bool, bool)>::new(), |mut map, variant| {
+                if let Some(source) = variant.source.as_ref() {
+                    let item = map.entry((source.slot, source.install_id.to_string(), source.package_id.to_string())).or_default();
+                    item.0 += 1;
+                    item.1 |= variant.media.is_ok();
+                    item.2 |= variant.media.as_ref().err().is_some_and(|reason| *reason == crate::audio::resolve::PREWARM_CAP_REASON);
+                }
+                map
+            }).into_iter().map(|((slot, install_id, package_id), (variant_count, ready, not_loaded))| json!({
+                "slot": slot, "install_id": install_id, "package_id": package_id, "variant_count": variant_count,
+                "state": if ready {"ready"} else if not_loaded {"not_loaded"} else {"invalid_media"},
+            })).collect::<Vec<_>>();
+            let lock_honored = lock.as_ref().is_some_and(|package| {
+                sources
+                    .iter()
+                    .any(|source| source["package_id"].as_str() == Some(package.as_str()))
+            });
+            let effective_lock_state = if lock.is_none() {
+                "none"
+            } else if lock_honored {
+                "honored"
+            } else {
+                "unsatisfied"
+            };
+            if variants.iter().all(|variant| variant["state"] != "ready") {
                 return if detector_unavailable {
                     row(
                         "detector_unavailable",
@@ -1547,6 +1878,24 @@ fn event_map_row(
                         None,
                         None,
                         empty_variants(),
+                        Value::Array(sources),
+                        lock_json.clone(),
+                        effective_lock_state,
+                    )
+                } else if !variants.is_empty()
+                    && variants
+                        .iter()
+                        .all(|variant| variant["state"] == "not_loaded")
+                {
+                    row(
+                        "not_loaded",
+                        "PREWARM_CAP",
+                        None,
+                        binding.selection.map(|selection| selection.as_str()),
+                        Value::Array(variants),
+                        Value::Array(sources),
+                        lock_json.clone(),
+                        effective_lock_state,
                     )
                 } else {
                     row(
@@ -1554,7 +1903,10 @@ fn event_map_row(
                         "MEDIA_INVALID",
                         None,
                         None,
-                        empty_variants(),
+                        Value::Array(variants),
+                        Value::Array(sources),
+                        lock_json.clone(),
+                        effective_lock_state,
                     )
                 };
             }
@@ -1562,6 +1914,8 @@ fn event_map_row(
                 bound_tier,
                 binding.selection.map(|selection| selection.as_str()),
                 Value::Array(variants),
+                Value::Array(sources),
+                effective_lock_state,
             )
         }
     };
@@ -1573,6 +1927,9 @@ fn event_map_row(
             None,
             selection,
             variants,
+            sources,
+            lock_json,
+            lock_state,
         );
     }
     let inherited = bound_tier != tier;
@@ -1582,12 +1939,191 @@ fn event_map_row(
         if inherited { bound_tier } else { None },
         selection,
         variants,
+        sources,
+        lock_json,
+        lock_state,
     )
+}
+
+fn parse_loadout_request(
+    bytes: &[u8],
+) -> Result<(String, LoadoutDesired, ActivationPolicy), String> {
+    let value: Value = serde_json::from_slice(bytes).map_err(|_| "MEDIA_INVALID".to_owned())?;
+    let object = value
+        .as_object()
+        .ok_or_else(|| "MEDIA_INVALID".to_owned())?;
+    let required = [
+        "schema_version",
+        "request_id",
+        "install_ids",
+        "event_locks",
+        "match_consistency",
+        "policy",
+    ];
+    if object.len() != required.len()
+        || required.iter().any(|key| !object.contains_key(*key))
+        || object.get("schema_version").and_then(Value::as_str) != Some("1.0.0")
+    {
+        return Err("MEDIA_INVALID".to_owned());
+    }
+    let request_id = object
+        .get("request_id")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "MEDIA_INVALID".to_owned())?
+        .to_owned();
+    let install_ids = object
+        .get("install_ids")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "MEDIA_INVALID".to_owned())?
+        .iter()
+        .map(|value| {
+            value
+                .as_str()
+                .map(str::to_owned)
+                .ok_or_else(|| "MEDIA_INVALID".to_owned())
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let locks = object
+        .get("event_locks")
+        .and_then(Value::as_object)
+        .ok_or_else(|| "MEDIA_INVALID".to_owned())?;
+    let mut event_locks = std::collections::BTreeMap::new();
+    for (event, package) in locks {
+        let package = package.as_str().ok_or_else(|| "MEDIA_INVALID".to_owned())?;
+        event_locks.insert(event.clone(), package.to_owned());
+    }
+    let match_consistency = object
+        .get("match_consistency")
+        .and_then(Value::as_bool)
+        .ok_or_else(|| "MEDIA_INVALID".to_owned())?;
+    let policy = match object.get("policy").and_then(Value::as_str) {
+        Some("now_if_idle") => ActivationPolicy::NowIfIdle,
+        Some("after_match") => ActivationPolicy::AfterMatch,
+        _ => return Err("MEDIA_INVALID".to_owned()),
+    };
+    Ok((
+        request_id,
+        LoadoutDesired {
+            install_ids,
+            event_locks,
+            match_consistency,
+        },
+        policy,
+    ))
+}
+
+fn loadout_value(loadout: &kohbor_pack::store::Loadout) -> Value {
+    json!({
+        "generation": loadout.generation,
+        "equipped": loadout.equipped.iter().map(|pack| json!({
+            "install_id": pack.install_id,
+            "package_id": pack.package_id,
+            "revision": pack.revision,
+            "container_sha256": pack.container_sha256,
+        })).collect::<Vec<_>>(),
+        "event_locks": loadout.event_locks,
+        "match_consistency": loadout.match_consistency,
+    })
+}
+
+fn loadout_json(store: &Store<NoHook>) -> Value {
+    json!({
+        "schema_version": "1.0.0",
+        "loadout": loadout_value(store.loadout()),
+        "pending": store.pending_loadout().map(loadout_value),
+        "pending_request_id": store.pending_loadout_request_id(),
+        "max_equipped": MAX_EQUIPPED_PACKS,
+    })
+}
+
+fn loadout_result_json(result: &LoadoutResult) -> Value {
+    json!({
+        "schema_version": "1.0.0",
+        "request_id": result.request_id,
+        "status": result.status.as_str(),
+        "reason": result.reason,
+        "loadout": loadout_value(&result.loadout),
+        "pending": result.pending.as_ref().map(loadout_value),
+    })
+}
+
+fn table_variant(
+    table: &PrewarmTable,
+    event_id: EventId,
+    tier: Option<u8>,
+    variant_id: &str,
+    install_id: &str,
+) -> Result<crate::audio::resolve::SelectedClip, String> {
+    match table.lookup_binding(event_id, tier) {
+        BindingLookup::Unmapped => Err("AUDITION_UNMAPPED".to_owned()),
+        BindingLookup::Invalid => Err("AUDITION_MEDIA_INVALID".to_owned()),
+        BindingLookup::Ready { bound_tier, clip } => {
+            if variant_id != "v1" || table.install_id.as_deref() != Some(install_id) {
+                return Err("AUDITION_VARIANT_UNAVAILABLE".to_owned());
+            }
+            Ok(crate::audio::resolve::SelectedClip {
+                event_id,
+                bound_tier,
+                variant_index: 0,
+                variant_id: "v1".to_owned(),
+                clip_id: None,
+                selection: None,
+                source: None,
+                match_consistency: table.match_consistency,
+                media: clip.clone(),
+            })
+        }
+        BindingLookup::Variants {
+            bound_tier,
+            binding,
+        } => {
+            let (index, variant) = binding
+                .variants
+                .iter()
+                .enumerate()
+                .find(|(_, variant)| {
+                    variant.variant_id == variant_id
+                        && variant
+                            .source
+                            .as_ref()
+                            .is_some_and(|source| source.install_id.as_ref() == install_id)
+                })
+                .ok_or_else(|| "AUDITION_VARIANT_UNAVAILABLE".to_owned())?;
+            let media = variant
+                .media
+                .as_ref()
+                .map_err(|_| "AUDITION_MEDIA_INVALID".to_owned())?;
+            Ok(crate::audio::resolve::SelectedClip {
+                event_id,
+                bound_tier,
+                variant_index: index,
+                variant_id: variant.variant_id.clone(),
+                clip_id: variant.clip_id.clone(),
+                selection: variant.authored_selection.or(binding.selection),
+                source: variant.source.clone(),
+                match_consistency: table.match_consistency,
+                media: media.clone(),
+            })
+        }
+    }
 }
 
 fn pack_summaries_json(store: &Store<NoHook>) -> (Value, HashMap<String, VisualEntry>) {
     let active = store.active();
     let pending: HashSet<_> = store.pending_activations().into_iter().collect();
+    let pending_loadout: HashSet<_> = store
+        .pending_loadout()
+        .into_iter()
+        .flat_map(|loadout| &loadout.equipped)
+        .map(|pack| pack.install_id.as_str())
+        .collect();
+    let equipped_slots: HashMap<_, _> = store
+        .loadout()
+        .equipped
+        .iter()
+        .enumerate()
+        .map(|(slot, pack)| (pack.install_id.as_str(), slot))
+        .collect();
     let mut covers = HashMap::new();
     let records: Vec<_> = store.records().into_iter().map(|record| {
         let summary = store.installed_pack_summary(&record.install_id);
@@ -1596,7 +2132,9 @@ fn pack_summaries_json(store: &Store<NoHook>) -> (Value, HashMap<String, VisualE
             "package_id": record.package_id,
             "revision": record.revision,
             "active": active.as_ref().is_some_and(|active| active.install_id == record.install_id),
-            "pending": pending.contains(&record.install_id),
+            "pending": pending.contains(&record.install_id) || pending_loadout.contains(record.install_id.as_str()),
+            "equipped_slot": equipped_slots.get(record.install_id.as_str()).copied(),
+            "pack_kind": "unknown",
             "display_name": null,
             "problem": "METADATA_UNAVAILABLE",
             "cover_url": null,
@@ -1622,6 +2160,7 @@ fn pack_summaries_json(store: &Store<NoHook>) -> (Value, HashMap<String, VisualE
             "cover_url": null,
         }));
         row["problem"] = Value::Null;
+        row["pack_kind"] = json!(summary.pack_kind.as_str());
         row["event_count"] = json!(summary.bindings.iter().map(|binding| &binding.event_id).collect::<HashSet<_>>().len());
         row["binding_count"] = json!(summary.bindings.len());
         row["variant_count"] = json!(summary.bindings.iter().map(|binding| binding.variant_count).sum::<usize>());
@@ -1652,7 +2191,7 @@ fn pack_summaries_json(store: &Store<NoHook>) -> (Value, HashMap<String, VisualE
         row
     }).collect();
     (
-        json!({"schema_version": "1.1.0", "records": records}),
+        json!({"schema_version": "1.2.0", "records": records}),
         covers,
     )
 }
@@ -1688,6 +2227,21 @@ fn list_json(store: &Store<NoHook>) -> Value {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn store_open_failure_names_the_kind_and_caps_the_reason() {
+        use super::{StoreError, store_open_failure};
+        let denied = "create staging: Access is denied. (os error 5)";
+        assert_eq!(
+            store_open_failure(&StoreError::Io(denied.to_owned())),
+            ("io", denied.to_owned())
+        );
+        let not_dir = StoreError::Corrupt("store root is not a real directory".to_owned());
+        assert_eq!(store_open_failure(&not_dir).0, "corrupt");
+        let (kind, reason) = store_open_failure(&StoreError::Io("x".repeat(1000)));
+        assert_eq!(kind, "io");
+        assert_eq!(reason.chars().count(), 240);
+    }
+
     fn png_fixture(width: u32, height: u32) -> Vec<u8> {
         fn chunk(output: &mut Vec<u8>, kind: &[u8; 4], data: &[u8]) {
             output.extend_from_slice(&(data.len() as u32).to_be_bytes());
@@ -1741,7 +2295,7 @@ mod tests {
         let id = installed.record.unwrap().install_id;
         let (reply, covers) = super::pack_summaries_json(&store);
         let row = &reply["records"][0];
-        assert_eq!(reply["schema_version"], "1.1.0");
+        assert_eq!(reply["schema_version"], "1.2.0");
         assert_eq!(row["display_name"], "Synthetic media service fixture");
         assert_eq!(row["event_count"], 2);
         assert_eq!(row["binding_count"], 2);
@@ -1749,6 +2303,8 @@ mod tests {
         assert_eq!(row["banner_count"], 2);
         assert_eq!(row["active"], false);
         assert_eq!(row["authority_class"], "local_import");
+        assert_eq!(row["equipped_slot"], Value::Null);
+        assert_eq!(row["pack_kind"], "basic");
         assert_eq!(row["game_id"], "dota2");
         assert!(row["installed_at"].as_u64().is_some());
         assert!(row["size_bytes"].as_u64().is_some());
@@ -1776,10 +2332,12 @@ mod tests {
         );
         assert_eq!(served.status, 200);
         assert_eq!(served.body, cover_bytes);
-        assert!(served
-            .headers
-            .iter()
-            .any(|(name, value)| name == "Content-Type" && value == "image/png"));
+        assert!(
+            served
+                .headers
+                .iter()
+                .any(|(name, value)| name == "Content-Type" && value == "image/png")
+        );
         assert!(!reply.to_string().contains("hero_kill.webm"));
         let playback_path = path.replace("/v1/cover/", "/v1/");
         let inactive_playback = crate::media::protocol::serve(
@@ -1941,10 +2499,12 @@ mod tests {
             &index,
         );
         assert_eq!(served.status, 200);
-        assert!(served
-            .headers
-            .iter()
-            .any(|(name, value)| name == "Content-Type" && value == "video/webm"));
+        assert!(
+            served
+                .headers
+                .iter()
+                .any(|(name, value)| name == "Content-Type" && value == "video/webm")
+        );
         let entry = index.preview_entries.get(route).unwrap();
         fs::write(&entry.path, b"tampered").unwrap();
         let tampered = crate::media::protocol::serve(
@@ -2018,7 +2578,7 @@ mod tests {
         let before = service.handle.list().unwrap();
         let index = service.visuals.lock().unwrap().clone();
         let map = service.handle.installed_event_map(&other_id).unwrap();
-        assert_eq!(map["schema_version"], "1.1.0");
+        assert_eq!(map["schema_version"], "1.3.0");
         assert_eq!(map["active"]["install_id"], other_id);
         assert_eq!(map["media_match_active"], false);
         let voice = map["events"]
@@ -2032,9 +2592,14 @@ mod tests {
             voice["variants"][0],
             json!({
                 "variant_id": "v1", "clip_id": "kohbor-en-0001", "caption": "On the move!",
-                "duration_ms": 10, "has_visual": true
+                "duration_ms": 10, "has_visual": true, "install_id": other_id,
+                "package_id": "other-visual", "equipped_slot": 0,
+                "state": "ready", "reason": "NONE"
             })
         );
+        assert_eq!(voice["event_group"], "basic");
+        assert_eq!(voice["sources"][0]["install_id"], other_id);
+        assert_eq!(voice["sources"][0]["state"], "ready");
         assert_eq!(service.handle.list().unwrap(), before);
         assert!(Arc::ptr_eq(&index, &service.visuals.lock().unwrap()));
         assert!(matches!(
@@ -2053,10 +2618,12 @@ mod tests {
             .handle
             .variant_visual_url(&active_id, "hero_kill", None, "v1")
             .unwrap();
-        assert!(active_visual["visual_url"]
-            .as_str()
-            .unwrap()
-            .starts_with(&format!("kohbor-media://localhost/v1/{active_id}/")));
+        assert!(
+            active_visual["visual_url"]
+                .as_str()
+                .unwrap()
+                .starts_with(&format!("kohbor-media://localhost/v1/{active_id}/"))
+        );
         let visual_url = service
             .handle
             .variant_visual_url(&other_id, "hero_kill", None, "v1")
@@ -2087,21 +2654,21 @@ mod tests {
     use std::time::Duration;
 
     use kohbor_pack::store::{ActivationPolicy, Store};
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
     use sha2::{Digest, Sha256};
 
     use super::{
-        new_facts_handle, spawn_media_service, FactsHandle, MediaHandle, ServiceConfig,
-        DEFAULT_RESUME_INTERVAL_MS,
+        DEFAULT_RESUME_INTERVAL_MS, FactsHandle, MediaHandle, ServiceConfig, new_facts_handle,
+        spawn_media_service,
     };
-    use crate::audio::lanes::{lanes, Control, EngineRx, EngineShared, CONTROL_LANE};
+    use crate::audio::lanes::{CONTROL_LANE, Control, EngineRx, EngineShared, lanes};
     use crate::audio::resolve::PrewarmTable;
-    use crate::media::inventory::{media_status, MediaFacts};
+    use crate::media::inventory::{MediaFacts, media_status};
     use crate::media::prewarm::test_support::{
-        activate, catalog, install, install_request_json, package, webm, BindingSpec, Package,
-        TempDir,
+        BindingSpec, Package, TempDir, activate, catalog, install, install_request_json, package,
+        webm,
     };
-    use crate::media::prewarm::{new_visual_index_handle, VisualIndexHandle};
+    use crate::media::prewarm::{VisualIndexHandle, new_visual_index_handle};
 
     struct RunningService {
         handle: MediaHandle,
@@ -2275,7 +2842,7 @@ mod tests {
             .handle
             .event_map()
             .expect("event map waits behind successful store open");
-        assert_eq!(event_map["schema_version"], "1.1.0");
+        assert_eq!(event_map["schema_version"], "1.3.0");
         assert!(event_map["events"].is_array());
         let facts = snapshot_facts(&service.facts);
         assert!(facts.store_ok, "successful Store::open publishes store_ok");
@@ -2283,6 +2850,57 @@ mod tests {
             facts.critical.first().map(|fact| fact.mapped),
             Some(false),
             "no active table publishes an unmapped critical fact"
+        );
+        finish(service);
+    }
+
+    #[test]
+    fn uninstall_command_preserves_a_pack_and_refuses_during_a_match() {
+        let temp = TempDir::new("uninstall-match-guard");
+        let match_active = Arc::new(AtomicBool::new(false));
+        let observed_match = match_active.clone();
+        let service = setup(
+            &temp.path().join("store"),
+            Arc::new(move || observed_match.load(Ordering::Acquire)),
+            passing_probe(),
+            Box::new(|_| {}),
+            0,
+            0,
+        );
+        let package = wav_fixture(&temp, "uninstall-match", "first_blood");
+        let install_id = install_via_service(&service.handle, &package, "uninstall-match-001");
+        match_active.store(true, Ordering::Release);
+
+        assert_eq!(
+            service.handle.uninstall(&install_id),
+            Err("MATCH_ACTIVE".to_owned())
+        );
+        let listing = service.handle.list().expect("library remains readable");
+        assert!(listing["records"].as_array().unwrap().iter().any(|record| {
+            record["install_id"].as_str() == Some(install_id.as_str())
+        }));
+        finish(service);
+    }
+
+    #[test]
+    fn uninstall_command_returns_typed_store_refusal_codes() {
+        let temp = TempDir::new("uninstall-typed-refusal");
+        let service = default_service(&temp.path().join("store"));
+        let package = wav_fixture(&temp, "uninstall-active", "first_blood");
+        let install_id = install_via_service(&service.handle, &package, "uninstall-active-001");
+        let activation = service
+            .handle
+            .activate(
+                "uninstall-activate-001",
+                &install_id,
+                ActivationPolicy::NowIfIdle,
+            )
+            .expect("activate fixture pack");
+        assert_eq!(activation["status"], "active");
+
+        assert_eq!(
+            service.handle.uninstall(&install_id),
+            Err("UNINSTALL_ACTIVE".to_owned())
         );
         finish(service);
     }
@@ -2401,7 +3019,7 @@ mod tests {
         let rows = event_map["events"]
             .as_array()
             .expect("event map exposes an array");
-        assert_eq!(event_map["schema_version"], "1.1.0");
+        assert_eq!(event_map["schema_version"], "1.3.0");
         let mut expected_keys = Vec::new();
         for event in &catalog.events {
             if let Some((first, last)) = event.tier_range {
@@ -2436,6 +3054,13 @@ mod tests {
         assert_eq!(respawn["state"], "not_voiced");
         assert_eq!(respawn["reason"], "NOT_VOICED");
         assert_eq!(respawn["variants"], json!([]));
+
+        for event_id in ["clutch_kill", "posthumous_kill", "comeback_kill"] {
+            let special = row(event_id, None).expect("proposed special event is listed");
+            assert_eq!(special["event_group"], "special");
+            assert_eq!(special["state"], "detector_unavailable");
+            assert_eq!(special["reason"], "LIVE_CAPTURE_REQUIRED");
+        }
 
         assert!(
             row("latency_probe", None).is_none(),
@@ -2602,10 +3227,12 @@ mod tests {
         let root = temp.path().join("store");
         let service = default_service(&root);
         let check_clean = || {
-            assert!(fs::read_dir(root.join("staging"))
-                .expect("read store staging")
-                .next()
-                .is_none());
+            assert!(
+                fs::read_dir(root.join("staging"))
+                    .expect("read store staging")
+                    .next()
+                    .is_none()
+            );
         };
 
         let valid = service.handle.package_bytes(&bytes, None).unwrap();
@@ -2650,9 +3277,11 @@ mod tests {
         };
         let mut store = Store::open(&root, catalog(), limits).unwrap();
         assert!(store.summarize_package_bytes(b"abcde").is_err());
-        assert!(store
-            .install_package_bytes(b"abcde", "req-picker-over-limit".into(), "0".repeat(64))
-            .is_err());
+        assert!(
+            store
+                .install_package_bytes(b"abcde", "req-picker-over-limit".into(), "0".repeat(64))
+                .is_err()
+        );
         assert_eq!(
             store.summarize_package_bytes(b"abcd").unwrap()["rejection_reason"],
             "not_a_zip"
@@ -2789,9 +3418,11 @@ mod tests {
         assert!(empty_rows.iter().all(|row| {
             row["mapped"] == false && row["duration_ms"].is_null() && row["state"] == "unknown"
         }));
-        assert!(!empty_rows
-            .iter()
-            .any(|row| row["event_id"] == "hero_respawn"));
+        assert!(
+            !empty_rows
+                .iter()
+                .any(|row| row["event_id"] == "hero_respawn")
+        );
         activate(&mut store, "req-bindings-active-001", &install_id);
         let mut pause = || {};
         let (table, _) = crate::media::prewarm::build_table(&store, &catalog, &mut pause);
@@ -3528,7 +4159,7 @@ mod tests {
         );
         let visual_entry = index
             .entries
-            .get(&token)
+            .get(&(install_id.clone(), token.clone()))
             .expect("SHA-256 token indexes the visual file");
         assert_eq!(
             visual_entry.path, visual_path,

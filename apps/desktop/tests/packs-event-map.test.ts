@@ -3,10 +3,11 @@ import { test } from "node:test";
 import catalog from "../../../contracts/event-catalog.json" with { type: "json" };
 
 const eventMap = await import("../src/packs/eventMap.ts");
+const eventMapVariant = await import("../src/packs/event-map-variant.ts");
 const copy = await import("../src/copy.ts");
 
 const expectedBindings = catalog.events
-  .filter((event) => event.status === "active")
+  .filter((event) => event.status === "active" || event.status === "proposed_unavailable")
   .flatMap((event) => {
     const tiers = event.tier_range
       ? Array.from({ length: event.tier_range.max - event.tier_range.min + 1 }, (_, index) => event.tier_range!.min + index)
@@ -14,7 +15,7 @@ const expectedBindings = catalog.events
     return tiers.map((tier) => {
       const mapped = (event.id === "multi_kill" && tier === 2) || event.id === "first_blood";
       const notVoiced = event.media_mappable === false || event.voiced_default === false;
-      const detectorUnavailable = ["first_blood", "enemy_missing", "risk_alert", "risk_revision"].includes(event.id);
+      const detectorUnavailable = ["first_blood", "enemy_missing", "risk_alert", "risk_revision", "clutch_kill", "posthumous_kill", "comeback_kill"].includes(event.id);
       const state = notVoiced
           ? "not_voiced"
           : detectorUnavailable
@@ -62,6 +63,15 @@ test("parses the versioned host event map including unavailable and not-voiced c
   assert.equal(parsed.bindings.find((row) => row.event_id === "first_blood")?.state, "detector_unavailable");
   assert.equal(parsed.bindings.find((row) => row.event_id === "hero_respawn")?.state, "not_voiced");
   assert.equal(parsed.bindings.some((row) => row.event_id === "latency_probe"), false);
+  for (const id of ["ultimate_fired", "ultimate_kill"]) {
+    const row = parsed.bindings.find((item) => item.event_id === id);
+    assert.ok(row, `${id} appears in the active event map`);
+    assert.equal(row.event_group, "special");
+    assert.equal(eventMap.soundLabel(row, "en").title, catalog.events.find(item => item.id === id)?.labels.en);
+    assert.equal(eventMap.soundLabel(row, "th").title, catalog.events.find(item => item.id === id)?.labels.th);
+  }
+  assert.ok(eventMap.browseCategoryRows("kill").some(row => row.event_id === "ultimate_fired"));
+  assert.ok(eventMap.browseCategoryRows("kill").some(row => row.event_id === "ultimate_kill"));
   const groups = eventMap.groupSoundRows(parsed.bindings);
   assert.equal(groups.flatMap(group => group.rows).length, expectedBindings.length);
   assert.equal(groups.find(group => group.id === "multi")?.rows[0]?.variants[0]?.duration_ms, 1200);
@@ -88,6 +98,56 @@ test("uses one version-aware variant parser for media event map 1.0 and 1.1", ()
       : item),
   });
   assert.equal(captionOnLegacy?.bindings.find(item => item.event_id === "multi_kill" && item.tier === 2)?.state, "unknown");
+});
+
+test("event-map 1.2 carries equipped sources, event groups, locks and prewarm totals", () => {
+  const install1 = "ins_0000000001", install2 = "ins_0000000002";
+  const package1 = { install_id: install1, package_id: "voice.main", revision: 1, container_sha256: "a".repeat(64) };
+  const package2 = { install_id: install2, package_id: "voice.special", revision: 2, container_sha256: "b".repeat(64) };
+  const shared = expectedBindings.find(item => item.event_id === "multi_kill" && item.tier === 2)!;
+  const map = eventMap.parseMediaEventMap({
+    schema_version: "1.2.0", active: { install_id: install1, package_id: "voice.main", revision: 1 },
+    loadout: { generation: 8, equipped: [package1, package2], event_locks: { hero_death: "voice.main" }, match_consistency: false },
+    pending_loadout: null, prewarm: { used_samples: 480_000, cap_samples: 40_000_000, skipped_variants: 1 },
+    media_match_active: false,
+    events: expectedBindings.map(row => {
+      const event = catalog.events.find(item => item.id === row.event_id)!;
+      const variants = row === shared ? [
+        { variant_id: "v1", install_id: install1, package_id: "voice.main", equipped_slot: 0, duration_ms: 1200, has_visual: false, state: "ready", reason: "NONE" },
+        { variant_id: "v1", install_id: install2, package_id: "voice.special", equipped_slot: 1, duration_ms: 1300, has_visual: false, state: "ready", reason: "NONE" },
+      ] : row.variants.map(variant => ({ ...variant, install_id: install1, package_id: "voice.main", equipped_slot: 0, state: "ready", reason: "NONE" }));
+      const sources = variants.length ? [
+        { slot: 0, install_id: install1, package_id: "voice.main", variant_count: variants.length, state: "ready" },
+      ] : [];
+      if (row === shared) sources.push({ slot: 1, install_id: install2, package_id: "voice.special", variant_count: 1, state: "ready" });
+      return { ...row, event_group: event.event_group ?? "basic", variants, sources,
+        lock: row.event_id === "hero_death" ? "voice.main" : null,
+        lock_state: row.event_id === "hero_death" ? "honored" : "none" };
+    }),
+  });
+  assert.ok(map);
+  assert.equal(map.schema_version, "1.2.0");
+  assert.equal(map.loadout?.generation, 8);
+  assert.equal(map.prewarm?.skipped_variants, 1);
+  const parsed = map.bindings.find(row => row.event_id === "multi_kill" && row.tier === 2)!;
+  assert.equal(parsed.event_group, "basic");
+  assert.equal(parsed.variants.length, 2, "v1 ids are pack-local and may repeat across sources");
+  assert.equal(parsed.sources.length, 2);
+  assert.equal(parsed.lock_state, "none");
+  assert.equal(map.bindings.find(row => row.event_id === "clutch_kill")?.event_group, "special");
+  assert.equal(map.bindings.find(row => row.event_id === "ultimate_fired")?.event_group, "special");
+  assert.equal(map.bindings.find(row => row.event_id === "ultimate_kill")?.event_group, "special");
+});
+
+test("event-map 1.3 retains hero conditions and presents the Thai Sniper label", () => {
+  const variant = eventMapVariant.parseEventMapVariant({
+    variant_id: "sniper", duration_ms: 1200, has_visual: false,
+    install_id: "ins_0000000001", package_id: "voice.sniper", equipped_slot: 0,
+    state: "ready", reason: "NONE", hero: "npc_dota_hero_sniper",
+  }, "1.3.0");
+  assert.equal(variant?.hero, "npc_dota_hero_sniper");
+  assert.equal(eventMap.heroScopeLabel(variant?.hero, "th"), "เฉพาะ Sniper");
+  assert.equal(eventMap.heroScopeLabel(variant?.hero, "en"), "Sniper only");
 });
 
 test("a missing, malformed, duplicate, or unexpected row degrades only that row to unknown", () => {

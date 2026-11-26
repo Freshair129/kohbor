@@ -1,10 +1,11 @@
-// Admission of a local Match Bundle (replay engine schema 3.0) for the Lab "Match view".
-// The user picks manifest.json, match.json and world.json produced on their own machine.
-// Everything stays in memory; nothing here reads the network or writes a file.
+// Admission of a local Match Bundle (replay engine schemas 3.0, 3.1 and 3.2) for the Lab "Match view".
+// New parses produce 3.2; existing 3.0 and 3.1 library entries remain readable.
+// Manual file admission remains only for the legacy report route; the Match view uses the host library.
 
-export const BUNDLE_SCHEMA = "3.0";
+export const BUNDLE_SCHEMA = "3.2" as const;
 export const BUNDLE_FILES = ["manifest.json", "match.json", "world.json"] as const;
 export type BundleFileName = (typeof BUNDLE_FILES)[number];
+export type BundleSchema = "3.0" | "3.1" | "3.2";
 
 /** Per-file read limits. A 37-minute match is about 5.2 MB (match) and 1.5 MB (world). */
 export const MAX_BUNDLE_BYTES: Record<BundleFileName, number> = {
@@ -33,14 +34,59 @@ export type BundleError =
 type Json = unknown;
 type Obj = Record<string, Json>;
 
+export type DraftTeam = "radiant" | "dire";
+export type DraftKind = "pick" | "ban";
+
+export interface DraftEntry extends Obj {
+  order: number;
+  team: DraftTeam;
+  kind: DraftKind;
+  hero: string | null;
+}
+
+export interface DamageOut extends Obj {
+  total: number;
+  p: number;
+  m: number;
+  u: number;
+}
+
+export interface BundleMeta extends Obj {
+  schema: BundleSchema;
+  winner?: DraftTeam | null;
+  winner_reason?: string;
+  draft?: DraftEntry[] | null;
+  draft_reason?: string;
+  daynight?: Array<[number, "day" | "night"]> | null;
+  daynight_reason?: string;
+}
+
+export interface BundleHero extends Obj {
+  id: string;
+  gold_earned?: Array<number | null>;
+  gold_earned_final?: number | null;
+  dmg_out?: DamageOut;
+  mods_long?: Array<[number, number | null, string, string | null | { unit: string; team: "radiant" | "dire" | "neutral" | null }, Array<"aura" | "permanent" | "stacking" | "subtle">]>;
+  mod_stacks?: Array<[number, string, number]>;
+}
+
+export interface BundleMatch extends Obj {
+  meta: BundleMeta;
+  heroes: BundleHero[];
+}
+
+const SUPPORTED_BUNDLE_SCHEMAS: ReadonlySet<unknown> = new Set(["3.0", "3.1", "3.2"]);
+const isBundleSchema = (value: Json): value is BundleSchema => SUPPORTED_BUNDLE_SCHEMAS.has(value);
+
 export interface MatchBundle {
   manifest: Obj;
-  match: Obj;
+  match: BundleMatch;
   world: Obj;
   patch: string | null;
   gameMode: number | null;
   durationS: number | null;
   calibration: Obj | null;
+  mapSize: number | null;
   mapImage: string | null;
 }
 
@@ -96,12 +142,119 @@ const pair = (x: Json) => Array.isArray(x) && x.length >= 2 && isNum(x[0]) && is
 const eco = (x: Json) => Array.isArray(x) && x.length === 4 && x.every(isNum);
 const text = (x: Json) => typeof x === "string" && SAFE_TEXT.test(x);
 
+function checkReasonedNullableField(
+  meta: Obj,
+  field: "winner" | "draft" | "daynight",
+  reason: "winner_reason" | "draft_reason" | "daynight_reason",
+  validKnown: (value: Json) => boolean,
+): void {
+  const valuePresent = Object.prototype.hasOwnProperty.call(meta, field);
+  const reasonPresent = Object.prototype.hasOwnProperty.call(meta, reason);
+  if (!valuePresent) {
+    need(!reasonPresent, "match.json", `meta.${reason}`);
+    return;
+  }
+
+  const value = meta[field];
+  if (value === null) {
+    need(typeof meta[reason] === "string" && (meta[reason] as string).length > 0, "match.json", `meta.${reason}`);
+    return;
+  }
+  need(validKnown(value), "match.json", `meta.${field}`);
+  need(!reasonPresent, "match.json", `meta.${reason}`);
+}
+
+function checkDraftEntry(value: Json, path: string): void {
+  need(isObj(value), "match.json", path);
+  const entry = value as Obj;
+  const keys = ["order", "team", "kind", "hero"];
+  need(Object.keys(entry).length === keys.length && keys.every(key => Object.prototype.hasOwnProperty.call(entry, key)), "match.json", path);
+  need(Number.isInteger(entry.order) && (entry.order as number) >= 0, "match.json", `${path}.order`);
+  need(entry.team === "radiant" || entry.team === "dire", "match.json", `${path}.team`);
+  need(entry.kind === "pick" || entry.kind === "ban", "match.json", `${path}.kind`);
+  need(entry.hero === null || (typeof entry.hero === "string" && HERO_ID.test(entry.hero)), "match.json", `${path}.hero`);
+}
+
+function checkNewMetaFields(meta: Obj, schema: BundleSchema): void {
+  checkReasonedNullableField(meta, "winner", "winner_reason", value => value === "radiant" || value === "dire");
+  checkReasonedNullableField(meta, "draft", "draft_reason", value => Array.isArray(value));
+  if (Array.isArray(meta.draft)) {
+    meta.draft.forEach((entry, index) => checkDraftEntry(entry, `meta.draft[${index}]`));
+  }
+  checkReasonedNullableField(meta, "daynight", "daynight_reason", value => Array.isArray(value)
+    && value.length >= 1 && value.every(row => Array.isArray(row) && row.length === 2 && isNum(row[0]) && (row[1] === "day" || row[1] === "night")));
+  if (schema === "3.2") need(Object.prototype.hasOwnProperty.call(meta, "daynight"), "match.json", "meta.daynight");
+}
+
+function checkModifierSource(value: Json): boolean {
+  if (value === null) return true;
+  if (typeof value === "string") return HERO_ID.test(value);
+  if (!isObj(value)) return false;
+  return Object.keys(value).length === 2
+    && typeof value.unit === "string" && value.unit.length > 0
+    && (value.team === "radiant" || value.team === "dire" || value.team === "neutral" || value.team === null);
+}
+
+function checkNewHeroFields(hero: Obj, path: string, schema: BundleSchema): void {
+  if (hero.gold_earned !== undefined) {
+    need(Array.isArray(hero.gold_earned)
+      && hero.gold_earned.every(value => value === null || (Number.isInteger(value) && (value as number) >= 0)),
+    "match.json", `${path}.gold_earned`);
+  }
+  if (hero.gold_earned_final !== undefined) {
+    need(hero.gold_earned_final === null
+      || (Number.isInteger(hero.gold_earned_final) && (hero.gold_earned_final as number) >= 0),
+    "match.json", `${path}.gold_earned_final`);
+  }
+  if (hero.dmg_out !== undefined) {
+    need(isObj(hero.dmg_out), "match.json", `${path}.dmg_out`);
+    const damage = hero.dmg_out as Obj;
+    const keys = ["total", "p", "m", "u"];
+    need(Object.keys(damage).length === keys.length && keys.every(key => Object.prototype.hasOwnProperty.call(damage, key)),
+      "match.json", `${path}.dmg_out`);
+    for (const key of keys) {
+      need(Number.isInteger(damage[key]) && (damage[key] as number) >= 0, "match.json", `${path}.dmg_out.${key}`);
+    }
+  }
+  if (hero.mods_long !== undefined) {
+    need(Array.isArray(hero.mods_long), "match.json", `${path}.mods_long`);
+    (hero.mods_long as Json[]).forEach((row, index) => {
+      const rowPath = `${path}.mods_long[${index}]`;
+      need(Array.isArray(row) && row.length === 5, "match.json", rowPath);
+      const parts = row as Json[];
+      need(isNum(parts[0]), "match.json", `${rowPath}[0]`);
+      need(parts[1] === null || isNum(parts[1]), "match.json", `${rowPath}[1]`);
+      need(typeof parts[2] === "string" && parts[2].length > 0, "match.json", `${rowPath}[2]`);
+      need(checkModifierSource(parts[3]), "match.json", `${rowPath}[3]`);
+      need(Array.isArray(parts[4]) && parts[4].every(flag => ["aura", "permanent", "stacking", "subtle"].includes(flag as string)), "match.json", `${rowPath}[4]`);
+    });
+  }
+  if (hero.mod_stacks !== undefined) {
+    need(Array.isArray(hero.mod_stacks), "match.json", `${path}.mod_stacks`);
+    (hero.mod_stacks as Json[]).forEach((row, index) => {
+      const rowPath = `${path}.mod_stacks[${index}]`;
+      need(Array.isArray(row) && row.length === 3, "match.json", rowPath);
+      const parts = row as Json[];
+      need(isNum(parts[0]), "match.json", `${rowPath}[0]`);
+      need(typeof parts[1] === "string" && parts[1].length > 0, "match.json", `${rowPath}[1]`);
+      need(Number.isInteger(parts[2]) && (parts[2] as number) >= 0, "match.json", `${rowPath}[2]`);
+    });
+  }
+  if (schema === "3.2") {
+    need(Object.prototype.hasOwnProperty.call(hero, "mods_long"), "match.json", `${path}.mods_long`);
+    need(Object.prototype.hasOwnProperty.call(hero, "mod_stacks"), "match.json", `${path}.mod_stacks`);
+  }
+}
+
 /** Checks the fields the viewer reads. Fields it guards itself (st, din, hin, finds, sampleT) stay optional. */
-export function checkMatch(match: Json): void {
+export function checkMatch(match: Json): asserts match is BundleMatch {
   const F = "match.json";
   need(isObj(match), F, "$");
   const m = match as Obj;
   need(isObj(m.meta), F, "meta");
+  need(isBundleSchema((m.meta as Obj).schema), F, "meta.schema");
+  const schema = (m.meta as Obj).schema as BundleSchema;
+  checkNewMetaFields(m.meta as Obj, schema);
   need(isNum(m.t0) && isNum(m.t1) && Number.isInteger(m.t0) && Number.isInteger(m.t1) && (m.t1 as number) > (m.t0 as number), F, "t0/t1");
   const length = (m.t1 as number) - (m.t0 as number) + 1;
   need(Array.isArray(m.heroes) && m.heroes.length >= 1 && m.heroes.length <= 10, F, "heroes");
@@ -110,6 +263,7 @@ export function checkMatch(match: Json): void {
     const p = `heroes[${k}]`;
     need(isObj(raw), F, p);
     const h = raw as Obj;
+    checkNewHeroFields(h, p, schema);
     need(typeof h.id === "string" && HERO_ID.test(h.id) && !ids.has(h.id), F, `${p}.id`);
     ids.add(h.id as string);
     need(text(h.name), F, `${p}.name`);
@@ -167,13 +321,58 @@ function checkManifest(manifest: Json): Obj {
   const F = "manifest.json";
   need(isObj(manifest), F, "$");
   const m = manifest as Obj;
-  if (m.schema !== BUNDLE_SCHEMA) throw { code: "schema", file: F, found: String(m.schema ?? "missing") } satisfies BundleError;
+  if (!isBundleSchema(m.schema)) throw { code: "schema", file: F, found: String(m.schema ?? "missing") } satisfies BundleError;
   need(isObj(m.files), F, "files");
   for (const name of ["match.json", "world.json"]) {
     const entry = (m.files as Obj)[name];
     need(isObj(entry) && isNum((entry as Obj).bytes) && typeof (entry as Obj).sha256 === "string", F, `files.${name}`);
   }
+  if (m.map !== undefined) need(isObj(m.map), F, "map");
+  if (isObj(m.map) && m.map.size !== undefined) need(isNum(m.map.size) && m.map.size > 0, F, "map.size");
   return m;
+}
+
+function buildBundle(manifest: Obj, match: Obj, world: Obj): MatchBundle {
+  const meta = isObj(match.meta) ? match.meta : null;
+  if (meta && !isBundleSchema(meta.schema)) {
+    throw { code: "schema", file: "match.json", found: String(meta.schema ?? "missing") } satisfies BundleError;
+  }
+  checkMatch(match);
+  const matchMeta = match.meta;
+  need(manifest.schema === matchMeta.schema, "match.json", "meta.schema");
+  need(String(matchMeta.match_id) === String(manifest.match_id), "match.json", "meta.match_id");
+  checkWorld(world);
+  const map = isObj(manifest.map) ? manifest.map : null;
+  const patch = matchMeta.patch, mode = matchMeta.game_mode, duration = matchMeta.duration_s;
+  const calibration = map ? map.calibration : null;
+  const image = map ? map.image : null;
+  return {
+    manifest,
+    match,
+    world,
+    patch: typeof patch === "string" && SAFE_TEXT.test(patch) ? patch : null,
+    gameMode: typeof mode === "number" && Number.isInteger(mode) ? mode : null,
+    durationS: isNum(duration) ? duration : null,
+    calibration: isObj(calibration) ? calibration : null,
+    mapSize: map && isNum(map.size) ? map.size : null,
+    mapImage: typeof image === "string" ? image.toLowerCase() : null,
+  };
+}
+
+/** Structural admission for host-opened bundles; the RP1 host already verified on-disk hashes. */
+export function admitLibraryBundle(value: unknown): Admission {
+  try {
+    need(isObj(value), "manifest.json", "$");
+    const raw = value as Obj;
+    const manifest = checkManifest(raw.manifest);
+    need(isObj(raw.match_data), "match.json", "$");
+    need(isObj(raw.world), "world.json", "$");
+    return { ok: true, bundle: buildBundle(manifest, raw.match_data as Obj, raw.world as Obj) };
+  } catch (error) {
+    if (error instanceof ShapeError) return { ok: false, error: { code: "shape", file: error.file, path: error.path } };
+    if (isObj(error) && typeof error.code === "string") return { ok: false, error: error as BundleError };
+    throw error;
+  }
 }
 
 /** Validates a multi-file pick holding one Match Bundle. Other picked files are ignored. */
@@ -212,32 +411,11 @@ export async function admitMatchBundle(files: readonly PickedFile[]): Promise<Ad
         return { ok: false, error: { code: "integrity", file: name } };
       }
     }
-    const match = parse("match.json", bytes["match.json"]) as Obj;
-    const meta = isObj(match) && isObj(match.meta) ? match.meta : null;
-    if (meta && meta.schema !== BUNDLE_SCHEMA) {
-      return { ok: false, error: { code: "schema", file: "match.json", found: String(meta.schema ?? "missing") } };
-    }
-    checkMatch(match);
-    const md = match.meta as Obj;
-    need(md.match_id === manifest.match_id, "match.json", "meta.match_id");
-    const world = parse("world.json", bytes["world.json"]) as Obj;
-    checkWorld(world);
-    const map = isObj(manifest.map) ? manifest.map : null;
-    const patch = md.patch, mode = md.game_mode, duration = md.duration_s;
-    const calibration = map ? map.calibration : null, image = map ? map.image : null;
-    return {
-      ok: true,
-      bundle: {
-        manifest,
-        match,
-        world,
-        patch: typeof patch === "string" && SAFE_TEXT.test(patch) ? patch : null,
-        gameMode: typeof mode === "number" && Number.isInteger(mode) ? mode : null,
-        durationS: isNum(duration) ? duration : null,
-        calibration: isObj(calibration) ? calibration : null,
-        mapImage: typeof image === "string" ? image.toLowerCase() : null,
-      },
-    };
+    const match = parse("match.json", bytes["match.json"]);
+    const world = parse("world.json", bytes["world.json"]);
+    need(isObj(match), "match.json", "$");
+    need(isObj(world), "world.json", "$");
+    return { ok: true, bundle: buildBundle(manifest, match as Obj, world as Obj) };
   } catch (error) {
     if (error instanceof ShapeError) return { ok: false, error: { code: "shape", file: error.file, path: error.path } };
     if (isObj(error) && typeof error.code === "string") return { ok: false, error: error as BundleError };

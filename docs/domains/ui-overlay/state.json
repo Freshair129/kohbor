@@ -2,9 +2,9 @@
   "schema_version": "1.0.0",
   "domain": "ui-overlay",
   "tier": "B",
-  "verified_at_commit": "da88446",
-  "verified_on": "2026-11-13",
-  "verified_by": "claude-code subagent draft (read-only), integrated by the governance lead; agent work, not human review",
+  "verified_at_commit": "a8b636b",
+  "verified_on": "2026-11-25",
+  "verified_by": "Codex; reviewed source references, not human or owner approval",
   "write_areas": [
     "apps/desktop/src/**",
     "docs/design/UX-SPEC.md",
@@ -24,7 +24,24 @@
     "UI-006",
     "UI-007",
     "UI-008",
-    "QUALITY-003"
+    "QUALITY-003",
+    "UI-009",
+    "UI-010",
+    "UI-011",
+    "UI-012",
+    "UI-013",
+    "UI-015",
+    "UI-016",
+    "UI-017",
+    "UI-018",
+    "UI-019",
+    "UI-020",
+    "MEDIA-009",
+    "STATS-001",
+    "STATS-002",
+    "STATS-003",
+    "UI-021",
+    "UI-022"
   ],
   "proposed_requirement_ids": [],
   "decision_ids": [
@@ -34,7 +51,17 @@
     "DEC-SHARE-LIST",
     "DEC-INTERFACES",
     "DEC-NATIVE-EVIDENCE",
-    "DEC-SOCIAL"
+    "DEC-SOCIAL",
+    "DEC-LIVE-SECOND-MONITOR",
+    "DEC-OVERVIEW",
+    "DEC-ANALYTICS-V2",
+    "DEC-LANE-EXPECTATION",
+    "DEC-UX-REVIEW-20261125",
+    "DEC-ANALYTICS-LAYOUT",
+    "DEC-AI-PROVIDERS",
+    "DEC-REPLAY-AUTO-PARSE",
+    "DEC-REPLAY-INTEGRATION",
+    "DEC-POSITIONING-20261125"
   ],
   "task_id_prefixes": [],
   "artefacts": [
@@ -42,13 +69,13 @@
       "path": "docs/design/UX-SPEC.md",
       "type": "spec",
       "role": "governing",
-      "reviewed_sha256": "be41a2dbcb4bdb20883e16fafed4b6dab4ff74e9b635205c94572ec55ecc18af"
+      "reviewed_sha256": "96fb5be8819d126d87e6a3e19be154ee32259cd99c79127bb974261c52757764"
     },
     {
       "path": "docs/design/VISUAL-DESIGN-PROPOSAL.md",
       "type": "spec",
       "role": "governing",
-      "reviewed_sha256": "480ecffb0dfdba0f80cb3c6cf1de4cf4d940e078d2c18e40f47fa982d003fac7"
+      "reviewed_sha256": "5aabd00be6a6086bf16d3962f0842592f2fac2846924c744de023720d28f137b"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -59,7 +86,7 @@
       "path": "docs/design/visuals/command-deck/DESIGN-NOTES.md",
       "type": "mockup",
       "role": "reference",
-      "reviewed_sha256": "a7bc307fef196fb246e62e3e2335fb0f1609b26639bc8143264a6ed2adeb8d13"
+      "reviewed_sha256": "ffe0dd02cb8b70ba178bfc5a2e5b1cefbdb7ca6fdce0bb5ff3e55f5551c60ef9"
     },
     {
       "path": "docs/design/visuals/s3-audio-ui/DESIGN-NOTES.md",
@@ -71,13 +98,13 @@
       "path": "docs/design/REMAINING-SYSTEM-DESIGN.md",
       "type": "spec",
       "role": "reference",
-      "reviewed_sha256": "85ed331560c4f2cf8d484591eb00c0c84b6c93e9f10985147a73fc8d4fc1ba9a"
+      "reviewed_sha256": "54f9a24fbd97926de812f5b565e68bc34e987795667c9906d373da4dc81d6887"
     },
     {
       "path": "docs/delivery/SPRINT-ROADMAP.md",
       "type": "registry",
       "role": "reference",
-      "reviewed_sha256": "73a046327b50a6a41c6083754870b919ac7f8fd560bca41270c8d9d8b4ee6c80"
+      "reviewed_sha256": "1998e844650b06125fd18912cf140ab02b896c80f57b7b42502d01c1daa8b64b"
     },
     {
       "path": "apps/desktop/src",
@@ -103,6 +130,79 @@
       "path": "docs/design/S6-OVERLAY-SLICE.md",
       "type": "spec",
       "role": "governing"
+    },
+    {
+      "path": "docs/design/DERIVED-STATS.md",
+      "type": "spec",
+      "role": "reference",
+      "reviewed_sha256": "83621aa5deaa1d7cbbef11ff1dd4fc621aa9855c3081a8d37269805b46c50566"
+    },
+    {
+      "path": "docs/design/REPLAY-PIPELINE.md",
+      "type": "spec",
+      "role": "reference",
+      "reviewed_sha256": "de71d3196fece5a000916a5a2879d9be13e955ed2f564b4dd84ff4b3308982f5"
+    },
+    {
+      "path": "docs/design/REPLAY-ENGINE-PROVENANCE.md",
+      "type": "review",
+      "role": "reference",
+      "reviewed_sha256": "77cff5a8c7ae5ace5a3b2617f6a038c1cba2a0fbdbce90ac2d2380bf15bd00b3"
+    },
+    {
+      "path": "docs/governance/DECISION-LOG.md",
+      "type": "process",
+      "role": "reference",
+      "reviewed_sha256": "9f216cf62e7266d8e6f8e6e63f0c4d2c1789d0ce65875205e547915ff54dbade"
+    },
+    {
+      "path": "apps/desktop/src/analytics",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "apps/desktop/src/replay",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "apps/desktop/src/settings",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "apps/desktop/src/packs",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "apps/desktop/src/store",
+      "type": "code",
+      "role": "source-of-truth"
+    },
+    {
+      "path": "docs/design/ANALYTICS-HOST-API.md",
+      "type": "spec",
+      "role": "neighbour:host-core",
+      "reviewed_sha256": "71e3275d85d615e836cff98919baaeeeb070d7998417dc79bb3f4790fa5297c3"
+    },
+    {
+      "path": "docs/design/LANE-EXPECTATION.md",
+      "type": "spec",
+      "role": "governing",
+      "reviewed_sha256": "6c16f609de7638ec6b4cab97f308dd953c5bc3bd9fde51b09f8cc966f485f2bd"
+    },
+    {
+      "path": "docs/design/DESIGN-IMPLEMENTATION.md",
+      "type": "design",
+      "role": "reference",
+      "reviewed_sha256": "db4d8c921109390c24f76bcaed35828a0b14be48365c62f1235b526d9eb25ebe"
+    },
+    {
+      "path": "docs/design/MINIMAP-RUNE-ROSHAN-OVERLAY.md",
+      "type": "design",
+      "role": "reference",
+      "reviewed_sha256": "8e020ed5179037ce58d383eb5edf2ec5dccf3abb36e80e7652f112eec778820f"
     }
   ],
   "open_questions": [
@@ -119,21 +219,18 @@
       "owner": "product owner",
       "raised": "2026-11-13",
       "ref": "docs/design/visuals/s3-audio-ui/DESIGN-NOTES.md section 6 item 3"
-    },
-    {
-      "id": "Q-UI-3",
-      "question": "Scaled deck for the Live destination versus the 1420x760 stage (O-12).",
-      "owner": "product owner",
-      "raised": "2026-11-12",
-      "ref": "docs/design/REMAINING-SYSTEM-DESIGN.md section 6"
     }
   ],
   "last_handoff": {
-    "task_id": null,
-    "on": "2026-11-13",
-    "summary": "Refreshed after PR #10 merged: S3 roadmap rows, S3-5 design section 13 and requirement implementation refs reviewed in the diff; no card fact outside the lines changed."
+    "task_id": "domain-cards-refresh-2",
+    "on": "2026-11-25",
+    "summary": "Refreshed domain maps from current source documents and assigned existing requirements and crates; source and requirement records were not edited."
   },
   "interface_requirement_ids": [
-    "QUALITY-004"
-  ]
+    "QUALITY-004",
+    "ALERT-008",
+    "MEM-006",
+    "UPDATE-005"
+  ],
+  "crates": []
 }

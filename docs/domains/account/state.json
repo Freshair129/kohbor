@@ -2,9 +2,9 @@
   "schema_version": "1.0.0",
   "domain": "account",
   "tier": "A",
-  "verified_at_commit": "d94cb96",
-  "verified_on": "2026-11-14",
-  "verified_by": "claude-code governance session, backfilled from the Domain Steward design and the documents named in artefacts; agent work, not human review",
+  "verified_at_commit": "a8b636b",
+  "verified_on": "2026-11-25",
+  "verified_by": "Codex; reviewed source references, not human or owner approval",
   "write_areas": [
     "crates/kohbor-account/**",
     "docs/design/ACCOUNT-IDENTITY-REVIEW.md"
@@ -56,13 +56,13 @@
       "path": "docs/design/REMAINING-SYSTEM-DESIGN.md",
       "type": "design",
       "role": "governing",
-      "reviewed_sha256": "85ed331560c4f2cf8d484591eb00c0c84b6c93e9f10985147a73fc8d4fc1ba9a"
+      "reviewed_sha256": "54f9a24fbd97926de812f5b565e68bc34e987795667c9906d373da4dc81d6887"
     },
     {
       "path": "docs/design/BACKEND-STACK.md",
       "type": "design",
       "role": "reference",
-      "reviewed_sha256": "943da0610df6b11949c453cdec7b90b1276a6a6962a790f7d0ee89551e496f4f"
+      "reviewed_sha256": "5d4cab102bf61656da488037e7e7e0fde6f4f8fb2ceb251d549ffd6bb735f665"
     },
     {
       "path": "docs/design/SHARING-MODEL-REVIEW.md",
@@ -99,6 +99,18 @@
       "path": "supabase/README.md",
       "type": "guide",
       "role": "reference"
+    },
+    {
+      "path": "docs/design/ALPHA-LAUNCH.md",
+      "type": "design",
+      "role": "reference",
+      "reviewed_sha256": "09369507f8c9cec05d48f5ed95a57dab399e56f56abf4d959f2ab7a92dd23e2e"
+    },
+    {
+      "path": "docs/governance/DECISION-LOG.md",
+      "type": "process",
+      "role": "reference",
+      "reviewed_sha256": "9f216cf62e7266d8e6f8e6e63f0c4d2c1789d0ce65875205e547915ff54dbade"
     }
   ],
   "open_questions": [
@@ -110,9 +122,9 @@
     }
   ],
   "last_handoff": {
-    "task_id": null,
-    "on": "2026-11-14",
-    "summary": "Alpha/beta hosting recorded as provisional on the owner's statement (DEC-ACCOUNT-ORIGIN); BACKEND-STACK added as a reference; nothing provisioned or built."
+    "task_id": "domain-cards-refresh-2",
+    "on": "2026-11-25",
+    "summary": "Refreshed domain maps from current source documents and assigned existing requirements and crates; source and requirement records were not edited."
   },
   "crates": [
     "kohbor-account"

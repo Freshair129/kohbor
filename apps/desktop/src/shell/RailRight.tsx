@@ -27,8 +27,10 @@ export function RailRight({ account, port, version, steamName, showSteamName, lo
 }) {
   return (
     <aside className="shell-rail shell-rail-right">
-      <AccountFlyout account={account} port={port} version={version} steamName={steamName} showSteamName={showSteamName}
-        locale={locale} labels={labels} currentPage={currentPage} navigate={navigate} />
+      <div className="shell-rail-account-tooltip" title={labels.account}>
+        <AccountFlyout account={account} port={port} version={version} steamName={steamName} showSteamName={showSteamName}
+          locale={locale} labels={labels} currentPage={currentPage} navigate={navigate} />
+      </div>
       <section className="shell-rail-friends" aria-label={labels.friends} data-slot="friends-reserved" title={labels.friendsNotYet}>
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
           <circle cx="9" cy="8" r="3.2" /><path d="M3.5 19a5.5 5.5 0 0 1 11 0" /><circle cx="17" cy="9" r="2.4" /><path d="M15.5 14.2A4.5 4.5 0 0 1 21 18.5" />

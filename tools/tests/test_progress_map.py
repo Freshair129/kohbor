@@ -674,6 +674,9 @@ class Roadmap(Base):
     def test_id_and_milestone_ranges(self) -> None:
         self.assertEqual(pm.expand_ids("VOICE-001..003 and CORE-001–002, ZZZ-001", {"VOICE-001", "VOICE-002", "VOICE-003", "CORE-001", "CORE-002", "CORE-009"}),
                          ["VOICE-001", "VOICE-002", "VOICE-003", "CORE-001", "CORE-002"])
+        # Two-letter prefixes (UI-xxx) count too; unknown ids and one-letter prefixes do not.
+        self.assertEqual(pm.expand_ids("UI-001..002, UI-015 and U-001, UI-999", {"UI-001", "UI-002", "UI-015"}),
+                         ["UI-001", "UI-002", "UI-015"])
         self.assertEqual(pm.all_ms("M5–M8"), ["M5", "M6", "M7", "M8"])
         self.assertEqual(pm.all_ms("M1 close-out"), ["M1"])
 

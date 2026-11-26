@@ -9,6 +9,23 @@ flowchart TB
     CloudGate -->|"Approved fields only"| Cloud
     Cloud -->|"Generation recheck"| Reply
   end
+  subgraph AnalyticsRoute["Analytics route: user-controlled provider requests"]
+    direction TB
+    AnalyticsSubmit["Explicit question submit"]
+    AnalyticsGate["Selected provider + origin consent + required key + AI on; blocked in draft/pregame/live"]
+    AnalyticsPayload["Derived selected-match context, hero names, question, earlier same-match chat resent each question, and open document when included"]
+    UserKey["Per-provider API key held in current-user DPAPI; origin-bound"]
+    CloudProvider["Selected provider on fixed HTTPS host or validated custom HTTPS endpoint"]
+    LocalProvider["User-run loopback Ollama or LiteLLM"]
+    AnalyticsResult["Streamed answer and validated note result"]
+    AnalyticsSubmit --> AnalyticsGate --> AnalyticsPayload
+    AnalyticsPayload -->|"Only after all gates; provider-specific consent"| CloudProvider
+    UserKey -->|"Provider authentication header; never prompt content"| CloudProvider
+    AnalyticsPayload -->|"Loopback only; never during a match"| LocalProvider
+    UserKey -.->|"Optional local authentication header"| LocalProvider
+    CloudProvider -->|"No automatic request; no telemetry"| AnalyticsResult
+    LocalProvider -->|"Forwarding behavior is unknown to Kohbor"| AnalyticsResult
+  end
   subgraph PeerRoute["Peer route: fresh create or join consent"]
     direction TB
     OwnVitals["Complete admitted own vitals"]

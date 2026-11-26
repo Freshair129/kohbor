@@ -159,6 +159,10 @@ The integration feature is expected not to expose the game mode or lobby type, f
 
 Labeling every match "mode unverified" is a visible product consequence. The product owner must acknowledge it when DEC-GSI-INTAKE closes.
 
+### 4.3 Map scoreboard projection (DATA-003, UI-002)
+
+The Live map pane consumes the GSI paths `map.radiant_score`, `map.dire_score` and signed `map.clock_time` as three separate renderer fields. Each score is an integer in `0..=100000`; the clock is an integer in `-86400..=86400`, where a negative value is the pre-horn countdown. Missing or malformed values remain independently unknown or invalid. The current internal `combined_score` may remain as a sum for compatibility, but it cannot replace either team's score. Never fill a missing score or clock with zero. The renderer uses these fields only under the current verified-owner and source-freshness gates; an unknown or stale field renders as an em dash. These fields do not identify game mode and are not a win-probability model.
+
 ## 5. Generation, sequence and freshness clock (DATA-001)
 
 - **`source.generation`.** A positive integer, persisted in local runtime state.

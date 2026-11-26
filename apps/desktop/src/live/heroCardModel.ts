@@ -4,9 +4,9 @@
 // K/D/A, LH/DN, gold, HP and mana bars, ability row with buff chips, six items + backpack + TP + neutral, and the
 // attribute and derived stat rows. The own hero fills what GSI sends; the nine others reuse the second-monitor card
 // model (secondMonitorCards.ts), so no new data path is added.
-// Rules: unknown is a real state (null, rendered "—" or an empty dashed slot), never 0; no stat is computed on Live
-// (GSI sends no attributes), so every stat cell is "—" until a source exists; no path traces; no enemy value that is
-// not observed; a missing icon falls back to the runtime portrait or a name tile.
+// Rules: unknown is a real state (null, rendered "—" or an empty dashed slot), never 0; the own hero's derived values
+// use only admitted GSI identity/level/item IDs plus the installed-game stats pack; no path traces or unobserved enemy
+// values; a missing icon falls back to the runtime portrait or a name tile.
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
 import type { OwnHeroViewModel } from "../deck/ownHeroModel.ts";
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
@@ -17,8 +17,16 @@ import { formatCooldownValue } from "../deck/cooldownModel.ts";
 import type { HeroCard, SkillState, SkillSource } from "./secondMonitorCards.ts";
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
 import type { IconResolver } from "./dotaIcons.ts";
+// @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
+import { derivedStats, RULES_BY_PATCH, type DerivedRules, type StatsData } from "../stats/derivedStats.ts";
+// @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
+import { STAT_ICON_CATALOG, type StatIconId, type StatKey } from "./statIcons/catalog.ts";
+// @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
+import type { OwnFieldCardMode } from "./secondMonitorLayout.ts";
+import { heroCardView as buildHeroCardView } from "../analytics/heroCardView.mjs";
 
 export const UNKNOWN = "—";
+export type HeroCardLabelMode = "text" | "icon";
 
 /** In-game player slot colours (top bar order). Used only when the draft slot is known; otherwise the team token. */
 export const SLOT_COLORS = ["#3375ff", "#66ffbf", "#bf00bf", "#f3f00b", "#ff6b00", "#fe86c2", "#a1b447", "#65d9f7", "#008321", "#a46900"] as const;
@@ -104,21 +112,97 @@ export function unknownItems(): ItemsView {
 }
 
 /**
- * The replay card's attribute and derived stat cells, in its order: STR/AGI/INT (with gains), DMG, REG, then
- * ARM, MR, AMP, AS, MS, EV, SR, LS; GPM/XPM follow for the own hero's GSI rates. Live has no source for the attribute
- * and derived values (GSI sends none and Live computes nothing), so those cells are always "—" in this slice.
+ * The replay card's attribute and derived stat cells, in its order: STR/AGI/INT, DMG, REG, then ARM, MR, AMP, AS, MS,
+ * EV, SR, LS; GPM/XPM follow as the own hero's observed GSI rates. Missing module outputs remain "—".
  */
-export type StatKey = "str" | "agi" | "int" | "dmg" | "reg" | "arm" | "mr" | "amp" | "as" | "ms" | "ev" | "sr" | "ls" | "gpm" | "xpm";
-export interface StatCellView { key: StatKey; label: string; value: string; gain: string | null; group: "attribute" | "derived" | "rate" }
-const STAT_CELLS: readonly [StatKey, string, StatCellView["group"]][] = [
-  ["str", "STR", "attribute"], ["agi", "AGI", "attribute"], ["int", "INT", "attribute"], ["dmg", "DMG", "attribute"], ["reg", "REG", "attribute"],
-  ["arm", "ARM", "derived"], ["mr", "MR", "derived"], ["amp", "AMP", "derived"], ["as", "AS", "derived"],
-  ["ms", "MS", "derived"], ["ev", "EV", "derived"], ["sr", "SR", "derived"], ["ls", "LS", "derived"],
-  ["gpm", "GPM", "rate"], ["xpm", "XPM", "rate"],
+export interface StatCellView {
+  key: StatKey; label: string; value: string; gain: string | null; group: "attribute" | "derived" | "rate";
+  iconIds: readonly StatIconId[]; accessibleLabel: string;
+  derived: boolean; sources: string[]; basis: string | null;
+}
+const STAT_CELLS: readonly [StatKey, StatCellView["group"]][] = [
+  ["str", "attribute"], ["agi", "attribute"], ["int", "attribute"], ["dmg", "attribute"], ["reg", "attribute"],
+  ["arm", "derived"], ["mr", "derived"], ["amp", "derived"], ["as", "derived"],
+  ["ms", "derived"], ["ev", "derived"], ["sr", "derived"], ["ls", "derived"],
+  ["gpm", "rate"], ["xpm", "rate"],
 ];
-export function statCells(rates: { gpm: number | null; xpm: number | null } = { gpm: null, xpm: null }): StatCellView[] {
-  return STAT_CELLS.map(([key, label, group]) => ({ key, label, group, gain: null,
-    value: key === "gpm" ? num(rates.gpm) : key === "xpm" ? num(rates.xpm) : UNKNOWN }));
+const COMPACT_OWN_FIELD_STAT_KEYS: readonly StatKey[] = ["arm", "mr", "amp", "as", "ms", "ev", "sr", "ls"];
+export interface OwnFieldStatsLayout { compact: boolean; columns: number; rows: number; statHeight: number }
+
+/** Compact field cards use the eight stats shown in the pinned card reference; narrow cards keep the complete grid. */
+export function ownFieldStatsLayout(mode: OwnFieldCardMode | undefined): OwnFieldStatsLayout {
+  return mode === "one-row-28" || mode === "two-row-24"
+    ? { compact: true, columns: 4, rows: 2, statHeight: 24 }
+    : { compact: false, columns: 5, rows: 3, statHeight: 36 };
+}
+
+export function compactOwnFieldStats(cells: StatCellView[]): StatCellView[] {
+  const byKey = new Map(cells.map(cell => [cell.key, cell]));
+  return COMPACT_OWN_FIELD_STAT_KEYS.flatMap(key => {
+    const cell = byKey.get(key);
+    return cell ? [cell] : [];
+  });
+}
+
+type DerivedCell = { value: string; sources: string[] };
+type DerivedCellMap = Partial<Record<StatKey, DerivedCell>>;
+
+export function statCells(
+  rates: { gpm: number | null; xpm: number | null } = { gpm: null, xpm: null },
+  derived: DerivedCellMap = {},
+  basis: string | null = null,
+): StatCellView[] {
+  return STAT_CELLS.map(([key, group]) => {
+    const { label, accessibleLabel, iconIds } = STAT_ICON_CATALOG[key];
+    const cell = derived[key];
+    const isRate = group === "rate";
+    return { key, label, group, iconIds, accessibleLabel, gain: null, derived: cell !== undefined,
+      value: cell?.value ?? (key === "gpm" ? num(rates.gpm) : key === "xpm" ? num(rates.xpm) : UNKNOWN),
+      sources: cell?.sources ?? (isRate ? [`gsi:own.fields.${key}`] : []), basis: cell ? basis : null };
+  });
+}
+
+export interface DerivedRulesSelection { rules: DerivedRules; label: string; title: string; fallback: boolean }
+
+/** Use pack-identified rules only when the admitted game build matches that pack and its patch is verified. */
+export function selectLiveDerivedRules(gameBuild: number | null, stats: StatsData): DerivedRulesSelection {
+  const packPatch = stats.patch === "7.41f" || stats.patch === "7.42" ? stats.patch : null;
+  const matched = gameBuild !== null && gameBuild === stats.build && packPatch !== null;
+  const rules = matched ? RULES_BY_PATCH[packPatch!] : RULES_BY_PATCH["7.42"];
+  const dataBuild = stats.build === undefined ? UNKNOWN : String(stats.build);
+  const label = matched ? `B${gameBuild} · P${dataBuild} · R${rules.patch}` : `B? · P${dataBuild} · R${rules.patch}*`;
+  const title = matched
+    ? `Game build ${gameBuild} matches stats pack build ${dataBuild}; rules ${rules.patch}.`
+    : `Game build ${gameBuild === null ? "unknown" : gameBuild}; stats pack build ${dataBuild}; rules ${rules.patch} selected as the newest supported fallback.`;
+  return { rules, label, title, fallback: !matched };
+}
+
+function displayStat(value: number | null, suffix = "", digits = 0): string {
+  if (value === null || !Number.isFinite(value)) return UNKNOWN;
+  const rounded = digits === 0 ? Math.round(value) : Math.round(value * 10 ** digits) / 10 ** digits;
+  return `${Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(digits)}${suffix}`;
+}
+
+/** Reuse the derived-stat display's one-decimal rounding and integer formatting. */
+export function formatRegenText(value: number | null): string | null {
+  if (value === null || !Number.isFinite(value)) return null;
+  return `+${displayStat(value, "", 1)}`;
+}
+
+function liveDerivedCells(output: ReturnType<typeof derivedStats>): DerivedCellMap {
+  const direct = (value: { value: number | null; sources: string[] }, suffix = "", digits = 0): DerivedCell => ({
+    value: displayStat(value.value, suffix, digits), sources: value.sources,
+  });
+  const damageSources = [...new Set([...output.damageMin.sources, ...output.damageMax.sources])];
+  const damage = output.damageMin.value === null || output.damageMax.value === null
+    ? UNKNOWN : `${displayStat(output.damageMin.value)}–${displayStat(output.damageMax.value)}`;
+  return {
+    str: direct(output.attributes.strength), agi: direct(output.attributes.agility), int: direct(output.attributes.intelligence),
+    dmg: { value: damage, sources: damageSources }, reg: direct(output.healthRegen, "", 1),
+    arm: direct(output.armor, "", 1), mr: direct(output.magicalResistance, "%", 1), amp: direct(output.spellAmp, "%", 1),
+    as: direct(output.attackSpeed), ms: direct(output.moveSpeed), ev: direct(output.evasion, "%", 1),
+    sr: direct(output.statusResistance, "%", 1), ls: direct(output.lifesteal, "%", 1),
+  };
 }
 
 export interface FullHeroCardView {
@@ -142,6 +226,10 @@ export interface FullHeroCardView {
   hpLow: boolean;
   manaPercent: number | null;
   manaText: string;
+  hpRegenText: string | null;
+  manaRegenText: string | null;
+  hpRegenSources: string[];
+  manaRegenSources: string[];
   alive: boolean | null;
   respawnText: string | null;
   stale: boolean;
@@ -153,6 +241,22 @@ export interface FullHeroCardView {
   stats: StatCellView[];
   /** Ally ultimate dot from an admitted source (peer or the top-bar read); null otherwise and always for enemies. */
   ult: { state: SkillState; source: Exclude<SkillSource, null>; seconds: number | null } | null;
+  derivedBasis: { label: string; title: string } | null;
+}
+
+/** Adapt the live view model into the same six-row structure used by Replay and Analytics. */
+export function sharedHeroCardView(view: FullHeroCardView) {
+  const statValues = (cells: StatCellView[]) => Object.fromEntries(cells.map(cell => [cell.key, cell.value]));
+  const attributes = view.stats.filter(cell => cell.group === "attribute");
+  const derived = view.stats.filter(cell => cell.group !== "attribute");
+  return buildHeroCardView({
+    top: { name: view.heroName ?? UNKNOWN, level: view.levelText, kda: view.kdaText, lhdn: view.lhdnText, netWorth: UNKNOWN },
+    bars: { hp: view.hpText, mana: view.manaText },
+    ab: { hero: view.abilities.hero.map(slot => slot.state), extras: view.abilities.extras.map(slot => slot.state), buffs: view.buffs.length },
+    it: { main: view.items.main.map(slot => slot.state), backpack: view.items.backpack.map(slot => slot.state), teleport: view.items.teleport.state, neutral: view.items.neutral.state, gold: view.side === "own" ? view.goldText : UNKNOWN },
+    st: statValues(attributes),
+    dv: statValues(derived),
+  });
 }
 
 const clampPercent = (value: number | null): number | null =>
@@ -160,15 +264,15 @@ const clampPercent = (value: number | null): number | null =>
 const percentText = (value: number | null): string => value === null ? UNKNOWN : `${Math.round(value)}%`;
 
 /**
- * Own hero, full card, from GSI only. Items and abilities are the tiles the caller chose to present (fresh, or the
- * last fresh value of the same context while stale); null means no data yet and renders unknown slots. GSI sends no
- * attributes or derived stats, so those cells are "—".
+ * Own hero, full card, from GSI plus the installed-game stat pack. Items and abilities are the tiles the caller chose
+ * to present (fresh, or the last fresh value of the same context while stale); null means no data yet and renders
+ * unknown slots. Derived output is marked as an estimate and retains the module's source list.
  */
 export function ownFullCard(input: {
   own: OwnHeroViewModel;
   items: ItemTile[] | null; itemsStale: boolean;
   abilities: AbilityTile[] | null; abilitiesStale: boolean;
-  slot?: number | null; stale?: boolean; icons: IconResolver;
+  slot?: number | null; stale?: boolean; icons: IconResolver; statsData?: StatsData | null; gameBuild?: number | null;
 }): FullHeroCardView {
   const { own, icons } = input;
   const s = own.stats;
@@ -177,6 +281,13 @@ export function ownFullCard(input: {
   const groups = input.items ? groupItemSlots(input.items) : null;
   const rows = input.abilities && input.abilities.length > 0 ? splitAbilityRows(input.abilities) : null;
   const slot = input.slot ?? null;
+  const selection = input.statsData ? selectLiveDerivedRules(input.gameBuild ?? null, input.statsData) : null;
+  const itemIds = input.items === null ? null : input.items.flatMap(tile => tile.kind === "empty" ? [] : [tile.kind === "unknown" ? null : tile.rawId]);
+  const derivedOutput = input.statsData && selection && own.heroId && own.level !== null
+    ? derivedStats(own.heroId.replace(/^npc_dota_hero_/, ""), own.level, itemIds, input.statsData, { rules: selection.rules })
+    : null;
+  const freshDerivedOutput = !input.stale && own.snapshotAvailability === "fresh" && !input.itemsStale ? derivedOutput : null;
+  const derived = derivedOutput ? liveDerivedCells(derivedOutput) : null;
   return {
     variant: "full", key: "own", side: "own", slot, color: slotColor(slot),
     heroId: own.heroName ? own.heroId : null, heroName: own.heroName?.name ?? null, heroCaption: own.heroCaption,
@@ -189,6 +300,12 @@ export function ownFullCard(input: {
     hpPercent, hpText: own.hp === null && own.maxHp === null ? UNKNOWN : `${num(own.hp)} / ${num(own.maxHp)}`,
     hpLow: hpPercent !== null && hpPercent < 25,
     manaPercent, manaText: percentText(manaPercent),
+    hpRegenText: formatRegenText(freshDerivedOutput?.healthRegen.value ?? null),
+    // The derived mana regen has no mana-per-INT rule yet (script base plus items only), so it is incomplete and
+    // shown as unknown in the bar rather than as a misleading total.
+    manaRegenText: null,
+    hpRegenSources: freshDerivedOutput?.healthRegen.sources ?? [],
+    manaRegenSources: freshDerivedOutput?.manaRegen.sources ?? [],
     alive: own.alive,
     respawnText: own.alive === false && own.respawnSeconds !== null ? String(own.respawnSeconds) : null,
     stale: input.stale === true,
@@ -205,8 +322,9 @@ export function ownFullCard(input: {
       neutral: itemSlot(groups.neutral, icons, "neutral"),
       stale: input.itemsStale, known: true,
     } : unknownItems(),
-    stats: statCells({ gpm: s.gpm, xpm: s.xpm }),
+    stats: statCells({ gpm: s.gpm, xpm: s.xpm }, derived ?? {}, selection?.title ?? null),
     ult: null,
+    derivedBasis: selection ? { label: selection.label, title: selection.title } : null,
   };
 }
 
@@ -270,11 +388,13 @@ export function teamFullCard(card: HeroCard, icons: IconResolver): FullHeroCardV
     levelText: UNKNOWN, kdaText: UNKNOWN, lhdnText: UNKNOWN, gold: null, goldText: UNKNOWN, ratesText: UNKNOWN,
     hpPercent: view.hpPercent, hpText: percentText(view.hpPercent), hpLow: false,
     manaPercent: view.manaPercent, manaText: percentText(view.manaPercent),
+    hpRegenText: null, manaRegenText: null, hpRegenSources: [], manaRegenSources: [],
     alive: null, respawnText: null, stale: false,
     abilities: { hero: abilities, extras: [], stale: false, known: false },
     buffs: [],
     items: unknownItems(),
     stats: statCells(),
     ult: view.ult,
+    derivedBasis: null,
   };
 }

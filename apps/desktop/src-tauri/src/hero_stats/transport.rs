@@ -95,6 +95,10 @@ impl Cancellation {
     pub(crate) fn is_cancelled(&self) -> bool {
         self.0.load(Ordering::Acquire)
     }
+
+    fn same_request(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -134,11 +138,18 @@ pub(crate) trait Transport: Send + Sync {
 
     /// Must interrupt the outstanding native request when revocation occurs.
     fn cancel_current(&self) {}
+
+    /// Cancel only the request represented by this token. This lets independent consent switches
+    /// share the same WinHTTP transport without revoking one another's in-flight request.
+    fn cancel_request(&self, cancellation: &Cancellation) {
+        cancellation.cancel();
+    }
 }
 
 #[cfg(windows)]
 pub(crate) struct WinHttpTransport {
     active: std::sync::Mutex<Option<Arc<RequestHandle>>>,
+    serial: std::sync::Mutex<()>,
 }
 
 #[cfg(windows)]
@@ -146,6 +157,7 @@ impl Default for WinHttpTransport {
     fn default() -> Self {
         Self {
             active: std::sync::Mutex::new(None),
+            serial: std::sync::Mutex::new(()),
         }
     }
 }
@@ -154,6 +166,7 @@ impl Default for WinHttpTransport {
 struct RequestHandle {
     raw: isize,
     closed: AtomicBool,
+    cancellation: Cancellation,
 }
 
 #[cfg(windows)]
@@ -230,6 +243,19 @@ impl Transport for WinHttpTransport {
             handle.close();
         }
     }
+
+    fn cancel_request(&self, cancellation: &Cancellation) {
+        cancellation.cancel();
+        if let Some(handle) = self
+            .active
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
+            .filter(|handle| handle.cancellation.same_request(cancellation))
+        {
+            handle.close();
+        }
+    }
 }
 
 #[cfg(windows)]
@@ -252,6 +278,11 @@ impl WinHttpTransport {
             WINHTTP_QUERY_STATUS_CODE,
         };
         let module = endpoint.log_module;
+
+        let _serial = self
+            .serial
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
 
         if cancellation.is_cancelled() {
             return Err(TransportError::CancelledBeforeSend);
@@ -309,6 +340,7 @@ impl WinHttpTransport {
         let handle = Arc::new(RequestHandle {
             raw: request_raw as isize,
             closed: AtomicBool::new(false),
+            cancellation: cancellation.clone(),
         });
         *self
             .active

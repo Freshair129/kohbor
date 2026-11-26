@@ -5,11 +5,11 @@
 
 use std::sync::atomic::Ordering;
 
-use kohbor_audio::{assess, CriticalMedia, ReadinessInput};
+use kohbor_audio::{CriticalMedia, ReadinessInput, assess};
 use kohbor_events::EventId;
 
 /// Every event known to this host's detector, in detector declaration order.
-pub const ALL_EVENTS: [kohbor_events::EventId; 12] = [
+pub const ALL_EVENTS: [kohbor_events::EventId; 17] = [
     EventId::MultiKill,
     EventId::Streak,
     EventId::FirstBlood,
@@ -22,6 +22,19 @@ pub const ALL_EVENTS: [kohbor_events::EventId; 12] = [
     EventId::MatchStarted,
     EventId::HeroRespawn,
     EventId::HealthDanger,
+    EventId::ClutchKill,
+    EventId::PosthumousKill,
+    EventId::ComebackKill,
+    EventId::UltimateFired,
+    EventId::UltimateKill,
+];
+
+/// Special detectors that have fixture coverage but still need a real capture
+/// before the host may emit or advertise them as available.
+pub const EVENTS_PENDING_LIVE_CAPTURE: &[EventId] = &[
+    EventId::ClutchKill,
+    EventId::PosthumousKill,
+    EventId::ComebackKill,
 ];
 
 // Keep this exhaustive match independent of ALL_EVENTS: adding an EventId must
@@ -41,6 +54,11 @@ fn event_variant_guard(id: EventId) {
         EventId::MatchStarted => {}
         EventId::HeroRespawn => {}
         EventId::HealthDanger => {}
+        EventId::ClutchKill => {}
+        EventId::PosthumousKill => {}
+        EventId::ComebackKill => {}
+        EventId::UltimateFired => {}
+        EventId::UltimateKill => {}
     }
 }
 
@@ -158,14 +176,14 @@ pub fn media_status(
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
-    use std::sync::atomic::Ordering;
     use std::sync::Arc;
+    use std::sync::atomic::Ordering;
 
     use kohbor_audio::CriticalMedia;
     use kohbor_events::EventId;
     use serde_json::Value;
 
-    use super::{available_critical, facts_from_table, media_status, MediaFacts};
+    use super::{MediaFacts, available_critical, facts_from_table, media_status};
     use crate::audio::lanes::EngineShared;
     use crate::audio::resolve::{Clip, Entry, PrewarmTable};
 
@@ -302,6 +320,9 @@ mod tests {
         all_events_has_match_started: MatchStarted => "match_started",
         all_events_has_hero_respawn: HeroRespawn => "hero_respawn",
         all_events_has_health_danger: HealthDanger => "health_danger",
+        all_events_has_clutch_kill: ClutchKill => "clutch_kill",
+        all_events_has_posthumous_kill: PosthumousKill => "posthumous_kill",
+        all_events_has_comeback_kill: ComebackKill => "comeback_kill",
     }
 
     #[test]
@@ -332,6 +353,11 @@ mod tests {
                 "match_started",
                 "hero_respawn",
                 "health_danger",
+                "clutch_kill",
+                "posthumous_kill",
+                "comeback_kill",
+                "ultimate_fired",
+                "ultimate_kill",
             ],
             "ALL_EVENTS covers every detector variant name in declaration order"
         );
@@ -352,6 +378,15 @@ mod tests {
         assert!(
             !EventId::FirstBlood.is_critical(),
             "first_blood is not a critical event"
+        );
+        assert_eq!(
+            super::EVENTS_PENDING_LIVE_CAPTURE,
+            &[
+                EventId::ClutchKill,
+                EventId::PosthumousKill,
+                EventId::ComebackKill
+            ],
+            "special detectors remain unavailable until a live positive is captured"
         );
     }
 

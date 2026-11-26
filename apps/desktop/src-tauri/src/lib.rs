@@ -5,6 +5,7 @@
 #[allow(dead_code)]
 mod account_host;
 mod account_supabase;
+mod analytics;
 pub mod atomic;
 mod audio;
 mod audio_prefs;
@@ -28,9 +29,12 @@ mod media;
 mod mixer;
 mod news;
 mod objectives;
+mod overview_insights;
 mod opendota;
 mod orb;
 mod portraits;
+mod post_game_replay;
+mod replay_library;
 pub mod secrets;
 pub mod settings;
 mod show_hotkey;
@@ -113,6 +117,8 @@ pub(crate) struct AppState {
     pub(crate) orb: orb::host::OrbHost,
     /// Default-off public statistics and the native draft column.
     pub(crate) hero_stats: hero_stats::host::HeroStatsHost,
+    /// Separate optional OpenDota hero benchmarks for Analytics comparisons.
+    pub(crate) benchmarks: hero_stats::benchmarks::BenchmarksHost,
     pub(crate) objectives: objectives::ObjectiveHost,
     /// OVERVIEW-002 local own-match history (written by intake, read by the Overview).
     pub(crate) match_history: match_history::MatchHistoryStore,
@@ -238,7 +244,7 @@ fn overlay_hwnd(
 #[cfg(windows)]
 fn overlay_has_no_activate_style(window: &tauri::WebviewWindow<tauri::Wry>) -> bool {
     use windows::Win32::UI::WindowsAndMessaging::{
-        GetWindowLongPtrW, GWL_EXSTYLE, WS_EX_NOACTIVATE,
+        GWL_EXSTYLE, GetWindowLongPtrW, WS_EX_NOACTIVATE,
     };
 
     let Some(hwnd) = overlay_hwnd(window) else {
@@ -262,7 +268,7 @@ fn overlay_is_foreground(window: &tauri::WebviewWindow<tauri::Wry>) -> bool {
 /// (`activation_detected` on start-up). `SW_SHOWNOACTIVATE` shows the window and leaves the foreground alone.
 #[cfg(windows)]
 pub(crate) fn show_without_activation(window: &tauri::WebviewWindow<tauri::Wry>) -> bool {
-    use windows::Win32::UI::WindowsAndMessaging::{IsWindowVisible, ShowWindow, SW_SHOWNOACTIVATE};
+    use windows::Win32::UI::WindowsAndMessaging::{IsWindowVisible, SW_SHOWNOACTIVATE, ShowWindow};
 
     let Some(hwnd) = overlay_hwnd(window) else {
         return false;
@@ -283,7 +289,7 @@ pub(crate) fn show_without_activation(window: &tauri::WebviewWindow<tauri::Wry>)
 #[cfg(windows)]
 fn raise_overlay_without_activation(window: &tauri::WebviewWindow<tauri::Wry>) -> bool {
     use windows::Win32::UI::WindowsAndMessaging::{
-        SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+        HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SetWindowPos,
     };
 
     let Some(hwnd) = overlay_hwnd(window) else {
@@ -454,7 +460,7 @@ fn reserve_overlay_visibility_diagnostic() -> Option<usize> {
 
 #[cfg(windows)]
 fn window_is_topmost(hwnd: windows::Win32::Foundation::HWND) -> bool {
-    use windows::Win32::UI::WindowsAndMessaging::{GetWindowLongPtrW, GWL_EXSTYLE, WS_EX_TOPMOST};
+    use windows::Win32::UI::WindowsAndMessaging::{GWL_EXSTYLE, GetWindowLongPtrW, WS_EX_TOPMOST};
 
     unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32 & WS_EX_TOPMOST.0 != 0 }
 }
@@ -463,7 +469,7 @@ fn window_is_topmost(hwnd: windows::Win32::Foundation::HWND) -> bool {
 fn overlay_window_above_description(hwnd: windows::Win32::Foundation::HWND) -> String {
     use windows::Win32::Foundation::HWND;
     use windows::Win32::UI::WindowsAndMessaging::{
-        GetClassNameW, GetWindow, GetWindowThreadProcessId, GW_HWNDPREV,
+        GW_HWNDPREV, GetClassNameW, GetWindow, GetWindowThreadProcessId,
     };
 
     let above = match unsafe { GetWindow(hwnd, GW_HWNDPREV) } {
@@ -496,7 +502,7 @@ fn overlay_window_above_description(hwnd: windows::Win32::Foundation::HWND) -> S
 #[cfg(windows)]
 fn overlay_visible_topmost_rank(target: windows::Win32::Foundation::HWND) -> Option<usize> {
     use windows::Win32::UI::WindowsAndMessaging::{
-        GetTopWindow, GetWindow, IsWindowVisible, GW_HWNDNEXT,
+        GW_HWNDNEXT, GetTopWindow, GetWindow, IsWindowVisible,
     };
 
     let mut current = unsafe { GetTopWindow(None).ok() }?;
@@ -523,16 +529,18 @@ fn log_overlay_visibility_snapshot(
     sample: usize,
     at: &'static str,
 ) {
-    use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED};
+    use windows::Win32::Graphics::Dwm::{DWMWA_CLOAKED, DwmGetWindowAttribute};
     use windows::Win32::UI::WindowsAndMessaging::{
-        GetForegroundWindow, GetWindowLongPtrW, IsWindowVisible, GWL_EXSTYLE, WS_EX_NOACTIVATE,
+        GWL_EXSTYLE, GetForegroundWindow, GetWindowLongPtrW, IsWindowVisible, WS_EX_NOACTIVATE,
     };
 
     let Some(hwnd) = overlay_hwnd(window) else {
         crate::log_info!(
             "overlay",
             "visibility_snapshot",
-            format!("sample={sample} at={at} visible=unknown cloaked=unknown foreground=unknown visible_topmost_rank=unknown above=unknown no_activate=unknown")
+            format!(
+                "sample={sample} at={at} visible=unknown cloaked=unknown foreground=unknown visible_topmost_rank=unknown above=unknown no_activate=unknown"
+            )
         );
         return;
     };
@@ -551,11 +559,7 @@ fn log_overlay_visibility_snapshot(
     }
     .is_ok()
     {
-        if cloaked_value == 0 {
-            "false"
-        } else {
-            "true"
-        }
+        if cloaked_value == 0 { "false" } else { "true" }
     } else {
         "unknown"
     };
@@ -1073,11 +1077,13 @@ mod window_close_tests {
     fn the_control_window_label_matches_the_tauri_config() {
         let config: serde_json::Value =
             serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
-        assert!(config["app"]["windows"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|window| window["label"] == "control"));
+        assert!(
+            config["app"]["windows"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|window| window["label"] == "control")
+        );
     }
 }
 
@@ -1233,6 +1239,17 @@ pub fn run() {
                 crate::log_warn!("resources", "sampler_unavailable", format!("{error}"));
             }
             let gsi_runtime = runtime.clone();
+            #[cfg(feature = "lab")]
+            let gsi = capture_host::GsiView::with_minimap_recorder(move || {
+                let now = std::time::Instant::now();
+                let shared = intake::lock(&gsi_runtime.shared);
+                let snapshot = shared.capture_gsi_snapshot_at(now);
+                let recorder = crate::lab::minimap_recorder::recording_enabled()
+                    .then(|| shared.minimap_recorder_snapshot_at(now))
+                    .flatten();
+                (snapshot, recorder)
+            });
+            #[cfg(not(feature = "lab"))]
             let gsi = capture_host::GsiView::new(move || {
                 intake::lock(&gsi_runtime.shared).capture_gsi_snapshot_at(std::time::Instant::now())
             });
@@ -1258,8 +1275,19 @@ pub fn run() {
                 }),
                 Arc::new(capture_host::draft_bar_snapshot),
             );
+            let benchmarks_on = hero_stats_host
+                .prefs_get("control")
+                .map(|prefs| prefs.benchmarks_on)
+                .unwrap_or(false);
+            let benchmarks_host = hero_stats::benchmarks::BenchmarksHost::open(
+                &settings_dir,
+                benchmarks_on,
+                hero_stats_host.benchmarks_transport(),
+                hero_stats_host.benchmarks_hero_id_lookup(),
+            );
             let steam_runtime = runtime.clone();
-            // "A match is live" = draft, pregame or live (the same barrier as the pack activation).
+            // Keep replay analysis blocked through post-game; automatic analysis is allowed only
+            // after the runtime returns to its no-match phase, as well as by manual request.
             let update_match_active: Arc<dyn Fn() -> bool + Send + Sync> = {
                 let runtime = runtime.clone();
                 Arc::new(move || {
@@ -1269,6 +1297,7 @@ pub fn run() {
                             kohbor_gsi::admission::Phase::Draft
                                 | kohbor_gsi::admission::Phase::Pregame
                                 | kohbor_gsi::admission::Phase::Live
+                                | kohbor_gsi::admission::Phase::PostGame
                         )
                     )
                 })
@@ -1277,14 +1306,64 @@ pub fn run() {
                 settings_dir.clone(),
                 update_match_active.clone(),
             );
-            app.manage(account_auth.clone());
-            account_auth.start_refresh_loop();
-            let match_history = intake::lock(&runtime.shared).match_history();
             let install_key = secrets::load_or_create(
                 &settings_dir.join("install-key.bin"),
                 || -> Option<Vec<u8>> { None },
             )
             .and_then(|bytes| bytes.try_into().ok());
+            let analytics = analytics::AnalyticsService::open(
+                &settings_dir,
+                install_key,
+                Arc::new(analytics::WinHttpTransport::default()),
+            );
+            let analytics_preferences = analytics.preferences().ok();
+            let replay_auto_analyse = analytics_preferences
+                .as_ref()
+                .map(|preferences| preferences.auto_analyse)
+                .unwrap_or(true);
+            let replay_limits = analytics_preferences
+                .as_ref()
+                .map(|preferences| replay_library::ReplayLibraryLimits {
+                    max_matches: preferences.keep_newest,
+                    max_bytes: preferences.max_bytes,
+                })
+                .unwrap_or_default();
+            {
+                let bundled_engine = {
+                    let mut candidates = Vec::new();
+                    if let Ok(resources) = app.path().resource_dir() {
+                        candidates.push(resources.join("binaries").join("replay-engine-rs.exe"));
+                        candidates.push(resources.join("replay-engine-rs.exe"));
+                    }
+                    if let Ok(executable) = std::env::current_exe() {
+                        if let Some(directory) = executable.parent() {
+                            candidates
+                                .push(directory.join("binaries").join("replay-engine-rs.exe"));
+                            candidates.push(directory.join("replay-engine-rs.exe"));
+                        }
+                    }
+                    candidates.into_iter().find(|path| path.is_file())
+                };
+                let event_app = app.handle().clone();
+                let library = replay_library::ReplayLibrary::open_with_auto_analyse(
+                    settings_dir.join("replays"),
+                    bundled_engine,
+                    update_match_active.clone(),
+                    Arc::new(move || {
+                        let _ = event_app.emit(
+                            replay_library::EVENT_NAME,
+                            serde_json::json!({ "changed": true }),
+                        );
+                    }),
+                    replay_limits,
+                    replay_auto_analyse,
+                );
+                app.manage(library);
+            }
+            app.manage(analytics);
+            app.manage(account_auth.clone());
+            account_auth.start_refresh_loop();
+            let match_history = intake::lock(&runtime.shared).match_history();
             let opendota = opendota::OpenDotaService::open(&settings_dir, install_key);
             let news = news::NewsService::open(&settings_dir);
             news.start();
@@ -1319,6 +1398,7 @@ pub fn run() {
                 mixer: mixer_service,
                 orb: orb_host,
                 hero_stats: hero_stats_host,
+                benchmarks: benchmarks_host,
                 objectives: objective_host,
                 match_history,
                 opendota,
@@ -1366,6 +1446,7 @@ pub fn run() {
         commands::log_set_level,
         commands::runtime_get_status,
         commands::own_snapshot,
+        commands::objective_read_model,
         commands::gsi_setup,
         commands::settings_get,
         commands::settings_patch,
@@ -1381,7 +1462,11 @@ pub fn run() {
         commands::media_install,
         commands::media_install_bytes,
         commands::media_activate,
+        commands::media_uninstall,
         commands::media_cancel_pending_activation,
+        commands::media_loadout_get,
+        commands::media_loadout_set,
+        commands::media_loadout_cancel,
         commands::media_list,
         commands::media_pack_summaries,
         commands::media_cabinet,
@@ -1398,6 +1483,11 @@ pub fn run() {
         commands::clear_match_recap,
         commands::match_history_get,
         commands::match_history_clear,
+        commands::overview_nemesis_get,
+        post_game_replay::post_game_replay_summary,
+        commands::hero_benchmarks_state_get,
+        commands::hero_benchmarks_set,
+        commands::hero_benchmarks_get,
         commands::opendota_prefs_get,
         commands::opendota_prefs_set,
         commands::opendota_view_get,
@@ -1406,6 +1496,56 @@ pub fn run() {
         commands::news_refresh,
         commands::news_prefs_get,
         commands::news_prefs_set,
+        commands::replay_library_list,
+        commands::replay_library_pick_file,
+        commands::replay_library_open,
+        commands::replay_library_parse,
+        commands::replay_library_reparse,
+        commands::replay_library_remove,
+        commands::replay_library_clear,
+        commands::replay_library_pin,
+        commands::replay_library_open_folder,
+        commands::replay_library_watcher_state,
+        commands::replay_library_retention_preview,
+        commands::replay_library_retention_save,
+        commands::analytics_provider_list,
+        commands::analytics_provider_endpoint_set,
+        commands::analytics_custom_endpoint_register,
+        commands::analytics_provider_verified_set,
+        commands::analytics_provider_models_fetch,
+        commands::analytics_key_status,
+        commands::analytics_key_set,
+        commands::analytics_key_delete,
+        commands::analytics_provider_key_status,
+        commands::analytics_provider_key_set,
+        commands::analytics_provider_key_delete,
+        commands::analytics_settings_get,
+        commands::analytics_settings_patch,
+        commands::analytics_consent_set,
+        commands::analytics_ledger_list,
+        commands::analytics_notes_list,
+        commands::analytics_note_read,
+        commands::analytics_note_delete,
+        commands::analytics_note_open_folder,
+        commands::analytics_note_save_text,
+        commands::analytics_own_hero_set,
+        commands::analytics_chat_submit,
+        commands::analytics_chat_transcript,
+        commands::analytics_chat_start_from_summary,
+        commands::analytics_knowledge_get,
+        commands::analytics_match_data_delete,
+        commands::analytics_orphans_list,
+        commands::analytics_lane_calibration_get,
+        commands::analytics_lane_calibration_run,
+        commands::analytics_lane_review_start,
+        commands::analytics_lane_review_current,
+        commands::analytics_lane_review_submit_blind,
+        commands::analytics_lane_review_submit_half_blind,
+        commands::analytics_lane_review_next,
+        commands::analytics_lane_review_export,
+        commands::analytics_saved_analysis_read,
+        commands::analytics_report_generate,
+        commands::analytics_chat_cancel,
         commands::news_open_link,
         commands::set_muted,
         commands::audio_prefs_get,
@@ -1453,7 +1593,11 @@ pub fn run() {
         lab::dev::lab_hud_layout_apply,
         lab::dev::lab_hud_layout_reset,
         lab::dev::lab_hud_preview,
-        lab::dev::lab_reference_image
+        lab::dev::lab_reference_image,
+        lab::dev::lab_minimap_recorder_status,
+        lab::dev::lab_minimap_recorder_set,
+        lab::dev::lab_minimap_recorder_delete,
+        lab::dev::lab_minimap_recorder_open_folder
     ]);
     #[cfg(not(any(feature = "demo", debug_assertions)))]
     let builder = builder.invoke_handler(generate_handler_with_updater_commands![
@@ -1474,6 +1618,7 @@ pub fn run() {
         commands::log_set_level,
         commands::runtime_get_status,
         commands::own_snapshot,
+        commands::objective_read_model,
         commands::gsi_setup,
         commands::settings_get,
         commands::settings_patch,
@@ -1489,7 +1634,11 @@ pub fn run() {
         commands::media_install,
         commands::media_install_bytes,
         commands::media_activate,
+        commands::media_uninstall,
         commands::media_cancel_pending_activation,
+        commands::media_loadout_get,
+        commands::media_loadout_set,
+        commands::media_loadout_cancel,
         commands::media_list,
         commands::media_pack_summaries,
         commands::media_cabinet,
@@ -1506,6 +1655,11 @@ pub fn run() {
         commands::clear_match_recap,
         commands::match_history_get,
         commands::match_history_clear,
+        commands::overview_nemesis_get,
+        post_game_replay::post_game_replay_summary,
+        commands::hero_benchmarks_state_get,
+        commands::hero_benchmarks_set,
+        commands::hero_benchmarks_get,
         commands::opendota_prefs_get,
         commands::opendota_prefs_set,
         commands::opendota_view_get,
@@ -1514,6 +1668,56 @@ pub fn run() {
         commands::news_refresh,
         commands::news_prefs_get,
         commands::news_prefs_set,
+        commands::replay_library_list,
+        commands::replay_library_pick_file,
+        commands::replay_library_open,
+        commands::replay_library_parse,
+        commands::replay_library_reparse,
+        commands::replay_library_remove,
+        commands::replay_library_clear,
+        commands::replay_library_pin,
+        commands::replay_library_open_folder,
+        commands::replay_library_watcher_state,
+        commands::replay_library_retention_preview,
+        commands::replay_library_retention_save,
+        commands::analytics_provider_list,
+        commands::analytics_provider_endpoint_set,
+        commands::analytics_custom_endpoint_register,
+        commands::analytics_provider_verified_set,
+        commands::analytics_provider_models_fetch,
+        commands::analytics_key_status,
+        commands::analytics_key_set,
+        commands::analytics_key_delete,
+        commands::analytics_provider_key_status,
+        commands::analytics_provider_key_set,
+        commands::analytics_provider_key_delete,
+        commands::analytics_settings_get,
+        commands::analytics_settings_patch,
+        commands::analytics_consent_set,
+        commands::analytics_ledger_list,
+        commands::analytics_notes_list,
+        commands::analytics_note_read,
+        commands::analytics_note_delete,
+        commands::analytics_note_open_folder,
+        commands::analytics_note_save_text,
+        commands::analytics_own_hero_set,
+        commands::analytics_chat_submit,
+        commands::analytics_chat_transcript,
+        commands::analytics_chat_start_from_summary,
+        commands::analytics_knowledge_get,
+        commands::analytics_match_data_delete,
+        commands::analytics_orphans_list,
+        commands::analytics_lane_calibration_get,
+        commands::analytics_lane_calibration_run,
+        commands::analytics_lane_review_start,
+        commands::analytics_lane_review_current,
+        commands::analytics_lane_review_submit_blind,
+        commands::analytics_lane_review_submit_half_blind,
+        commands::analytics_lane_review_next,
+        commands::analytics_lane_review_export,
+        commands::analytics_saved_analysis_read,
+        commands::analytics_report_generate,
+        commands::analytics_chat_cancel,
         commands::news_open_link,
         commands::set_muted,
         commands::audio_prefs_get,
@@ -1555,6 +1759,7 @@ pub fn run() {
             if matches!(event, tauri::RunEvent::Exit) {
                 capture_host::stop();
                 crate::log_info!("app", "exit", "Kohbor is exiting");
+                handle.state::<analytics::AnalyticsService>().cancel_all();
                 let state = handle.state::<AppState>();
                 handle.state::<account_supabase::SupabaseAuth>().shutdown();
                 // Orb first (no new clicks), then put every touched audio session back (MEDIA-009).

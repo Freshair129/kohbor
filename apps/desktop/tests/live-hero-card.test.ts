@@ -5,6 +5,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import { DEFAULT_HERO_CARD_DISPLAY, visibleStatKeys } from "../src/shared/heroCardDisplay.mjs";
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
 import { parseOwnSnapshot } from "../src/ownSnapshot.ts";
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
@@ -20,9 +21,12 @@ import { createDraftRosterMemory, rememberDraftFrame } from "../src/live/secondM
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
 import { createIconResolver, iconFileName, noIcons } from "../src/live/dotaIcons.ts";
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
-import { compactCard, formatGold, joinKnown, ownFullCard, slotColor, statCells, teamFullCard, tileText, UNKNOWN } from "../src/live/heroCardModel.ts";
+import { compactCard, formatGold, joinKnown, ownFullCard, selectLiveDerivedRules, slotColor, statCells, teamFullCard, tileText, UNKNOWN } from "../src/live/heroCardModel.ts";
+import * as heroCardModel from "../src/live/heroCardModel.ts";
 // @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
 import type { DraftBarFrame } from "../src/deck/draftBarModel.ts";
+// @ts-ignore Node's built-in TypeScript loader requires the explicit source extension.
+import type { StatsData } from "../src/stats/derivedStats.ts";
 
 const fixture = () => JSON.parse(readFileSync(new URL("../../../fixtures/own-fresh-at-boundary.json", import.meta.url), "utf8"));
 const field = (value: unknown) => ({ value, availability: "fresh" });
@@ -31,14 +35,14 @@ const ability = (slot: number, name: string, changes = {}) =>
   ({ slot, name, level: 1, cooldown: 0, ultimate: false, can_cast: true, passive: false, active: true, ...changes });
 
 /** The boundary fixture plus stats and a loadout, as a mid-game GSI snapshot. */
-function liveSnapshot() {
+function liveSnapshot(firstItem = "item_blink") {
   const s = fixture();
   Object.assign(s.own.fields, {
     hero_id: field("npc_dota_hero_lion"),
     gold: field(12345), kills: field(4), deaths: field(2), assists: field(9), last_hits: field(87), denies: field(6),
     gpm: field(412), xpm: field(520),
     items: field([
-      item("inventory0", "item_blink", { cooldown: 12 }), item("inventory1", null), item("inventory2", "item_magic_wand", { charges: 7 }),
+      item("inventory0", firstItem, { cooldown: 12 }), item("inventory1", null), item("inventory2", "item_magic_wand", { charges: 7 }),
       item("inventory3", "item_boots"), item("inventory4", null), item("inventory5", null),
       item("backpack0", "item_ward_observer", { charges: 2 }), item("backpack1", null), item("backpack2", null),
       item("teleport", "item_tpscroll", { cooldown: 70 }), item("neutral", "item_arcane_ring"),
@@ -59,6 +63,141 @@ function card(snapshot = liveSnapshot(), icons = noIcons, slot: number | null = 
   return ownFullCard({ own: deriveOwnHeroViewModel(snapshot), items: loadout.items.slots, itemsStale: loadout.items.stale,
     abilities: loadout.abilities.tiles, abilitiesStale: loadout.abilities.stale, slot, icons });
 }
+
+const liveStatsPack = JSON.parse(readFileSync(new URL("../src/assets/dota/6989/stats.json", import.meta.url), "utf8")) as StatsData;
+function derivedCard(firstItem = "item_blink", options: { stale?: boolean; itemsStale?: boolean } = {}) {
+  const snapshot = liveSnapshot(firstItem);
+  const loadout = deriveLoadoutViewModel(snapshot, false);
+  return ownFullCard({ own: deriveOwnHeroViewModel(snapshot), items: loadout.items.slots, itemsStale: options.itemsStale ?? false,
+    abilities: loadout.abilities.tiles, abilitiesStale: false, slot: 0, stale: options.stale,
+    icons: noIcons, statsData: liveStatsPack, gameBuild: null });
+}
+
+test("own hero HP and mana bars expose only fresh derived regeneration with compact one-decimal formatting", () => {
+  const view = derivedCard();
+  assert.equal(view.hpRegenText, "+5.2");
+  assert.equal(view.manaRegenText, null, "mana regen lacks the INT rule, so the bar shows nothing rather than an incomplete total");
+  assert.equal(heroCardModel.formatRegenText?.(6.5), "+6.5");
+  assert.equal(heroCardModel.formatRegenText?.(6), "+6", "the existing numeric format drops a trailing .0");
+  assert.equal(heroCardModel.formatRegenText?.(null), null);
+  assert.equal(derivedCard("item_unobserved_test_item").hpRegenText, null);
+  assert.equal(derivedCard("item_unobserved_test_item").manaRegenText, null);
+  assert.equal(derivedCard("item_blink", { stale: true }).hpRegenText, null);
+  assert.equal(derivedCard("item_blink", { stale: true }).manaRegenText, null);
+  assert.equal(derivedCard("item_blink", { itemsStale: true }).hpRegenText, null);
+  assert.equal(derivedCard("item_blink", { itemsStale: true }).manaRegenText, null);
+  assert.equal(card().hpRegenText, null, "a missing stats pack never turns into +0");
+  assert.equal(card().manaRegenText, null);
+});
+
+test("compact own field stats keep the eight visible derived cells and omit REG", () => {
+  const cells = heroCardModel.compactOwnFieldStats?.(derivedCard().stats);
+  assert.deepEqual(cells?.map(cell => cell.key), ["arm", "mr", "amp", "as", "ms", "ev", "sr", "ls"]);
+  assert.equal(cells?.some(cell => cell.key === "reg"), false, "regen is carried by the HP and mana bars");
+});
+
+test("regen bars keep bilingual derived-estimate tooltips and reserve a right-aligned 12 px value slot", () => {
+  const component = readFileSync(new URL("../src/live/HeroCard.tsx", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../src/live/heroCard.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.match(component, /ฟื้นฟูพลังชีวิต \$\{amount\} ต่อวินาที/);
+  assert.match(component, /ฟื้นฟูมานา \$\{amount\} ต่อวินาที/);
+  assert.match(component, /HP regeneration \$\{amount\} per second/);
+  assert.match(component, /Mana regeneration \$\{amount\} per second/);
+  assert.match(component, /Derived estimate from the stat rules/);
+  assert.match(component, /Sources: \$\{sources\.length > 0/);
+  assert.match(component, /without temporary effects/);
+  assert.match(css, /\.lhc-bar-num\.has-regen\s*\{[^}]*right:\s*42px/);
+  assert.match(css, /\.lhc-bar-regen\s*\{[^}]*right:\s*4px[^}]*font:\s*600 12px/);
+
+  for (const barWidth of [104, 121, 161, 169, 228]) {
+    const valueSlot = barWidth - 42;
+    const compactHpText = 8 * 7.2; // 850/1200 in the 12 px monospace bar font.
+    const regenSlot = 5 * 7.2 + 4; // +6.5 plus its 4 px inset.
+    assert.ok(compactHpText <= valueSlot, `${barWidth}px bar: HP value fits left of regen`);
+    assert.ok(regenSlot <= 42, `${barWidth}px bar: regen stays inside its reserved right slot`);
+  }
+});
+
+test("own and compact Live cards follow the shared display preference and reflow unchecked groups", () => {
+  const display = { v: 1, show: { ...DEFAULT_HERO_CARD_DISPLAY.show, attrs: false, reg: false, status: false, rates: false } };
+  const keys = visibleStatKeys(display);
+  assert.equal(keys.has("str"), false);
+  assert.equal(keys.has("reg"), false);
+  assert.equal(keys.has("gpm"), false);
+  assert.equal(keys.has("xpm"), false);
+  assert.equal(keys.has("arm"), true, "checked groups remain visible");
+
+  const component = readFileSync(new URL("../src/live/HeroCard.tsx", import.meta.url), "utf8");
+  assert.equal((component.match(/const display = useLiveHeroCardDisplay\(\);/g) ?? []).length, 2,
+    "the own field card and compact cards each subscribe to the shared value");
+  assert.match(component, /readHeroCardDisplay\(heroCardDisplayStorage\(\)\)/);
+  assert.match(component, /window\.addEventListener\(HERO_CARD_DISPLAY_EVENT, onDisplayChange\)/);
+  assert.match(component, /window\.addEventListener\("storage", onStorageChange\)/);
+  assert.match(component, /display\.show\.reg \? view\.hpRegenText : null/);
+  assert.match(component, /display\.show\.status &&/);
+  assert.match(component, /cardVisibleStats\(view, display, compactOwnField\)/);
+  assert.match(component, /no-visible-stats/);
+
+  const css = readFileSync(new URL("../src/live/heroCard.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.match(css, /\.lhc-full\.no-visible-stats\s*\{[^}]*grid-template-areas:[^}]*"it it"/);
+  assert.match(css, /\.lhc-compact\.no-visible-stats/);
+  assert.match(css, /font-size:\s*12px/);
+});
+
+test("Lion level-12 GSI hero and item IDs populate labelled estimates with a truthful newest-rules fallback", () => {
+  const view = derivedCard();
+  assert.equal(view.heroId, "npc_dota_hero_lion");
+  assert.equal(view.levelText, "12");
+  assert.equal(view.derivedBasis?.label, "B? · P6989 · R7.42*");
+  assert.match(view.derivedBasis?.title ?? "", /Game build unknown; stats pack build 6989; rules 7\.42 selected as the newest supported fallback/);
+  const cells = new Map(view.stats.map(cell => [cell.key, cell]));
+  for (const key of ["str", "agi", "int", "dmg", "reg", "arm", "mr", "amp", "as", "ms", "ev", "sr", "ls"] as const) {
+    const cell = cells.get(key);
+    assert.ok(cell?.derived, `${key} is labelled as a derived value`);
+    assert.notEqual(cell.value, UNKNOWN, `${key} has an output from the Lion fixture`);
+    assert.ok(cell.sources.length > 0, `${key} keeps derivation sources`);
+  }
+  assert.equal(cells.get("gpm")?.value, "412", "observed GPM stays the GSI value");
+  assert.equal(cells.get("xpm")?.value, "520", "observed XPM stays the GSI value");
+  const title = cells.get("arm")?.basis ?? "";
+  assert.match(title, /Game build unknown; stats pack build 6989/);
+  assert.equal(selectLiveDerivedRules(null, liveStatsPack).rules.patch, "7.42");
+});
+
+test("an item unknown to the installed stats pack keeps dependent derived values as em dashes", () => {
+  const view = derivedCard("item_unobserved_test_item");
+  const cells = new Map(view.stats.map(cell => [cell.key, cell]));
+  for (const key of ["str", "agi", "int", "dmg", "reg", "arm", "mr", "amp", "as", "ms", "ev", "sr", "ls"] as const) {
+    assert.equal(cells.get(key)?.value, UNKNOWN, `${key} remains unknown when an item ID cannot be resolved`);
+  }
+  assert.equal(cells.get("gpm")?.value, "412");
+  assert.equal(cells.get("xpm")?.value, "520");
+});
+
+test("derived stat markers expose their source list and the temporary-effects caveat at 12 px", () => {
+  const component = readFileSync(new URL("../src/live/HeroCard.tsx", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../src/live/heroCard.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.match(component, /Sources: \$\{sources\}/);
+  assert.match(component, /ไม่รวมผลชั่วคราว \/ without temporary effects/);
+  assert.match(css, /\.lhc-stat\.is-derived:not\(\.is-unknown\) dd\s*\{[^}]*text-decoration:\s*underline dotted/);
+  assert.match(css, /\.lhc-field-card\.lhc-field-own \.lhc-stat dt, \.lhc-field-card\.lhc-field-own \.lhc-stat dd\s*\{[^}]*font-size:\s*12px/);
+  assert.match(component, /statsData: LIVE_STATS_DATA, gameBuild: null/);
+});
+
+test("each stat cell maps to an icon and bilingual accessible label without changing unknown values", () => {
+  const cells = statCells();
+  assert.deepEqual(cells.map(cell => cell.label), STAT_LABELS);
+  for (const cell of cells) {
+    assert.ok(cell.iconIds.length > 0, `${cell.key} maps to at least one icon`);
+    assert.ok(cell.accessibleLabel.includes(cell.label), `${cell.key} accessible label retains its stat name`);
+    assert.match(cell.accessibleLabel, /[ก-๙]/, `${cell.key} label includes Thai`);
+    assert.match(cell.accessibleLabel, /\([^)]+\)/, `${cell.key} label includes English`);
+    assert.equal(cell.value, UNKNOWN, `${cell.key} remains unknown without a value source`);
+  }
+  const css = readFileSync(new URL("../src/live/heroCard.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.match(css, /\.lhc-stat dt\s*\{[^}]*height:\s*12px/);
+  assert.match(css, /\.lhc-stat dt > img\s*\{[^}]*width:\s*12px;\s*height:\s*12px/);
+});
 
 test("own hero: identity, level, K/D/A, LH/DN, gold, HP and mana map from GSI", () => {
   const view = card();
@@ -310,7 +449,9 @@ test("the icon set is bound once through import.meta.glob and the card source ho
   assert.doesNotMatch(sources, /https?:\/\/|@import|@font-face|fonts\.googleapis/);
   assert.doesNotMatch(sources, /Math\.random|invoke\(/);
   const css = readFileSync(new URL("../src/live/heroCard.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
-  assert.doesNotMatch(css, /font-size:\s*(?:[0-9]|1[01])px/, "no text below 12 px on the cards");
-  assert.doesNotMatch(css, /font:\s*(?:\d+\s+)?(?:[0-9]|1[01])px/, "no text below 12 px on the cards (shorthand)");
+  // The .rc rules are the replay/Analytics reference card and carry the approved 12 px-floor exemption; Live keeps the floor.
+  const liveCards = css.split("}").filter(rule => !/^\s*[^{}]*\.rc\b/.test(rule.slice(0, rule.indexOf("{")))).join("}");
+  assert.doesNotMatch(liveCards, /font-size:\s*(?:[0-9]|1[01])px/, "no text below 12 px on the Live cards");
+  assert.doesNotMatch(liveCards, /font:\s*(?:\d+\s+)?(?:[0-9]|1[01])px/, "no text below 12 px on the Live cards (shorthand)");
   assert.doesNotMatch(css, /overflow-x:\s*(?:auto|scroll)/, "no horizontal scrolling");
 });

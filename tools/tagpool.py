@@ -74,7 +74,7 @@ def kind_of(tag: str) -> str | None:
         return "task"
     if tag.startswith("DEC-"):
         return "decision"
-    if re.match(r"^[A-Z]{3,7}-\d{3}$", tag):
+    if re.match(r"^[A-Z]{2,7}-\d{3}$", tag):  # two letters admit UI-xxx
         return "requirement"
     return None
 

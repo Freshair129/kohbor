@@ -3,16 +3,17 @@
 
 use crate::audio::lanes::{Control, EngineTx, TickMsg};
 use crate::clock::MonoClock;
-use crate::match_history::{match_type_from_gsi, MatchEntry, MatchHistoryStore, MatchTracker};
+use crate::match_history::{match_type_from_gsi, MatchEntry, MatchHistoryStore, MatchResult, MatchTracker};
 use crate::objectives::{MapDiagnostic, ObjectiveIntakeWiring, ObjectiveRuntimeFlags};
 use crate::{atomic, secrets};
 use base64::Engine;
 use kohbor_events::{
-    adapter::tick_from_admitted, Detector, Event, EventId, ObjectiveAlertBatch, ObjectiveScheduler,
+    adapter::{tick_from_admitted, ultimate_context_from_admitted}, Detector, Event, EventId,
+    ObjectiveAlertBatch, ObjectiveScheduler,
 };
 use kohbor_gsi::admission::{
-    parse_own_loadout, token_matches, DraftScreen, OwnLoadout, Ownership, Phase, Team,
-    STEAMID64_BASE,
+    parse_objective_map_fields, parse_own_loadout, token_matches, Admitted, DraftScreen, Field,
+    ObjectiveMapFields, OwnLoadout, Ownership, Phase, Team, STEAMID64_BASE,
 };
 use kohbor_gsi::config::{
     choose_port, claimed_ports, GsiConfig, BODY_LIMIT_BYTES, MAX_REQUESTS_PER_SECOND,
@@ -23,6 +24,7 @@ use kohbor_gsi::{
     admit, build_snapshot, build_snapshot_with_loadout, strict_json, Outcome, SourceState,
     FRESH_MAX_AGE_MS,
 };
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use socket2::SockRef;
@@ -53,6 +55,57 @@ pub(crate) struct StoredEvent {
     pub(crate) tier: Option<u8>,
     pub(crate) at_ms: u64,
     pub(crate) arrival: Instant,
+}
+
+/// Persistent, host-owned view of the most recently observed finished match.
+/// The key is the install-keyed match hash; raw Dota identifiers are never retained here.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct LastFinishedMatchRecord {
+    pub(crate) epoch: u64,
+    pub(crate) match_key: String,
+    pub(crate) end_values: LastFinishedMatchValues,
+    pub(crate) ended_at: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct LastFinishedMatchValues {
+    pub(crate) hero_id: Option<String>,
+    pub(crate) result: Option<MatchResult>,
+    pub(crate) kills: Option<u32>,
+    pub(crate) deaths: Option<u32>,
+    pub(crate) assists: Option<u32>,
+    pub(crate) last_hits: Option<u32>,
+    pub(crate) denies: Option<u32>,
+    pub(crate) gpm: Option<u32>,
+    pub(crate) xpm: Option<u32>,
+    pub(crate) duration_seconds: Option<u32>,
+    pub(crate) radiant_score: Option<u32>,
+    pub(crate) dire_score: Option<u32>,
+}
+
+impl LastFinishedMatchRecord {
+    pub(crate) fn valid(&self) -> bool {
+        self.epoch > 0
+            && self.epoch <= 9_007_199_254_740_991
+            && self.ended_at > 0
+            && self.ended_at <= 9_007_199_254_740_991
+            && self.match_key.len() == 64
+            && self
+                .match_key
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+            && self.end_values.hero_id.as_ref().is_none_or(|hero| {
+                hero.starts_with("npc_dota_hero_")
+                    && hero.len() <= 64
+                    && hero.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+            })
+    }
+}
+
+fn nonnegative_u32(field: &Field<i64>) -> Option<u32> {
+    field.value().and_then(|value| u32::try_from(*value).ok())
 }
 
 fn duration_ms(duration: Duration) -> u64 {
@@ -102,6 +155,8 @@ pub struct Shared {
     token: Option<String>,
     engine: Option<EngineTx>,
     objective_scheduler: ObjectiveScheduler,
+    /// Parsed objective-only GSI fields; the raw request body is never retained.
+    objective_map_fields: Option<ObjectiveMapFields>,
     objective_flags: Arc<ObjectiveRuntimeFlags>,
     objective_alerts: Option<SyncSender<ObjectiveAlertBatch>>,
     objective_diagnostics: Option<SyncSender<MapDiagnostic>>,
@@ -111,6 +166,7 @@ pub struct Shared {
     /// Local own-match history (OVERVIEW-002). Shared with the `match_history_get` command.
     match_history: MatchHistoryStore,
     match_tracker: MatchTracker,
+    pub(crate) last_finished_match: Option<LastFinishedMatchRecord>,
 }
 
 #[derive(Default)]
@@ -420,6 +476,7 @@ impl Shared {
         self.ownership_reason = None;
         self.last_admitted = None;
         self.last_loadout = OwnLoadout::unknown();
+        self.objective_map_fields = None;
         self.session_hero_id = None;
         self.objective_scheduler.resync_clock();
         self.last_objective_diagnostic = None;
@@ -455,6 +512,56 @@ impl Shared {
         for entry in self.match_tracker.observe(&observation, unix_seconds()) {
             self.store_history(entry);
         }
+    }
+
+    fn record_last_finished_match(&mut self, admitted: &Admitted) {
+        if admitted.phase != Phase::PostGame || admitted.ownership != Ownership::Verified {
+            return;
+        }
+        let Some(session) = self.sessions.current() else {
+            return;
+        };
+        if self.epoch != Some(session.epoch) {
+            return;
+        }
+        let match_key = session.match_key.clone();
+        let history = self
+            .match_history
+            .entries()
+            .into_iter()
+            .find(|entry| entry.source == "kohbor" && entry.match_key == match_key);
+        let ended_at = self
+            .last_finished_match
+            .as_ref()
+            .filter(|record| record.epoch == session.epoch && record.match_key == match_key)
+            .map(|record| record.ended_at)
+            .or_else(|| history.as_ref().map(|entry| entry.ended_at))
+            .unwrap_or_else(unix_seconds);
+        let record = LastFinishedMatchRecord {
+            epoch: session.epoch,
+            match_key,
+            end_values: LastFinishedMatchValues {
+                hero_id: admitted.hero.hero_id.value().cloned(),
+                result: history.as_ref().and_then(|entry| entry.result),
+                kills: nonnegative_u32(&admitted.counters.kills),
+                deaths: nonnegative_u32(&admitted.counters.deaths),
+                assists: nonnegative_u32(&admitted.counters.assists),
+                last_hits: nonnegative_u32(&admitted.counters.last_hits),
+                denies: nonnegative_u32(&admitted.counters.denies),
+                gpm: nonnegative_u32(&admitted.counters.gpm),
+                xpm: nonnegative_u32(&admitted.counters.xpm),
+                duration_seconds: nonnegative_u32(&admitted.map.clock_time)
+                    .or_else(|| history.as_ref().and_then(|entry| entry.duration_s)),
+                radiant_score: nonnegative_u32(&admitted.map.radiant_score),
+                dire_score: nonnegative_u32(&admitted.map.dire_score),
+            },
+            ended_at,
+        };
+        if !record.valid() {
+            return;
+        }
+        self.last_finished_match = Some(record);
+        self.persist_runtime();
     }
 
     fn leave_history(&mut self) {
@@ -498,6 +605,10 @@ impl Shared {
         let persisted: Option<PersistedSessions> = rt
             .as_ref()
             .and_then(|v| serde_json::from_value(v["sessions"].clone()).ok());
+        let last_finished_match = rt
+            .as_ref()
+            .and_then(|v| serde_json::from_value::<LastFinishedMatchRecord>(v["last_finished_match"].clone()).ok())
+            .filter(LastFinishedMatchRecord::valid);
         // A runtime-state file that exists but cannot be read back is corrupt. The
         // epoch counter must still never be reused (GSI-INTAKE-SPEC §6): with no
         // recoverable value, jump once to wall-clock seconds.
@@ -555,6 +666,7 @@ impl Shared {
             token,
             engine: None,
             objective_scheduler: ObjectiveScheduler::default(),
+            objective_map_fields: None,
             objective_flags: Arc::new(ObjectiveRuntimeFlags::default()),
             objective_alerts: None,
             objective_diagnostics: None,
@@ -563,6 +675,7 @@ impl Shared {
             window: (started_at, 0),
             match_history,
             match_tracker: MatchTracker::default(),
+            last_finished_match,
         }
     }
 
@@ -639,7 +752,8 @@ impl Shared {
 
     fn persist_runtime(&self) {
         let v = json!({"schema_version": "1.0.0", "source_generation": self.generation,
-                       "sessions": self.sessions.persisted()});
+                       "sessions": self.sessions.persisted(),
+                       "last_finished_match": self.last_finished_match});
         let _ = write_json_atomic(&runtime_path(&self.data_dir), &v);
     }
 
@@ -648,6 +762,7 @@ impl Shared {
         self.sequence = 0;
         self.last_admitted = None;
         self.last_loadout = OwnLoadout::unknown();
+        self.objective_map_fields = None;
         self.objective_scheduler.resync_clock();
         self.last_objective_diagnostic = None;
         self.reset_detector();
@@ -683,6 +798,65 @@ impl Shared {
                 },
             ),
         }
+    }
+
+    fn objective_read_model_at(&self, now: Instant) -> Value {
+        let admitted_for_objectives = matches!(
+            self.last_admitted.as_ref().map(|(_, outcome)| outcome),
+            Some(Outcome::Admitted(admitted))
+                if admitted.ownership == Ownership::Verified
+                    && matches!(admitted.phase, Phase::Pregame | Phase::Live)
+        ) && self.ownership == Some(Ownership::Verified);
+        let age_ms = admitted_for_objectives
+            .then(|| self.last_age_ms_at(now))
+            .flatten();
+        let fresh = age_ms.is_some_and(|age| age <= FRESH_MAX_AGE_MS);
+        let availability = match age_ms {
+            Some(age) if age <= FRESH_MAX_AGE_MS => "fresh",
+            Some(_) => "stale",
+            None => "unknown",
+        };
+        let map_fields = admitted_for_objectives
+            .then_some(self.objective_map_fields.as_ref())
+            .flatten();
+        let clock_seconds = if fresh {
+            map_fields.and_then(|fields| fields.clock_time.value().copied())
+        } else {
+            None
+        };
+        let upcoming = clock_seconds
+            .map(|clock| {
+                self.objective_scheduler
+                    .next_occurrences(clock)
+                    .into_iter()
+                    .map(|item| {
+                        json!({
+                            "objective": item.objective.as_str(),
+                            "occurrence_seconds": item.occurrence_seconds,
+                            "last_occurrence_seconds": item.last_occurrence_seconds,
+                            "lead_s": []
+                        })
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        json!({
+            "schema_version": 1,
+            "availability": availability,
+            "source": {
+                "generation": self.generation.max(1),
+                "sequence": admitted_for_objectives.then_some(self.sequence.max(1)),
+                "age_ms": age_ms
+            },
+            "schedule": {
+                "schema_version": 1,
+                "rule_source": "ALERT-008",
+                "patch_version": self.objective_scheduler.patch_version(),
+                "observed_clock_seconds": clock_seconds,
+                "upcoming": upcoming
+            },
+            "map": kohbor_gsi::snapshot::objective_map_fields(map_fields, age_ms)
+        })
     }
 
     pub fn last_age_ms(&self) -> Option<u64> {
@@ -774,6 +948,52 @@ impl Shared {
             .map(|(id, at_ms)| crate::capture_host::GsiEvent { id, at_ms })
             .collect();
         view
+    }
+
+    /// Read-only projection for Lab's minimap recorder. It is available only for a fresh,
+    /// verified live payload. A known match ID reuses the same install-keyed session hash as
+    /// match history; an absent ID leaves the hash unknown so the recorder marks its epoch
+    /// fallback explicitly instead of reusing stale match identity.
+    #[cfg(
+        feature = "lab"
+    )]
+    pub(crate) fn minimap_recorder_snapshot_at(
+        &self,
+        now: Instant,
+    ) -> Option<crate::lab::minimap_recorder::RecorderIntakeSnapshot> {
+        let epoch = self.epoch?;
+        if self.last_age_ms_at(now)? > FRESH_MAX_AGE_MS
+            || self.phase != Some(Phase::Live)
+            || self.ownership != Some(Ownership::Verified)
+        {
+            return None;
+        }
+        let Some((_, Outcome::Admitted(admitted))) = self.last_admitted.as_ref() else {
+            return None;
+        };
+        if admitted.phase != Phase::Live || admitted.ownership != Ownership::Verified {
+            return None;
+        }
+        let match_hash = admitted.match_id.as_ref().and_then(|_| {
+            self.sessions
+                .current()
+                .filter(|session| session.epoch == epoch)
+                .map(|session| session.match_key.clone())
+        });
+        Some(crate::lab::minimap_recorder::RecorderIntakeSnapshot {
+            session_epoch: epoch,
+            match_hash,
+            game_clock_seconds: admitted
+                .map
+                .clock_time
+                .value()
+                .copied()
+                .filter(|seconds| *seconds >= 0),
+            team_side: admitted.team.map(|team| match team {
+                Team::Radiant => crate::hero_stats::counters::Side::Radiant,
+                Team::Dire => crate::hero_stats::counters::Side::Dire,
+            }),
+        })
     }
 
     /// Private capture eligibility from the latest admitted payload. An old epoch
@@ -1039,7 +1259,16 @@ impl Shared {
                 if let Some(epoch) = self.sessions.current().map(|session| session.epoch) {
                     let at_ms = duration_ms(arrival.saturating_duration_since(self.started_at));
                     let tick = tick_from_admitted(admitted, at_ms, epoch, true);
-                    let detected = crate::lab::observe(&mut self.detector, &tick);
+                    let ultimate_context = ultimate_context_from_admitted(
+                        admitted,
+                        &loadout,
+                        self.generation.max(1),
+                    );
+                    let detected = crate::lab::observe_with_ultimate(
+                        &mut self.detector,
+                        &tick,
+                        &ultimate_context,
+                    );
                     let detected_at = Instant::now();
                     if !detected.is_empty() {
                         if let Some(tx) = &self.engine {
@@ -1049,6 +1278,7 @@ impl Shared {
                                 at_ms,
                                 session_epoch: epoch,
                                 game_clock_seconds: game_clock_seconds(body),
+                                own_hero: admitted.hero.hero_id.value().cloned(),
                                 generation: self.generation.max(1),
                                 sequence: self.sequence.saturating_add(1),
                                 events: detected.clone(),
@@ -1073,12 +1303,24 @@ impl Shared {
             Outcome::NotPlaying | Outcome::Unsupported(_) => self.leave_history(),
             Outcome::Admitted(_) | Outcome::Rejected(_) => {}
         }
+        if let Outcome::Admitted(admitted) = &outcome {
+            self.record_last_finished_match(admitted);
+        }
         if matches!(&outcome, Outcome::Admitted(_)) {
             self.observe_objectives(body, stale_source_gap, new_match);
         } else {
             self.objective_scheduler.resync_clock();
             self.last_objective_diagnostic = None;
         }
+        self.objective_map_fields = match &outcome {
+            Outcome::Admitted(admitted)
+                if admitted.ownership == Ownership::Verified
+                    && matches!(admitted.phase, Phase::Pregame | Phase::Live) =>
+            {
+                Some(parse_objective_map_fields(body.get("map")))
+            }
+            _ => None,
+        };
         self.sequence += 1;
         self.last_admitted = Some((arrival, outcome));
         self.last_loadout = loadout;
@@ -1225,6 +1467,11 @@ impl Runtime {
             server: Mutex::new(None),
             setup_gate: Mutex::new(()),
         })
+    }
+
+    /// Read-only objective schedule and explicitly admitted map fields for the pinned deck.
+    pub(crate) fn objective_read_model(&self) -> Value {
+        lock(&self.shared).objective_read_model_at(Instant::now())
     }
 
     /// Return only the fresh verified own 32-bit account ID; never expose SteamID64 over IPC.
@@ -1653,6 +1900,44 @@ mod tests {
         assert!(alert_receiver.try_recv().is_err());
     }
 
+    #[test]
+    fn objective_read_model_uses_fresh_admitted_clock_and_keeps_unknown_values_explicit() {
+        let mut shared = shared_with_token();
+        let token = shared.token.clone().unwrap();
+        let arrival = Instant::now();
+        let mut body = in_game(&token);
+        body["map"]["clock_time"] = json!(361);
+        body["map"]["daytime"] = json!(true);
+        body["map"]["roshan_state"] = json!("alive");
+        body["map"]["roshan_respawn_seconds"] = json!(42);
+        assert_eq!(shared.accept(&body, arrival, Some(owner())), 200);
+
+        let fresh = shared.objective_read_model_at(arrival + Duration::from_millis(50));
+        assert_eq!(fresh["availability"], "fresh");
+        assert_eq!(fresh["schedule"]["rule_source"], "ALERT-008");
+        assert_eq!(fresh["schedule"]["patch_version"], "7.42");
+        assert_eq!(fresh["schedule"]["observed_clock_seconds"], 361);
+        let power = fresh["schedule"]["upcoming"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|item| item["objective"] == "power_rune")
+            .unwrap();
+        assert_eq!(power["occurrence_seconds"], 480);
+        assert_eq!(fresh["map"]["daytime"]["value"], true);
+        assert_eq!(fresh["map"]["roshan_respawn_seconds"]["value"], 42);
+        assert_eq!(fresh["map"]["nightstalker_night"], json!({
+            "value": null,
+            "availability": "unknown"
+        }));
+
+        let stale = shared.objective_read_model_at(arrival + Duration::from_secs(3));
+        assert_eq!(stale["availability"], "stale");
+        assert_eq!(stale["schedule"]["observed_clock_seconds"], Value::Null);
+        assert_eq!(stale["schedule"]["upcoming"], json!([]));
+        assert_eq!(stale["map"]["daytime"]["availability"], "stale");
+    }
+
     fn in_game_with_hud_stats(token: &str, kills: i64, gold: i64) -> Value {
         let mut body = in_game(token);
         body["player"]["kills"] = json!(kills);
@@ -1788,8 +2073,20 @@ mod tests {
         // counts in the all-modes win rate (owner, 2026-11-23 "Count all, labelled").
         assert_eq!(e.match_type, crate::match_history::MatchType::Unknown);
         assert_eq!(e.match_key, shared.sessions.current().unwrap().match_key);
+        assert_eq!(shared.phase, None, "the subsequent menu payload leaves the phase at none");
+        let last_match = shared.last_finished_match.clone().expect("post-game record is retained");
+        assert_eq!(last_match.epoch, shared.epoch.unwrap());
+        assert_eq!(last_match.match_key, e.match_key);
+        assert_eq!(last_match.end_values.hero_id.as_deref(), Some("npc_dota_hero_silencer"));
+        assert_eq!(last_match.end_values.result, Some(crate::match_history::MatchResult::Loss));
+        assert_eq!((last_match.end_values.radiant_score, last_match.end_values.dire_score), (Some(36), Some(52)));
+        assert_eq!(last_match.end_values.duration_seconds, Some(2101));
+        let data_dir = shared.data_dir.clone();
+        drop(shared);
+        let restarted = Shared::new(data_dir);
+        assert_eq!(restarted.last_finished_match.as_ref(), Some(&last_match));
         let stored =
-            fs::read_to_string(shared.data_dir.join(crate::match_history::FILE_NAME)).unwrap();
+            fs::read_to_string(restarted.data_dir.join(crate::match_history::FILE_NAME)).unwrap();
         assert!(
             !stored.contains("8000000001"),
             "raw match id is never stored"
@@ -1798,7 +2095,7 @@ mod tests {
             !stored.contains(&owner().to_string()),
             "SteamID64 is never stored"
         );
-        assert_eq!(shared.match_history().view(None)["summary"]["counted"], 1);
+        assert_eq!(restarted.match_history().view(None)["summary"]["counted"], 1);
     }
 
     #[test]
@@ -1888,6 +2185,56 @@ mod tests {
         assert_eq!(s.accept(&menu("x"), Instant::now(), None), 401);
         assert!(s.last_admitted.is_none());
         assert_eq!(s.snapshot()["availability"], "unknown");
+    }
+
+    #[cfg(
+        feature = "lab"
+    )]
+    #[test]
+    fn minimap_recorder_snapshot_returns_current_hashed_match_clock_and_side_only_while_fresh_live() {
+        let mut shared = shared_with_token();
+        let token = shared.token.clone().unwrap();
+        let mut live = in_game(&token);
+        live["map"]["matchid"] = json!("8000000001");
+        live["map"]["clock_time"] = json!(321);
+        let received_at = Instant::now();
+        assert_eq!(shared.accept(&live, received_at, Some(owner())), 200);
+
+        let snapshot = shared
+            .minimap_recorder_snapshot_at(received_at + Duration::from_millis(20))
+            .expect("fresh live GSI provides a recorder snapshot");
+        assert_eq!(snapshot.session_epoch, shared.epoch.unwrap());
+        assert_eq!(snapshot.game_clock_seconds, Some(321));
+        assert_eq!(
+            snapshot.team_side,
+            Some(crate::hero_stats::counters::Side::Radiant)
+        );
+        assert_eq!(
+            snapshot.match_hash.as_deref(),
+            shared.sessions.current().map(|session| session.match_key.as_str())
+        );
+        assert_ne!(snapshot.match_hash.as_deref(), Some("8000000001"));
+        assert!(!format!("{snapshot:?}").contains("8000000001"));
+
+        let mut missing_match_id = live.clone();
+        missing_match_id["map"].as_object_mut().unwrap().remove("matchid");
+        assert_eq!(
+            shared.accept(
+                &missing_match_id,
+                received_at + Duration::from_millis(100),
+                Some(owner())
+            ),
+            200
+        );
+        let fallback = shared
+            .minimap_recorder_snapshot_at(received_at + Duration::from_millis(120))
+            .expect("fresh live GSI with an existing epoch provides the fallback snapshot");
+        assert_eq!(fallback.session_epoch, snapshot.session_epoch);
+        assert_eq!(fallback.match_hash, None);
+        assert_eq!(fallback.game_clock_seconds, Some(321));
+        assert!(shared
+            .minimap_recorder_snapshot_at(received_at + Duration::from_millis(2_101))
+            .is_none());
     }
 
     #[test]

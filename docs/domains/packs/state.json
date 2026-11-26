@@ -2,9 +2,9 @@
   "schema_version": "1.0.0",
   "domain": "packs",
   "tier": "A",
-  "verified_at_commit": "0997546",
-  "verified_on": "2026-11-13",
-  "verified_by": "claude-code subagent draft (read-only), integrated by the governance lead; agent work, not human review",
+  "verified_at_commit": "a8b636b",
+  "verified_on": "2026-11-25",
+  "verified_by": "Codex; reviewed source references, not human or owner approval",
   "write_areas": [
     "crates/kohbor-pack",
     "crates/kohbor-pack-author",
@@ -30,7 +30,11 @@
     "DEC-NATIVE-EVIDENCE",
     "DEC-PREMIUM",
     "DEC-COMMERCE-INTENT",
-    "DEC-BANNER-LAB-STYLE"
+    "DEC-BANNER-LAB-STYLE",
+    "DEC-VOICE-VARIANTS",
+    "DEC-MULTI-PACK",
+    "DEC-REPLAY-INTEGRATION",
+    "DEC-POSITIONING-20261125"
   ],
   "task_id_prefixes": [
     "S2-",
@@ -41,7 +45,7 @@
       "path": "docs/design/MEDIA-PACK-SPEC.md",
       "type": "spec",
       "role": "governing",
-      "reviewed_sha256": "e0ecba31c7e9f97170e61c487d71a625d3c8848bfd5677663b131fbe53bfe195"
+      "reviewed_sha256": "d23ca9ab8644c8110dcb904de2f74f43c2b7406cc147452b7d92382a3e65c0ee"
     },
     {
       "path": "docs/design/PACKAGE-FORMAT-REVIEW.md",
@@ -53,25 +57,25 @@
       "path": "docs/design/EVENT-AUDIO-SPEC.md",
       "type": "spec",
       "role": "reference",
-      "reviewed_sha256": "71cc80c4ea46efd8c1e7351b48101029ffd4cb47ad203c659b4677254066709a"
+      "reviewed_sha256": "34aaea260d1109474e9c16804c22497a1b799849fa4cdc731044320dc299afaf"
     },
     {
       "path": "docs/delivery/SPRINT-ROADMAP.md",
       "type": "registry",
       "role": "reference",
-      "reviewed_sha256": "73a046327b50a6a41c6083754870b919ac7f8fd560bca41270c8d9d8b4ee6c80"
+      "reviewed_sha256": "1998e844650b06125fd18912cf140ab02b896c80f57b7b42502d01c1daa8b64b"
     },
     {
       "path": "contracts/decisions.json",
       "type": "registry",
       "role": "reference",
-      "reviewed_sha256": "e4f25d2cca8579cc06832857a7cea3ba57e9ca197f680672ebdcaefbfd10db1c"
+      "reviewed_sha256": "d97fdb07e35eae27a58a516df797f4b3a723c6c043a65e8a2730e6b182a70860"
     },
     {
       "path": "contracts/requirements.json",
       "type": "registry",
       "role": "reference",
-      "reviewed_sha256": "b583516cbff2e778e65ad25323a1b1c774cb99c8f0ab60feb17106e25763f314"
+      "reviewed_sha256": "fe07f9c0ee3080793a87da68e65e41a19a0fcf721c1e6ea26f90e0d1f9f71f2e"
     },
     {
       "path": "contracts/media-manifest.schema.json",
@@ -112,6 +116,30 @@
       "path": "apps/desktop/src/packs.ts",
       "type": "code",
       "role": "neighbour:ui-overlay"
+    },
+    {
+      "path": "docs/governance/DECISION-LOG.md",
+      "type": "process",
+      "role": "reference",
+      "reviewed_sha256": "9f216cf62e7266d8e6f8e6e63f0c4d2c1789d0ce65875205e547915ff54dbade"
+    },
+    {
+      "path": "contracts/loadout.schema.json",
+      "type": "schema",
+      "role": "source-of-truth",
+      "reviewed_sha256": "c300aeec775757440cb36bee8bcd2c485af88e3a2a4907e19a523962d0ffe769"
+    },
+    {
+      "path": "crates/kohbor-pack/src/catalog.rs",
+      "type": "code",
+      "role": "source-of-truth",
+      "reviewed_sha256": "6691c62892127e6aadcc39d8ef053a812b5c08acca89c527e46bf1fbde0c87f3"
+    },
+    {
+      "path": "crates/kohbor-pack/src/store.rs",
+      "type": "code",
+      "role": "source-of-truth",
+      "reviewed_sha256": "5159701cc871cc7edf3ad5cf7fdb40fcb37e8c751e7186eff1bf0859146dd07a"
     }
   ],
   "open_questions": [
@@ -127,9 +155,9 @@
     }
   ],
   "last_handoff": {
-    "task_id": null,
-    "on": "2026-11-13",
-    "summary": "Refreshed after PR #10 merged: S3 roadmap rows, S3-5 design section 13 and requirement implementation refs reviewed in the diff; no card fact outside the lines changed."
+    "task_id": "domain-cards-refresh-2",
+    "on": "2026-11-25",
+    "summary": "Refreshed domain maps from current source documents and assigned existing requirements and crates; source and requirement records were not edited."
   },
   "crates": [
     "kohbor-pack",

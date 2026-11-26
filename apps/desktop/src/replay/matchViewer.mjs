@@ -1,14 +1,106 @@
-// Lab "Match view" (DEC-REPLAY-INTEGRATION R1): the owner's replay-viewer prototype, hosted in a
-// shadow root like viewer.mjs. Lifted from F:\gsi-log\replay-viewer-proto\viewer.js with these
-// changes only: data from an admitted Match Bundle instead of page-relative loads, icons through one icon()
-// resolver over a user-picked folder (neutral placeholder when absent), prototype tables imported
-// from matchTables.mjs, listeners and loops removed on unmount, inline handlers dropped (CSP).
-// Prototype labels stay in Thai; the static markup is translated for the English locale.
-import { MAP, ULTS, ULT_ABIL, CC, MOBILITY, CONSUMABLE, MID_PAIR, START_T, DEFAULT_DEATH } from "./matchTables.mjs";
-import { english } from "./matchViewerCopy.mjs";
+// Lab Match view over validated replay-library bundles, with patch-scoped tables and calibration.
+import { matchViewerCopy } from "./matchViewerCopy.mjs";
+import { baseAttackSpeed, isConsumableItem, isControlEffect, isMobilityAbility, isMobilityItem, isNotableItem, isUltimateAbility } from "./replayPack.mjs";
+import { heroCardView } from "../analytics/heroCardView.mjs";
+import { statusTrayLayout } from "../analytics/analyticsLayoutModel.mjs";
+import { resolveModifierIcon, statusIconTitle } from "../analytics/statusTrayModel.mjs";
+import { reflowHeroCardDisplay, visibleHeroCardRows, visibleStatKeys } from "../shared/heroCardDisplay.mjs";
 
-export function mountMatchView(root, bundle, { locale, markup, style, icon, hasMap, header }) {
-  const translate = text => locale === "en" ? english[text] ?? text : text;
+const sourceTeamId = team => team === "radiant" ? 2 : team === "dire" ? 3 : team === "neutral" ? 4 : null;
+const unknownSource = locale => locale === "en" ? "Unknown source" : "ไม่ทราบที่มา";
+
+function unitSourceLabel(unit, locale) {
+  const value = String(unit ?? "");
+  if (/tower/i.test(value)) return locale === "en" ? "Tower" : "ป้อม";
+  if (/fountain/i.test(value)) return locale === "en" ? "Fountain" : "น้ำพุ";
+  if (/ward/i.test(value)) return locale === "en" ? "Ward" : "วอร์ด";
+  return value.replace(/^npc_dota_/, "").replaceAll("_", " ") || unknownSource(locale);
+}
+
+function modifierSourceLabel(source, sourceHero, locale) {
+  if (sourceHero) return sourceHero.name ?? unknownSource(locale);
+  if (source && typeof source === "object") {
+    const unit = unitSourceLabel(source.unit, locale);
+    const team = source.team === "radiant" || source.team === "dire" || source.team === "neutral"
+      ? source.team[0].toUpperCase() + source.team.slice(1) : null;
+    return [unit, team].filter(Boolean).join(" · ") || unknownSource(locale);
+  }
+  return unknownSource(locale);
+}
+
+function stackCountAt(rows, name, time) {
+  let latest = Number.NEGATIVE_INFINITY;
+  let count = null;
+  for (const row of Array.isArray(rows) ? rows : []) {
+    if (!Array.isArray(row) || row[1] !== name || !Number.isFinite(row[0]) || row[0] > time || row[0] < latest) continue;
+    latest = row[0];
+    count = Number.isInteger(row[2]) && row[2] > 0 ? row[2] : null;
+  }
+  return count;
+}
+
+export function modifierEffectsAt(hero, time, { byId = {}, locale = "th", patchData = null, iconExists = () => false, nameOf = value => String(value ?? "") } = {}) {
+  const legacy = (Array.isArray(hero?.mods) ? hero.mods : []).map(row => [...row, []]);
+  const extended = Array.isArray(hero?.mods_long) ? hero.mods_long : [];
+  const effects = [];
+  for (const row of [...legacy, ...extended]) {
+    if (!Array.isArray(row) || !Number.isFinite(row[0]) || row[0] > time || typeof row[2] !== "string") continue;
+    const [start, rawEnd, modifier, sourceValue, rawFlags] = row;
+    const end = Number.isFinite(rawEnd) ? rawEnd : null;
+    if (end !== null && end < time) continue;
+    const flags = Array.isArray(rawFlags) ? rawFlags : [];
+    if (flags.includes("subtle")) continue;
+
+    const sourceHero = typeof sourceValue === "string" ? byId[sourceValue] : null;
+    const team = sourceHero?.team ?? (sourceValue && typeof sourceValue === "object" ? sourceTeamId(sourceValue.team) : null);
+    const enemy = (team === 2 || team === 3) && team !== hero.team;
+    const control = enemy && isControlEffect(patchData, modifier);
+    const kind = control ? "control" : enemy ? "debuff" : "buff";
+    const permanent = flags.includes("permanent");
+    const sourceAbilities = Array.isArray(sourceHero?.abil) ? sourceHero.abil.map(ability => ability.n).filter(Boolean) : [];
+    const recentCasts = (sourceHero?.casts ?? []).map(([castTime, name]) => ({ time: castTime, name, start }));
+    const icon = resolveModifierIcon({
+      modifier, sourceHeroId: sourceHero?.id ?? null, sourceAbilities, recentCasts,
+      iconExists, overrideTable: patchData?.modifier_icons ?? {}, effectKind: kind,
+    });
+    effects.push({
+      key: modifier, name: nameOf(modifier), raw: modifier,
+      remaining: permanent ? Number.POSITIVE_INFINITY : end === null ? null : Math.max(0, end - time),
+      duration: permanent || end === null ? null : Math.max(0.1, end - start),
+      sourceNames: [modifierSourceLabel(sourceValue, sourceHero, locale)], sourceHeroId: sourceHero?.id ?? null,
+      kind, control, icon, inferred: icon.inferred, permanent, aura: flags.includes("aura"),
+      stacks: stackCountAt(hero.mod_stacks, modifier, time),
+    });
+  }
+  return effects;
+}
+
+export function visibleStatusEffects(layout) {
+  const visible = Array.isArray(layout?.visible) ? layout.visible : [];
+  const buffs = visible.filter(effect => effect.kind === "buff").sort((left, right) =>
+    Number(Boolean(right.permanent)) - Number(Boolean(left.permanent))
+      || (left.remaining ?? Number.POSITIVE_INFINITY) - (right.remaining ?? Number.POSITIVE_INFINITY));
+  return [...buffs, ...visible.filter(effect => effect.kind !== "buff")];
+}
+
+export function modifierDataNeedsReparse(schema) {
+  return schema === "3.0" || schema === "3.1";
+}
+
+export function mountMatchView(root, bundle, { locale, markup, style, icon, statCatalog, statIcon, hasMap, hasIcon = () => false, header, patchData, mapCalibration, initialTime = null, disableKeyboard = false, statLabelMode = "icon", heroCardDisplay = null, density = "full", selectedHeroId = null, cardsCollapsed = false }) {
+  const viewerStrings = matchViewerCopy[locale].viewerStrings;
+  const translationEntries = Object.entries(viewerStrings).sort(([left], [right]) => right.length - left.length);
+  const translate = value => {
+    const text = String(value ?? "");
+    if (locale !== "en") return text;
+    if (viewerStrings[text]) return viewerStrings[text];
+    return translationEntries.reduce((result, [thai, englishText]) => result.includes(thai) ? result.replaceAll(thai, englishText) : result, text);
+  };
+  const bundleSchema = bundle.match?.meta?.schema ?? bundle.manifest?.schema;
+  const needsModifierReparse = modifierDataNeedsReparse(bundleSchema);
+  const missingStatusNote = locale === "en"
+    ? "Re-parse this replay with the new engine to include permanent buffs, auras and stack counts."
+    : "ต้องแยกรีเพลย์อีกครั้งด้วยเอนจินรุ่นใหม่ เพื่อแสดงบัฟถาวร ออร่า และจำนวนสแต็ก";
   const template = window.document.createElement("template");
   template.innerHTML = markup;
   for (const element of template.content.querySelectorAll("[aria-label],[title]")) {
@@ -23,9 +115,56 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
   styles.textContent = style;
   root.replaceChildren(styles, template.content);
   for (const [id, value] of Object.entries(header)) { const el = root.getElementById(id); if (el) el.textContent = value; }
-
+  const stage = root.getElementById("rv-cards-r")?.parentElement;
+  const teamScores = {};
+  const wrapTeam = (cardsId, team, label) => {
+    const cards = root.getElementById(cardsId);
+    if (!cards || !stage) return;
+    const column = window.document.createElement("div"); column.className = `rv-team-column team-${team}`;
+    const heading = window.document.createElement("header"); heading.className = "team-head";
+    const name = window.document.createElement("strong"); name.textContent = label;
+    const score = window.document.createElement("b"); score.className = "team-kills"; score.textContent = "0";
+    const winner = bundle.match?.meta?.winner === team;
+    const winnerLabel = winner ? window.document.createElement("span") : null;
+    if (winnerLabel) { winnerLabel.className = "team-winner"; winnerLabel.textContent = locale === "en" ? "WIN" : "ชนะ"; }
+    const info = needsModifierReparse ? window.document.createElement("span") : null;
+    if (info) {
+      info.className = "status-info"; info.textContent = "ⓘ";
+      info.title = missingStatusNote; info.setAttribute("role", "note"); info.setAttribute("aria-label", missingStatusNote);
+    }
+    heading.append(name, score); if (winnerLabel) heading.append(winnerLabel); if (info) heading.append(info);
+    // Insert the column while `cards` is still a child of the stage, then move the cards into it.
+    stage.insertBefore(column, cards); column.append(heading, cards);
+    teamScores[team] = score;
+  };
+  wrapTeam("rv-cards-r", "radiant", locale === "en" ? "Radiant" : "Radiant");
+  wrapTeam("rv-cards-d", "dire", locale === "en" ? "Dire" : "Dire");
   let alive = true;
   const cleanups = [];
+  const translateNode = node => {
+    if (node.nodeType === window.Node.TEXT_NODE) {
+      const next = translate(node.nodeValue);
+      if (next !== node.nodeValue) node.nodeValue = next;
+      return;
+    }
+    if (node.nodeType !== window.Node.ELEMENT_NODE) return;
+    for (const name of ["title", "aria-label"]) {
+      if (node.hasAttribute(name)) {
+        const next = translate(node.getAttribute(name));
+        if (next !== node.getAttribute(name)) node.setAttribute(name, next);
+      }
+    }
+    for (const child of node.childNodes) translateNode(child);
+  };
+  const copyObserver = new window.MutationObserver(mutations => {
+    for (const mutation of mutations) {
+      if (mutation.type === "characterData") translateNode(mutation.target);
+      else if (mutation.type === "attributes") translateNode(mutation.target);
+      else for (const node of mutation.addedNodes) translateNode(node);
+    }
+  });
+  copyObserver.observe(root, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["title", "aria-label"] });
+  cleanups.push(() => copyObserver.disconnect());
   const on = (target, type, fn, options) => { target.addEventListener(type, fn, options); cleanups.push(() => target.removeEventListener(type, fn, options)); };
   const editing = ev => { const el = ev.composedPath()[0]; return el instanceof Element && !!el.closest("input, select, textarea"); };
   const requestAnimationFrame = cb => alive ? window.requestAnimationFrame(cb) : 0;
@@ -41,13 +180,35 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
 
   const $ = id => document.getElementById(id);
   const cv = $("rv-canvas"), ctx = cv.getContext("2d"), wrap = $("rv-mapwrap"), tip = $("rv-tip"), status = $("rv-status");
-  const S = {D: null, t: START_T, playing: false, speed: 10, mode: "route", heatStyle: "hero", trail: 45, range: [-90, 2222],
+  const startTime = Number.isFinite(initialTime) ? Math.max(bundle.match.t0, Math.min(bundle.match.t1, initialTime)) : bundle.match.t0;
+  const S = {D: null, t: startTime, playing: false, speed: 10, mode: "route", heatStyle: "hero", trail: 45, range: [bundle.match.t0, bundle.match.t1],
     vis: new Set(), focus: null, follow: false, names: false, autoPause: false, stopAt: null, review: null, lastCardKey: "",
-    view: {k: 1, ox: 0, oy: 0}, img: null, port: {}, alerts: [], hits: [], W: null, dmgFloat: true, fog: "all", layers: {lane: true, neut: true, rune: true, ward: true, bld: true, rosh: true}};
+    view: {k: 1, ox: 0, oy: 0}, img: null, port: {}, alerts: [], hits: [], W: null, dmgFloat: true, fog: "all", patchData, mapCalibration,
+    layers: {lane: true, neut: true, rune: true, ward: true, bld: true, rosh: true},
+    display: heroCardDisplay, density, selectedHeroId,
+    cardsCollapsed: typeof cardsCollapsed === "object" ? cardsCollapsed : { radiant: Boolean(cardsCollapsed), dire: Boolean(cardsCollapsed) },
+    statusEffectsByPid: new Map()};
+  root.host.dataset.analyticsDensity = density;
+  root.host.dataset.cardsRadiantCollapsed = String(S.cardsCollapsed.radiant);
+  root.host.dataset.cardsDireCollapsed = String(S.cardsCollapsed.dire);
+  if (!patchData.ultimate_classification.available) {
+    const ultimateCopy = $("al-ult-copy");
+    if (ultimateCopy) ultimateCopy.textContent = header["al-ult-copy"] ?? "";
+  }
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
   const clk = t => { const s = Math.round(t), a = Math.abs(s); return (s < 0 ? "−" : "") + String(Math.floor(a / 60)).padStart(2, "0") + ":" + String(a % 60).padStart(2, "0"); };
-  const fmt = v => Math.round(v).toLocaleString("en-US");
+  const fmt = v => Number.isFinite(v) ? Math.round(v).toLocaleString("en-US") : "—";
   const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+  const statDefinition = key => statCatalog?.[key] ?? { label: key.toUpperCase(), accessibleLabel: key.toUpperCase(), iconIds: [] };
+  const statGlyphs = key => {
+    const def = statDefinition(key);
+    if (statLabelMode === "text") return `<span class="stat-glyph" data-stat-label="text" role="img" aria-label="${esc(def.accessibleLabel)}" title="${esc(def.accessibleLabel)}">${esc(def.label)}</span>`;
+    const images = def.iconIds.map(id => statIcon?.(id)).filter(Boolean);
+    const glyph = images.length
+      ? images.map(src => `<img src="${esc(src)}" alt="" aria-hidden="true" draggable="false">`).join("")
+      : esc(def.label);
+    return `<span class="stat-glyph" data-stat-label="icon" role="img" aria-label="${esc(def.accessibleLabel)}" title="${esc(def.accessibleLabel)}">${glyph}</span>`;
+  };
   const slug = id => id.replace("npc_dota_hero_", "");
   const portSrc = id => icon("hero", slug(id));
   let W = 600, H = 600, dpr = 1;
@@ -70,7 +231,8 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
     return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
   }
   // world (GSI units) -> base canvas px -> screen px with zoom
-  const base = p => [(MAP.a * p[0] + MAP.b) / MAP.size * W, (MAP.c * p[1] + MAP.d) / MAP.size * H];
+  const base = p => [(mapCalibration.a * p[0] + mapCalibration.b) / mapCalibration.size * W,
+    (mapCalibration.c * p[1] + mapCalibration.d) / mapCalibration.size * H];
   const scr = p => { const [x, y] = base(p), v = S.view; return [(x - v.ox) * v.k, (y - v.oy) * v.k]; };
   function clampView(){ const v = S.view; v.k = Math.max(1, Math.min(6, v.k)); v.ox = Math.max(0, Math.min(W - W / v.k, v.ox)); v.oy = Math.max(0, Math.min(H - H / v.k, v.oy)); $("z-lvl").textContent = v.k.toFixed(1) + "×"; }
   function zoomAt(sx, sy, k){ const v = S.view, bx = sx / v.k + v.ox, by = sy / v.k + v.oy; v.k = Math.max(1, Math.min(6, k)); v.ox = bx - sx / v.k; v.oy = by - sy / v.k; clampView(); draw(); }
@@ -112,14 +274,14 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
       if (cfg.cc){
         for (const [a, b, n, src] of h.mods){
           const sh = D.byId[src];
-          if (!sh || sh.team === h.team || b - a < cfg.ccS || !CC.some(k => n.includes(k))) continue;
+          if (!sh || sh.team === h.team || b - a < cfg.ccS || !isControlEffect(patchData, n)) continue;
           out.push({hero: h.id, type: "cc", t0: a, t1: b, text: `โดน ${prettyMod(n, src)} ${(b - a).toFixed(1)} วินาที จาก ${sh.name}`});
         }
       }
       if (cfg.ult){
         const lastU = {};  // a repeated cast of the same ultimate within 20 s (e.g. Largo's song notes) stays one event
         for (const [t, n] of h.casts){
-          if (!ULTS.test(n)) continue;
+          if (!isUltimateAbility(patchData, h.id, n) && !isNotableItem(patchData, n)) continue;
           const prev = lastU[n]; lastU[n] = t;
           if (prev != null && t - prev < 20) continue;
           out.push({hero: h.id, type: "ult", t0: t, t1: t + 1.5, text: `ใช้ ${nameOf(n)}`});
@@ -157,7 +319,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
   }
   function label(x, y, text, color, align){
     ctx.font = `600 ${Math.max(10, Math.min(13, W * .017))}px ${css("--f-mono")}`; ctx.textAlign = align || "left"; ctx.lineJoin = "round";
-    ctx.lineWidth = 3; ctx.strokeStyle = "rgba(0,0,0,.85)"; ctx.strokeText(text, x, y); ctx.fillStyle = color || "#fff"; ctx.fillText(text, x, y);
+    ctx.lineWidth = 3; ctx.strokeStyle = "rgba(0,0,0,.85)"; ctx.strokeText(translate(text), x, y); ctx.fillStyle = color || "#fff"; ctx.fillText(translate(text), x, y);
   }
   function drawIcon(h, x, y, r, alive, alert){
     const im = S.port[h.id], now = performance.now() / 1000;
@@ -254,7 +416,8 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
       const g = grids[k];
       for (let i = 0; i < h.pos.length; i++){
         const t = i + D.t0; if (!h.alive[i] || t < S.range[0] || t >= S.range[1]) continue;
-        const p = h.pos[i], gx = Math.floor((MAP.a * p[0] + MAP.b) / MAP.size * N), gy = Math.floor((MAP.c * p[1] + MAP.d) / MAP.size * N);
+        const p = h.pos[i], gx = Math.floor((mapCalibration.a * p[0] + mapCalibration.b) / mapCalibration.size * N),
+          gy = Math.floor((mapCalibration.c * p[1] + mapCalibration.d) / mapCalibration.size * N);
         if (gx >= 0 && gy >= 0 && gx < N && gy < N) g[gy * N + gx] += 1;
       }
       // two box-blur passes ≈ gaussian
@@ -331,14 +494,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
   /* ---------- cards ---------- */
   function invAt(h, t){ let cur = h.inv[0] ? h.inv[0][1] : []; for (const [tt, v] of h.inv){ if (tt <= t) cur = v; else break; } return cur; }
   function modsAt(h, t){
-    const out = [];
-    for (const [a, b, n, src] of h.mods){
-      if (a > t) break; if (b < t) continue;
-      const sh = S.D.byId[src], enemy = sh && sh.team !== h.team, cc = enemy && CC.some(k => n.includes(k));
-      out.push({n: prettyMod(n, src), rem: b - t, cls: cc ? "cc" : enemy ? "deb" : ""});
-    }
-    out.sort((x, y) => (y.cls === "cc") - (x.cls === "cc") || (y.cls === "deb") - (x.cls === "deb"));
-    const seen = new Set(); return out.filter(m => !seen.has(m.n) && seen.add(m.n)).slice(0, 6);
+    return modifierEffectsAt(h, t, { byId: S.D.byId, locale, patchData, iconExists: hasIcon, nameOf });
   }
   const abilSrc = n => icon("ability", n);
   function iconSlot(kind, name, o){
@@ -349,10 +505,75 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
     return `<span class="ic ${kind}${o.cls ? " " + o.cls : ""}${cd ? " oncd" : ""}" style="--p:${p}%" title="${title}"${o.attrs || ""}><b>${esc(name.slice(0, 3))}</b>${o.src ? `<img src="${o.src}" alt="">` : ""}${o.pips != null ? `<i class="pp">${"●".repeat(o.pips)}</i>` : ""}${o.ch ? `<em>${o.ch}</em>` : ""}${cd ? `<s>${cd < 10 ? cd.toFixed(1) : Math.ceil(cd)}</s>` : ""}</span>`;
   }
   function findAt(h, t){ let f = null; for (const x of h.finds || []) if (x[0] <= t) f = x; return f; }
+  function statusEffectHTML(effect, detailed = false){
+    const iconValue = effect.icon?.icon ? icon(effect.icon.kind, effect.icon.icon) : null;
+    const ring = Number.isFinite(effect.duration) && effect.duration > 0
+      ? Math.max(0, Math.min(100, effect.remaining / effect.duration * 100)) : 0;
+    const sourceTitle = statusIconTitle({ name: effect.name, kind: effect.kind, sourceNames: effect.sourceNames, remaining: effect.remaining, permanent: effect.permanent, stacks: effect.stacks, inferred: effect.inferred, locale });
+    const badge = effect.icon?.sourceHeroId ? `<img class="status-source" src="${esc(icon("hero", slug(effect.icon.sourceHeroId)))}" alt="">` : "";
+    const graphic = iconValue ? `<img src="${esc(iconValue)}" alt="">` : `<b aria-hidden="true">${esc(effect.icon?.glyph ?? "▲")}</b>`;
+    const seconds = effect.permanent ? "∞" : Number.isFinite(effect.remaining) ? (effect.remaining < 10 ? effect.remaining.toFixed(1)
+      : effect.remaining < 60 ? String(Math.ceil(effect.remaining)) : `${Math.floor(effect.remaining / 60)}m`) : "—";
+    const stackBadge = Number.isInteger(effect.stacks) && effect.stacks > 0 ? `<em class="status-stack">${effect.stacks}</em>` : "";
+    return `<span class="status-effect${detailed ? " status-list-effect" : ""} ${effect.kind}${effect.control ? " control" : ""}${effect.icon?.tier === 6 ? " generic" : ""}" title="${esc(sourceTitle)}" aria-label="${esc(sourceTitle)}">
+      <i class="status-ring" style="--p:${ring}%"></i>${graphic}${badge}${stackBadge}<small>${seconds}</small></span>`;
+  }
+  function statusListHTML(effects){
+    const groups = [
+      ["control", locale === "en" ? "Crowd control" : "ควบคุม"],
+      ["debuff", locale === "en" ? "Debuffs" : "ดีบัฟ"],
+      ["buff", locale === "en" ? "Buffs" : "บัฟ"],
+    ];
+    return groups.map(([kind, label]) => {
+      const items = effects.filter(effect => effect.kind === kind);
+      if (!items.length) return "";
+      return '<li class="status-group" role="presentation">' + esc(label) + '</li>' + items.map(effect =>
+        '<li class="' + effect.kind + '">' + statusEffectHTML(effect, true) + '<span><b>' + esc(effect.name) + '</b><small>'
+          + esc(effect.sourceNames.join(", ") || (locale === "en" ? "Unknown source" : "ไม่ทราบที่มา")) + '</small></span></li>'
+      ).join("");
+    }).join("") + (needsModifierReparse ? '<li class="status-missing-note"><span class="status-info">ⓘ</span><span>' + esc(missingStatusNote) + '</span></li>' : "");
+  }
+  function visibleStatusHTML(layout){
+    return visibleStatusEffects(layout).map((effect, index) => `${index === layout.dividerIndex && layout.dividerIndex > 0 ? '<i class="status-divider" aria-hidden="true"></i>' : ""}${statusEffectHTML(effect)}`).join("");
+  }
+  function showStatusList(pid){
+    const layout = S.statusEffectsByPid.get(String(pid));
+    if (!layout) return;
+    let list = $("status-overflow-list");
+    if (!list) {
+      list = window.document.createElement("section");
+      list.id = "status-overflow-list"; list.className = "status-overflow-list";
+      list.setAttribute("role", "dialog"); list.setAttribute("aria-modal", "false");
+      $("replay")?.append(list);
+    }
+    const card = $("card-" + pid);
+    const heroName = card?.querySelector(".nm")?.textContent ?? "";
+    list.dataset.statusPid = String(pid);
+    list.innerHTML = `<header><strong>${esc(heroName)} · ${locale === "en" ? "status effects" : "บัฟและดีบัฟ"}</strong><button type="button" data-status-close aria-label="${locale === "en" ? "Close" : "ปิด"}">×</button></header>
+      <ul>${statusListHTML(layout.all)}</ul>`;
+    list.hidden = false;
+    list.querySelector("[data-status-close]")?.focus();
+  }
   function cardHTML(h, t){
-    const i = idx(t), alive = h.alive[i], hp = h.hp[i], mhp = h.mhp[i] || 1, mp = h.mp[i], mmp = h.mmp[i] || 1, frac = t - Math.floor(t), rs = respawnIn(h, t);
+    const i = idx(t), alive = h.alive?.[i], hp = h.hp?.[i], mhp = h.mhp?.[i], mp = h.mp?.[i], mmp = h.mmp?.[i], frac = t - Math.floor(t), rs = respawnIn(h, t);
     const kills = S.D.deaths.filter(d => d.killer === h.id && d.t <= t).length, deaths = S.D.deaths.filter(d => d.hero === h.id && d.t <= t).length;
-    const [gold, nw, lh, dn] = h.eco[i], al = activeAlert(h, t);
+    const [gold, nw, lh, dn] = h.eco?.[i] || [], al = activeAlert(h, t);
+    const statValue = key => Number.isFinite(h.st?.[key]?.[i]) ? h.st[key][i] : null;
+    const derivedView = derived(h, t);
+    const sharedView = heroCardView({
+      top: { name: h.name ?? "—", kills, deaths, lh, dn, nw }, bars: { hp, mhp, mp, mmp },
+      ab: { abilities: h.abil?.length ?? null }, it: { items: h.inv ? "known" : null, gold },
+      st: { str: statValue("strT"), agi: statValue("agiT"), int: statValue("intT"), dmg: statValue("dmin"), reg: statValue("hpreg") },
+      dv: { ...Object.fromEntries(["armor", "mr", "amp", "as", "ms", "ev", "sres", "ls"].map(key => [key, derivedView?.[key] ?? null])),
+        // Schema 3.1 only: whole-match hero damage dealt (engine 0.3.0). A 3.0 bundle has no dmg_out, so no HD cell.
+        ...(h.dmg_out !== undefined ? { hd: h.dmg_out?.total ?? null } : {}) },
+    });
+    const hdCell = sharedView.hd
+      ? `<span class="num hd" title="ดาเมจใส่ฮีโร่ทั้งเกม (Hero damage, ทั้งแมตช์ ไม่ใช่ ณ เวลานี้)">HD ${esc(sharedView.hd.value)}</span>` : "";
+    const rowAttr = id => {
+      const row = sharedView.rows.find(candidate => candidate.id === id);
+      return `data-card-row="${id}"${row?.unknownFields.length ? ` data-unknown-fields="${esc(row.unknownFields.join(","))}"` : ""}`;
+    };
     const abil = h.abil.map((a, k) => {
       const lv = a.lv[i], cd = a.cd[i] ? Math.max(0, a.cd[i] - frac) : 0;
       return iconSlot("ab", nameOf(a.n), {attrs: ` data-ab="${k}"`, src: abilSrc(a.n), cd, cl: a.cl[i], pips: Math.max(...a.lv) > 1 ? lv : null, extra: "Lv " + lv + (a.mc[i] ? " · มานา " + a.mc[i] : ""), cls: lv === 0 ? "off" : (!cd && a.mc[i] > mp ? "nomana" : "")});
@@ -362,27 +583,40 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
     const item = (s, kind) => { const v = bySlot[s]; if (!v) return iconSlot(kind, null); const [cd, cl] = icd(s); return iconSlot(kind, nameOf(v[0]), {src: iconSrc(v[0]), cd, cl, ch: v[1] || ""}); };
     const f = findAt(h, t), nv = bySlot[16];
     const neutral = nv ? (() => { const [cd, cl] = icd(16); return iconSlot("nt", nameOf(nv[0]), {src: iconSrc(nv[0]), cd, cl, extra: "ไอเทมป่า" + (f ? ` · enchantment ${f[2]} ระดับ ${f[3]} · ดรอปล่าสุด ${clk(f[0])}` : "")}); })() : iconSlot("nt", null);
-    const mods = modsAt(h, t).slice(0, 3);
-    return `<div class="pt"><img src="${portSrc(h.id)}" alt=""><span class="lvb">${h.lvl[i]}</span>${alive ? "" : `<span class="rsp">${rs != null ? Math.ceil(rs) : ""}</span>`}</div>
-      <div class="top"><span class="nm">${esc(h.name)}</span><span class="kd num" title="Kill / Death">${kills}/${deaths}</span><span class="num" title="Last hit / Deny">${lh}/${dn}</span><span class="num nw" title="Net worth">${nw >= 10000 ? (nw / 1000).toFixed(1) + "k" : fmt(nw)}</span></div>
-      ${barsHTML(h, t, i, alive, hp, mhp, mp, mmp)}
-      <div class="row ab">${abil}<span class="mods">${al ? `<span class="mod cc">⚠ ${esc(al.text)}</span>` : mods.map(m => `<span class="mod ${m.cls}">${esc(m.n)} <span class="num">${m.rem < 10 ? m.rem.toFixed(1) : Math.round(m.rem)}</span></span>`).join("")}</span></div>
-      <div class="row it">${[0, 1, 2, 3, 4, 5].map(s => item(s, "it")).join("")}<span class="bp">${[6, 7, 8].map(s => item(s, "bk")).join("")}</span>${item(15, "tp")}${neutral}${f && nv ? `<span class="enh" title="Enchantment ของไอเทมป่า">${esc(f[2])} ${f[3]}</span>` : ""}<span class="gold num" title="ทองในมือ">${fmt(gold)}</span></div>
-      ${statsHTML(h, i)}
-      ${derivedHTML(h, i, t)}`;
+    const teamKey = h.team === 2 ? "radiant" : "dire";
+    const cardWidth = Number.parseFloat(css(teamKey === "radiant" ? "--an-r-card-w" : "--an-d-card-w"))
+      || Number.parseFloat(css("--an-card-w")) || 344;
+    const collapsedColumn = S.cardsCollapsed[teamKey];
+    const trayWidth = cardWidth - 20 - h.abil.length * 29 - 4;
+    const slotCount = collapsedColumn ? 3 : Math.max(2, Math.min(8, Math.floor((trayWidth + 3) / 23)));
+    const modLayout = statusTrayLayout(modsAt(h, t), slotCount);
+    S.statusEffectsByPid.set(String(h.pid), modLayout);
+    return `<div class="pt"><img src="${portSrc(h.id)}" alt=""><span class="lvb">${fmt(h.lvl?.[i])}</span>${alive === false ? `<span class="rsp">${rs != null ? Math.ceil(rs) : "—"}</span>` : ""}</div>
+      <div class="top" ${rowAttr("top")}><span class="nm">${esc(h.name ?? "—")}</span><span class="kd num" title="Kill / Death">${kills}/${deaths}</span><span class="num" title="Last hit / Deny">${fmt(lh)}/${fmt(dn)}</span><span class="num nw" title="Net worth">${Number.isFinite(nw) ? (nw >= 10000 ? (nw / 1000).toFixed(1) + "k" : fmt(nw)) : "—"}</span>${hdCell}</div>
+      ${barsHTML(h, t, i, alive, hp, mhp, mp, mmp, rowAttr("bars"))}
+      <div class="row ab" ${rowAttr("ab")}>${abil}<span class="mods">${S.display?.show?.status === false ? "" : visibleStatusHTML(modLayout)}${S.display?.show?.status !== false && modLayout.hiddenCount ? `<button type="button" class="status-overflow" data-status-overflow="${esc(String(h.pid))}" aria-label="${locale === "en" ? `Show ${modLayout.hiddenCount} more effects` : `แสดงสถานะเพิ่ม ${modLayout.hiddenCount} รายการ`}">${modLayout.overflow}</button>` : ""}</span></div>
+      <div class="row it" ${rowAttr("it")}>${[0, 1, 2, 3, 4, 5].map(s => item(s, "it")).join("")}<span class="bp">${[6, 7, 8].map(s => item(s, "bk")).join("")}</span>${item(15, "tp")}${neutral}${f && nv ? `<span class="enh" title="Enchantment ของไอเทมป่า">${esc(f[2])} ${f[3]}</span>` : ""}<span class="gold num" title="ทองในมือ">${fmt(gold)}</span></div>
+      ${statsHTML(h, i, rowAttr("st"))}
+      ${derivedHTML(h, i, t, rowAttr("dv"))}`;
   }
-  /* derived stats from 7.41f tables (dotaconstants) + replay attributes, items, buffs */
+  /* Patch-scoped dotaconstants tables plus observed replay attributes, items and modifiers. */
   function abilLv(h, name, i){ const a = h && h.abil.find(x => x.n === name); return a ? Math.max(1, a.lv[i]) : 1; }
   function derived(h, t){
     const db = S.D.statdb; if (!db || !h.st) return null;
     const hb = db.heroes[h.id]; if (!hb) return null;
     const i = idx(t), s = h.st, melee = hb.melee, src = {};
+    const mrPerIntPct = patchData.rules?.mr_per_int_pct
+      ?? patchData.formulas?.magic_resistance_per_intelligence_pct?.value;
+    const armorPerAgi = patchData.rules?.armor_per_agi
+      ?? patchData.formulas?.armor_per_agility?.value;
+    if (!Number.isFinite(mrPerIntPct) || !Number.isFinite(armorPerAgi)) return null;
     const add = (k, label, v) => { if (!v) return; (src[k] = src[k] || []).push([label, v]); };
     const agi = s.agiT[i], int = s.intT[i];
-    // armor: base + AGI/6 + items + enchantment + buffs
-    add("armor", "พื้นฐาน", hb.armor); add("armor", `AGI ${Math.round(agi)} ÷ 6`, agi / 6);
-    add("mr", "พื้นฐาน", hb.mr); add("mrint", `INT ${Math.round(int)} × 0.1%`, int * .1);
-    add("as", `พื้นฐานของฮีโร่ (${hb.bas})`, hb.bas); add("as", `AGI ${Math.round(agi)}`, agi);
+    // Armor, resistance and attack-speed formulas come from this patch's local replay pack.
+    add("armor", "พื้นฐาน", hb.armor); add("armor", `AGI ${Math.round(agi)} × ${armorPerAgi}`, agi * armorPerAgi);
+    add("mr", "พื้นฐาน", hb.mr); add("mrint", `INT ${Math.round(int)} × ${mrPerIntPct}%`, int * mrPerIntPct);
+    const bas = baseAttackSpeed(patchData, h.id) ?? hb.bas;
+    add("as", `พื้นฐานของฮีโร่ (${bas})`, bas); add("as", `AGI ${Math.round(agi)}`, agi);
     add("ms", "พื้นฐาน", hb.ms);
     let boots = 0, bootsName = "";
     for (const [slot, n] of invAt(h, t)){
@@ -413,32 +647,51 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
     // base + INT magic resistance add together, then every other source multiplies
     const mrBase = (hb.mr + sum("mrint")) / 100, mr = 1 - (1 - mrBase) * (1 - mult("mrm"));
     // Liquipedia Attack Speed: min = 20 shifted by (base AS − 100), max 700
-    const as = Math.max(20 + hb.bas - 100, Math.min(700, sum("as"))), aps = as / 100 / (s.bat[i] || 1.7);
+    const as = Math.max(20 + bas - 100, Math.min(700, sum("as"))), aps = as / 100 / (s.bat[i] || 1.7);
     let ms = sum("ms") * (1 + sum("mspct") / 100); ms = haste ? 550 : Math.max(100, Math.min(550, ms));
     return {src, armor, pr, mr, amp: sum("amp"), ls: sum("ls"), sls: sum("sls"), ev: mult("evm"), sres: mult("srm"), as, aps, ms, haste};
   }
-  function derivedHTML(h, i, t){
-    const d = derived(h, t); if (!d) return "";
+  function derivedHTML(h, i, t, rowAttributes = ""){
+    const d = derived(h, t);
+    const visible = visibleStatKeys(S.display, { includeLiveOnly: false });
+    const keys = ["arm", "mr", "amp", "as", "ms", "ev", "sr", "ls"].filter(key => visible.has(key));
+    if (!keys.length) return "";
     const tip = (title, keys, extra) => esc(title + "\n" + keys.flatMap(k => (d.src[k] || []).map(([l, v]) => `• ${l}: ${v > 0 && k !== "mspct" ? "+" : ""}${Math.round(v * 10) / 10}${/^(mr|mrm|mrint|amp|ls|sls|evm|srm|mspct)$/.test(k) ? "%" : ""}`)).join("\n") + (extra ? "\n" + extra : ""));
     const pct = v => (Math.round(v * 1000) / 10) + "%";
-    const cell = (lab, val, title, cls) => `<span class="dv${cls ? " " + cls : ""}" title="${title}">${lab} <b>${val}</b></span>`;
-    return `<div class="row dvs">
-      ${cell("ARM", d.armor.toFixed(1), tip(`เกราะ ≈ ${d.armor.toFixed(1)} (ลดดาเมจกายภาพ ${pct(d.pr)})`, ["armor"], "สูตร: 0.06×เกราะ ÷ (1 + 0.06×|เกราะ|)"))}
-      ${cell("MR", pct(d.mr), tip(`Magic resistance ≈ ${pct(d.mr)}`, ["mr", "mrint", "mrm"], "สูตร (Liquipedia): 1 − [1 − (0.25 + 0.001×INT)] × Π(1 − แหล่งอื่น) · 7.41f ใช้ 0.1% ต่อ INT (7.42 เพิ่มเป็น 0.125%)"))}
-      ${cell("AMP", d.amp + "%", tip(`Spell amp ≈ ${d.amp}%`, ["amp"], "แหล่งต่าง ๆ บวกกัน"), d.amp ? "" : "z")}
-      ${cell("AS", Math.round(d.as), tip(`Attack speed ≈ ${Math.round(d.as)} (${d.aps.toFixed(2)} ครั้ง/วินาที, BAT ${h.st.bat[i]})`, ["as"], `สูตร (Liquipedia): AS = พื้นฐานฮีโร่ + AGI + โบนัส จำกัด ${20 + S.D.statdb.heroes[h.id].bas - 100}–700 · ครั้ง/วินาที = AS ÷ (100 × BAT)`))}
-      ${cell("MS", Math.round(d.ms), tip(`ความเร็ววิ่ง ≈ ${Math.round(d.ms)}${d.haste ? " (haste = ความเร็วสูงสุด)" : ""}`, ["ms", "mspct"], "สูตร: (พื้นฐาน + รองเท้าคู่ที่ดีที่สุด + ค่าคงที่อื่น) × (1 + % รวม) จำกัด 100–550"))}
-      ${cell("EV", pct(d.ev), tip(`Evasion ≈ ${pct(d.ev)}`, ["evm"], "สูตร: 1 − Π(1 − แหล่ง)"), d.ev ? "" : "z")}
-      ${cell("SR", pct(d.sres), tip(`Status resistance ≈ ${pct(d.sres)}`, ["srm"], "สูตร (Liquipedia): 1 − Π(1 − แหล่ง) · Sange หลายชิ้นเอาค่าสูงสุดค่าเดียว"), d.sres ? "" : "z")}
-      ${cell("LS", (d.ls || 0) + "%", tip(`Lifesteal ≈ ${d.ls}% · Spell lifesteal ≈ ${d.sls}%`, ["ls", "sls"]), d.ls || d.sls ? "" : "z")}
-    </div>`;
+    const cell = (key, val, title, cls) => {
+      const label = esc(statDefinition(key).accessibleLabel);
+      return `<span class="dv${cls ? " " + cls : ""}" title="${label}\n${title}">${statGlyphs(key)} <b>${val}</b></span>`;
+    };
+    if (!d) return `<div class="row dvs" style="--cells:${keys.length}" ${rowAttributes}>${keys.map(key => `<span class="dv" title="${esc(statDefinition(key).accessibleLabel)}: ยังไม่มีข้อมูล">${statGlyphs(key)} <b>—</b></span>`).join("")}</div>`;
+    const cells = {
+      arm: cell("arm", d.armor.toFixed(1), tip(`เกราะ ≈ ${d.armor.toFixed(1)} (ลดดาเมจกายภาพ ${pct(d.pr)})`, ["armor"], "สูตร: 0.06×เกราะ ÷ (1 + 0.06×|เกราะ|)")),
+      mr: cell("mr", pct(d.mr), tip(`Magic resistance ≈ ${pct(d.mr)}`, ["mr", "mrint", "mrm"], `Patch ${patchData.patch}: base resistance plus ${patchData.rules?.mr_per_int_pct ?? patchData.formulas?.magic_resistance_per_intelligence_pct?.value}% per INT, then other sources multiply.`)),
+      amp: cell("amp", d.amp + "%", tip(`Spell amp ≈ ${d.amp}%`, ["amp"], "แหล่งต่าง ๆ บวกกัน"), d.amp ? "" : "z"),
+      as: cell("as", Math.round(d.as), tip(`Attack speed ≈ ${Math.round(d.as)} (${d.aps.toFixed(2)} ครั้ง/วินาที, BAT ${h.st.bat[i]})`, ["as"], `Patch ${patchData.patch}: hero base attack speed + AGI + bonuses, bounded by ${20 + (baseAttackSpeed(patchData, h.id) ?? S.D.statdb.heroes[h.id].bas) - 100}–700.`)),
+      ms: cell("ms", Math.round(d.ms), tip(`ความเร็ววิ่ง ≈ ${Math.round(d.ms)}${d.haste ? " (haste = ความเร็วสูงสุด)" : ""}`, ["ms", "mspct"], "สูตร: (พื้นฐาน + รองเท้าคู่ที่ดีที่สุด + ค่าคงที่อื่น) × (1 + % รวม) จำกัด 100–550")),
+      ev: cell("ev", pct(d.ev), tip(`Evasion ≈ ${pct(d.ev)}`, ["evm"], "สูตร: 1 − Π(1 − แหล่ง)"), d.ev ? "" : "z"),
+      sr: cell("sr", pct(d.sres), tip(`Status resistance ≈ ${pct(d.sres)}`, ["srm"], "สูตร (Liquipedia): 1 − Π(1 − แหล่ง) · Sange หลายชิ้นเอาค่าสูงสุดค่าเดียว"), d.sres ? "" : "z"),
+      ls: cell("ls", (d.ls || 0) + "%", tip(`Lifesteal ≈ ${d.ls}% · Spell lifesteal ≈ ${d.sls}%`, ["ls", "sls"]), d.ls || d.sls ? "" : "z"),
+    };
+    return `<div class="row dvs" style="--cells:${keys.length}" ${rowAttributes}>${keys.map(key => cells[key]).join("")}</div>`;
   }
-  function statsHTML(h, i){
-    const s = h.st; if (!s) return "";
-    const at = (k, lab, p) => { const tot = s[k + "T"][i], b = s[k][i], bonus = Math.round(tot - b); return `<span class="at${h.prim === p ? " pr" : ""}" title="${lab} พื้นฐาน ${b} · โบนัส +${bonus}">${lab} <b>${Math.round(tot)}</b>${bonus > 0 ? `<em>+${bonus}</em>` : ""}</span>`; };
-    return `<div class="row st">${at("str", "STR", 0)}${at("agi", "AGI", 1)}${at("int", "INT", 2)}
-      <span class="at" title="ดาเมจโจมตีพื้นฐาน ${s.dmin[i]}–${s.dmax[i]} · โบนัสจากไอเทมและบัฟ +${s.dbonus[i]} · ระยะตี ${s.range[i]} · BAT ${s.bat[i]}">DMG <b>${s.dmin[i]}–${s.dmax[i]}</b>${s.dbonus[i] ? `<em>+${s.dbonus[i]}</em>` : ""}</span>
-      <span class="at" title="HP regen ${s.hpreg[i]}/วินาที · Mana regen ${s.mpreg[i]}/วินาที">REG <b>${s.hpreg[i]}</b>/<b class="m">${s.mpreg[i]}</b></span></div>`;
+  function statsHTML(h, i, rowAttributes = ""){
+    const s = h.st;
+    const visible = visibleStatKeys(S.display, { includeLiveOnly: false });
+    const at = (key, p) => { const def = statDefinition(key), tot = Number.isFinite(s?.[key + "T"]?.[i]) ? s[key + "T"][i] : null, b = Number.isFinite(s?.[key]?.[i]) ? s[key][i] : null, bonus = tot !== null && b !== null ? Math.round(tot - b) : null; return `<span class="at${h.prim === p ? " pr" : ""}" title="${esc(def.accessibleLabel)}: ${tot === null ? "ยังไม่มีข้อมูล" : `พื้นฐาน ${b} · โบนัส +${bonus}`}">${statGlyphs(key)} <b>${tot === null ? "—" : Math.round(tot)}</b>${bonus !== null && bonus > 0 ? `<em>+${bonus}</em>` : ""}</span>`; };
+    const cell = (key, val, detail) => `<span class="at" title="${esc(statDefinition(key).accessibleLabel)}: ${esc(detail)}">${statGlyphs(key)} <b>${val}</b></span>`;
+    const known = (key, fallback = "—") => Number.isFinite(s?.[key]?.[i]) ? s[key][i] : fallback;
+    const dmin = known("dmin", null), dmax = known("dmax", null), dbonus = known("dbonus", null), range = known("range"), bat = known("bat");
+      const hpreg = known("hpreg"), mpreg = known("mpreg");
+    const cells = [
+      visible.has("str") ? at("str", 0) : "", visible.has("agi") ? at("agi", 1) : "", visible.has("int") ? at("int", 2) : "",
+      visible.has("dmg") ? cell("dmg", dmin === null || dmax === null ? "—" : `${dmin}–${dmax}${dbonus ? `<em>+${dbonus}</em>` : ""}`, `ดาเมจโจมตีพื้นฐาน ${dmin === null || dmax === null ? "—" : `${dmin}–${dmax}`} · โบนัสจากไอเทมและบัฟ +${dbonus ?? "—"} · ระยะตี ${range} · BAT ${bat}`) : "",
+        visible.has("reg") ? `<span class="at" title="${esc(statDefinition("reg").accessibleLabel)}: HP regen ${hpreg}/วินาที · Mana regen ${mpreg}/วินาที">${statGlyphs("reg")} <b>${hpreg}</b>/<b class="m">${mpreg}</b></span>` : "",
+      visible.has("gpm") ? `<span class="at rate" title="${locale === "en" ? "Replay bundle does not include GPM" : "ข้อมูลรีเพลย์ไม่มีค่า GPM"}">${statGlyphs("gpm")} <b>${Number.isFinite(s?.gpm?.[i]) ? fmt(s.gpm[i]) : "—"}</b></span>` : "",
+      visible.has("xpm") ? `<span class="at rate" title="${locale === "en" ? "Replay bundle does not include XPM" : "ข้อมูลรีเพลย์ไม่มีค่า XPM"}">${statGlyphs("xpm")} <b>${Number.isFinite(s?.xpm?.[i]) ? fmt(s.xpm[i]) : "—"}</b></span>` : "",
+    ].filter(Boolean);
+    if (!cells.length) return "";
+    return `<div class="row st" style="--cells:${cells.length}" ${rowAttributes}>${cells.join("")}</div>`;
   }
   function firstAtOrAfter(T, a){ let lo = 0, hi = T.length; while (lo < hi){ const m = (lo + hi) >> 1; if (T[m] < a - 1e-3) lo = m + 1; else hi = m; } return lo; }
   function healIn(h, a, b){ const T = h.HT; if (!T) return 0; let s = 0; for (let k = firstAtOrAfter(T, a); k < T.length && T[k] <= b; k++) s += h.HV[k]; return s; }
@@ -456,47 +709,113 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
     const ts = S.D.sampleT[si], mhp = h.mhp[si] || 1;
     return Math.max(0, Math.min(mhp, h.hp[si] - dmgIn(h, ts, t).sum + healIn(h, ts, t)));
   }
-  function barsHTML(h, t, i, alive, hp, mhp, mp, mmp){
+  function barsHTML(h, t, i, alive, hp, mhp, mp, mmp, rowAttributes = ""){
     // HP: latest entity sample (exact sample time) minus combat-log damage plus heals since that sample
-    const hpNow = alive ? hpNowAt(h, t) : 0;
+    const hpNow = alive === false ? 0 : hpNowAt(h, t);
+    const hpKnown = Number.isFinite(hpNow) && Number.isFinite(mhp) && mhp > 0;
+    const mpKnown = Number.isFinite(mp) && Number.isFinite(mmp) && mmp > 0;
     const rec = dmgIn(h, t - 1, t), chunk = alive ? Math.min(rec.sum, mhp - hpNow) : 0, fade = rec.last == null ? 0 : Math.max(0, 1 - (t - rec.last) / 1.2);
     const tyTop = rec.ty.indexOf(Math.max(...rec.ty)), tyLab = ["กายภาพ", "เวท", "pure"][tyTop];
-    const hpBar = `<div class="bar hp${hpNow / mhp < .25 ? " low" : ""}"><i style="width:${hpNow / mhp * 100}%"></i>` +
+    const hpBar = `<div class="bar hp${hpKnown && hpNow / mhp < .25 ? " low" : ""}">${hpKnown ? `<i style="width:${hpNow / mhp * 100}%"></i>` : ""}` +
       (chunk > 0 && fade > 0 ? `<b class="chunk" style="left:${hpNow / mhp * 100}%;width:${chunk / mhp * 100}%;opacity:${fade.toFixed(2)}"></b>` : "") +
-      `<span class="num">${alive ? fmt(hpNow) : "ตาย"} / ${fmt(mhp)}</span>` +
+      `<span class="num">${alive === false ? "ตาย" : hpKnown ? fmt(hpNow) : "—"} / ${fmt(mhp)}</span>` +
       (rec.sum > 0 && fade > 0 ? `<em class="dmgnum ty${tyTop}" style="opacity:${Math.max(.35, fade).toFixed(2)}" title="ดาเมจใน 1 วินาทีล่าสุด (ส่วนใหญ่เป็น${tyLab})">−${fmt(rec.sum)}</em>` : "") + `</div>`;
     let cost = "";
-    if (S.hoverAb && S.hoverAb.id === h.id){
+    if (S.hoverAb && S.hoverAb.id === h.id && mpKnown){
       const a = h.abil[S.hoverAb.k], mc = a ? a.mc[i] : 0;
       if (mc > 0){
-        const enough = mc <= mp, from = Math.max(0, mp - mc);
+        const enough = Number.isFinite(mp) && mc <= mp, from = Math.max(0, mp - mc);
         cost = `<b class="cost${enough ? "" : " short"}" style="left:${from / mmp * 100}%;width:${Math.min(mp, mc) / mmp * 100}%"></b><em class="costnum${enough ? "" : " short"}">${enough ? "−" + fmt(mc) : `ขาด ${fmt(mc - mp)}`}</em>`;
       }
     }
-    const mpBar = `<div class="bar mp"><i style="width:${mp / mmp * 100}%"></i>${cost}<span class="num">${fmt(mp)} / ${fmt(mmp)}</span></div>`;
-    return `<div class="bars">${hpBar}${mpBar}</div>`;
+    const mpBar = `<div class="bar mp">${mpKnown ? `<i style="width:${mp / mmp * 100}%"></i>` : ""}${cost}<span class="num">${fmt(mp)} / ${fmt(mmp)}</span></div>`;
+    return `<div class="bars" ${rowAttributes}>${hpBar}${mpBar}</div>`;
   }
   function renderCards(force){
-    const key = Math.floor(S.t * 10) + [...S.vis].join() + S.focus + S.alerts.length + JSON.stringify(S.hoverAb || "");
+    const key = Math.floor(S.t * 10) + [...S.vis].join() + S.focus + S.alerts.length + JSON.stringify(S.hoverAb || "")
+      + JSON.stringify(S.display) + S.density + S.selectedHeroId + JSON.stringify(S.cardsCollapsed);
     if (!force && key === S.lastCardKey) return; S.lastCardKey = key;
+    S.statusEffectsByPid = new Map();
     for (const [team, el] of [[2, $("rv-cards-r")], [3, $("rv-cards-d")]]){
       const hs = S.D.heroes.filter(h => h.team === team);
+      const rovingHero = hs.find(hero => hero.id === S.focus) ?? hs[0];
       if (!el.children.length){
         for (const h of hs){
-          const c = document.createElement("article"); c.className = "rc"; c.id = "card-" + h.pid; c.tabIndex = 0; c.style.setProperty("--c", h.color);
+          const c = document.createElement("article"); c.className = "rc"; c.id = "card-" + h.pid; c.tabIndex = -1; c.style.setProperty("--c", h.color);
           c.addEventListener("click", ev => { if (!S.vis.has(h.id)){ S.vis.add(h.id); changedVis(); } setFocus(h.id); });
+          c.addEventListener("focus", () => { if (S.focus !== h.id) setFocus(h.id); });
           el.appendChild(c);
         }
       }
       for (const h of hs){
         const c = $("card-" + h.pid), i = idx(S.t);
+        c.tabIndex = h.id === rovingHero?.id ? 0 : -1;
+        const isSelected = S.selectedHeroId === h.id || S.focus === h.id;
         c.innerHTML = cardHTML(h, S.t);
+        const cardRows = visibleHeroCardRows(S.display, S.density, isSelected, false);
+        const gridAreas = cardRows.map(row => ({ top: '"pt top"', bars: '"pt bars"', ab: '"ab ab"', it: '"it it"', st: '"st st"', dv: '"dv dv"' })[row]).filter(Boolean).join(" ");
+        c.style.setProperty("--hc-grid-areas", gridAreas);
         c.classList.toggle("dead", !h.alive[i]); c.classList.toggle("focus", S.focus === h.id);
         c.classList.toggle("alert", !!activeAlert(h, S.t)); c.classList.toggle("hid", !S.vis.has(h.id));
+        c.classList.toggle("selected-card", isSelected);
+        c.classList.toggle("collapsed-column", S.cardsCollapsed[team === 2 ? "radiant" : "dire"]);
       }
     }
     renderScore();
   }
+  const updateCardPresentation = event => {
+    const next = event.detail ?? {};
+    if (next.heroCardDisplay) S.display = next.heroCardDisplay;
+    if (next.density) S.density = next.density;
+    if ("selectedHeroId" in next) S.selectedHeroId = next.selectedHeroId;
+    if (typeof next.cardsCollapsed === "object") S.cardsCollapsed = next.cardsCollapsed;
+    else if (typeof next.cardsCollapsed === "boolean") S.cardsCollapsed = { radiant: next.cardsCollapsed, dire: next.cardsCollapsed };
+    root.host.dataset.analyticsDensity = S.density;
+    root.host.dataset.cardsRadiantCollapsed = String(S.cardsCollapsed.radiant);
+    root.host.dataset.cardsDireCollapsed = String(S.cardsCollapsed.dire);
+    renderCards(true);
+  };
+  on(root, "hero-card-display-change", updateCardPresentation);
+  on(root, "click", event => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) return;
+    if (target.closest("[data-status-close]")) {
+      const list = $("status-overflow-list"); if (list) { list.hidden = true; $("card-" + list.dataset.statusPid)?.focus(); }
+      return;
+    }
+    const button = target.closest("[data-status-overflow]");
+    if (!button) return;
+    showStatusList(button.dataset.statusOverflow);
+  });
+  on(root, "analytics-status-open-selected", () => {
+    if (S.display?.show?.status === false) return;
+    const hero = S.D?.heroes.find(item => item.id === (S.selectedHeroId ?? S.focus))
+      ?? S.D?.heroes.find(item => item.id === S.focus);
+    if (hero) showStatusList(hero.pid);
+  });
+  on(root, "keydown", event => {
+    const target = event.target instanceof Element ? event.target : null;
+    const card = target?.closest(".rc");
+    if (event.key === "Escape") {
+      const list = $("status-overflow-list");
+      if (list && !list.hidden) { event.preventDefault(); list.hidden = true; $("card-" + list.dataset.statusPid)?.focus(); }
+      return;
+    }
+    if (!card || editing(event)) return;
+    if (event.key === "i" || event.key === "I") {
+      event.preventDefault(); event.stopPropagation();
+      const hero = S.D.heroes.find(item => "card-" + item.pid === card.id);
+      if (hero && S.display?.show?.status !== false) showStatusList(hero.pid);
+      return;
+    }
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+    const teamCards = [...card.parentElement.querySelectorAll(".rc")];
+    const index = teamCards.indexOf(card);
+    const next = Math.max(0, Math.min(teamCards.length - 1, index + (event.key === "ArrowDown" ? 1 : -1)));
+    if (next === index) return;
+    event.preventDefault();
+    teamCards[next].focus();
+  });
   /* score + momentum */
   function teamNW(team, i){ let s = 0; for (const h of S.D.heroes) if (h.team === team) s += h.eco[i][1]; return s; }
   function advSeries(){
@@ -509,6 +828,8 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
     const t = S.t, i = idx(t), {a, mx} = advSeries(), adv = a[i];
     const kr = S.D.deaths.filter(d => d.t <= t && S.D.byId[d.hero].team === 3).length, kd = S.D.deaths.filter(d => d.t <= t && S.D.byId[d.hero].team === 2).length;
     $("sc-r").textContent = kr; $("sc-d").textContent = kd; $("sc-clock").textContent = clk(t);
+    if (teamScores.radiant) teamScores.radiant.textContent = String(kr);
+    if (teamScores.dire) teamScores.dire.textContent = String(kd);
     const f = Math.min(1, Math.abs(adv) / Math.max(10000, mx * .6));
     const fill = $("mo-fill"); fill.style.width = (f * 50) + "%";
     fill.style.left = adv >= 0 ? (50 - f * 50) + "%" : "50%"; fill.className = adv >= 0 ? "rad" : "dire";
@@ -573,7 +894,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
     const total = d.by.reduce((s, x) => s + x[2], 0) || 1, mx = Math.max(...d.by.map(x => x[2]), 1);
     $("rv-review").innerHTML = `<div><b>${esc(nameOf(d.hero))}</b> ตายที่ <span class="num">${clk(d.t)}</span></div>
       <div>ปิดคิลโดย <b>${esc(nameOf(d.killer))}</b>${d.last ? ` · ดาเมจสุดท้ายจาก ${esc(nameOf(d.last[0]))} (${esc(nameOf(d.last[1]))})` : ""}</div>
-      <div style="font:600 10px var(--f-mono);color:var(--muted);letter-spacing:.06em">ดาเมจที่ได้รับ 10 วินาทีก่อนตาย · รวม ${fmt(total)}</div>
+      <div style="font:600 12px var(--f-mono);color:var(--muted);letter-spacing:.06em">ดาเมจที่ได้รับ 10 วินาทีก่อนตาย · รวม ${fmt(total)}</div>
       <div class="bars">${d.by.map(([src, inf, v]) => `<div class="bar"><span style="--w:${v / mx * 100}%"><span>${esc(nameOf(src))} · ${esc(nameOf(inf))}</span></span><span class="num">${fmt(v)}</span></div>`).join("")}</div>`;
   }
   function playClip(from, to, hero){
@@ -582,7 +903,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
   }
   function playDeath(d){ S.review = d; renderReview(d); renderDeathLab(d); showTab("death"); playClip(d.t - 15, d.t, d.hero); renderLists(); }
   function setFocus(id){
-    S.focus = S.focus === id ? null : id; renderCards(true); draw();
+    S.focus = id; renderCards(true); draw();
     if (S.focus){ const c = $("card-" + S.D.byId[id].pid); if (c) c.scrollIntoView({block: "nearest", behavior: "smooth"}); }
   }
   function showTab(k){ document.querySelectorAll("[data-tab]").forEach(b => b.setAttribute("aria-pressed", b.dataset.tab === k)); $("pane-alert").hidden = k !== "alert"; $("pane-death").hidden = k !== "death"; }
@@ -648,7 +969,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
     $(id).addEventListener("change", () => { buildAlerts(); renderLists(); renderTicks(); renderCards(true); draw(); });
   document.querySelectorAll("[data-g]").forEach(b => b.addEventListener("click", () => {
     const g = b.dataset.g;
-    S.vis = new Set(S.D.heroes.filter(h => g === "all" || (g === "mid" && MID_PAIR.test(h.id)) || String(h.team) === g).map(h => h.id));
+    S.vis = new Set(S.D.heroes.filter(h => g === "all" || String(h.team) === g).map(h => h.id));
     changedVis();
   }));
   function hit(sx, sy){
@@ -682,7 +1003,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
   });
   cv.addEventListener("wheel", ev => { ev.preventDefault(); const r = cv.getBoundingClientRect(); S.follow = false; $("rv-follow").checked = false; zoomAt(ev.clientX - r.left, ev.clientY - r.top, S.view.k * (ev.deltaY < 0 ? 1.2 : 1 / 1.2)); }, {passive: false});
   on(window.document, "keydown", ev => {
-    if (!S.D || editing(ev) || ev.altKey || ev.ctrlKey || ev.metaKey) return;
+    if (disableKeyboard || !S.D || editing(ev) || ev.altKey || ev.ctrlKey || ev.metaKey) return;
     const rect = $("replay").getBoundingClientRect(); if (rect.bottom < 0 || rect.top > innerHeight) return;
     const step = ev.shiftKey ? 10 : 1;
     if (ev.code === "Space"){ ev.preventDefault(); S.stopAt = null; S.playing ? pause() : play(); }
@@ -751,7 +1072,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
       c.textAlign = "left"; c.fillStyle = ink; c.font = `600 12.5px ${css("--f-body")}`; c.fillText(h.name, 40, y0 + 19);
       const e = h.eco[i0]; c.font = `11px ${css("--f-mono")}`; c.fillStyle = css("--ink-2") || "#555";
       c.fillText(`LH ${e[2]}/${e[3]} · NW ${fmt(e[1])}`, 40, y0 + 35);
-      c.fillText(`Lv ${h.lvl[i0]} · ทอง ${fmt(e[0])}`, 40, y0 + 50);
+      c.fillText(translate(`Lv ${h.lvl[i0]} · ทอง ${fmt(e[0])}`), 40, y0 + 50);
       // metric area
       const a = Math.max(0, Math.floor(TL.v0) - S.D.t0), b = Math.min(h.eco.length - 1, Math.ceil(TL.v1) - S.D.t0);
       const stride = Math.max(1, Math.floor((b - a) / (TW - LABEL)));
@@ -776,7 +1097,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
         cl = {x, hero: h, row: r, y: y0 + BUB + 3, items: [bb]}; TL.clusters.push(cl);
       }
       for (const k of TL.clusters.filter(k => k.row === r)){
-        const main = [...k.items].reverse().find(b => b[2] === "find") || [...k.items].reverse().find(b => !CONSUMABLE.test(b[1]) && !b[1].startsWith("item_recipe_")) || k.items[k.items.length - 1];
+        const main = [...k.items].reverse().find(b => b[2] === "find") || [...k.items].reverse().find(b => !isConsumableItem(patchData, b[1]) && !b[1].startsWith("item_recipe_")) || k.items[k.items.length - 1];
         k.main = main;
         c.strokeStyle = h.color; c.globalAlpha = .45; c.lineWidth = 1; c.beginPath(); c.moveTo(k.x, k.y + BUB); c.lineTo(k.x, base); c.stroke(); c.globalAlpha = 1;
         const ic = tlIcon(main[1]);
@@ -784,7 +1105,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
         if (ic && ic.complete && ic.naturalWidth) c.drawImage(ic, 12, 0, 64, 64, k.x - BUB, k.y - BUB, BUB * 2, BUB * 2);
         else { c.fillStyle = ink; c.font = `600 8px ${css("--f-mono")}`; c.textAlign = "center"; c.fillText(nameOf(main[1]).slice(0, 3), k.x, k.y + 3); }
         c.restore();
-        c.strokeStyle = main[2] === "find" ? "#3bb36b" : CONSUMABLE.test(main[1]) ? muted : h.color; c.lineWidth = main[2] === "find" ? 3 : 2; c.beginPath(); c.arc(k.x, k.y, BUB, 0, 7); c.stroke();
+        c.strokeStyle = main[2] === "find" ? "#3bb36b" : isConsumableItem(patchData, main[1]) ? muted : h.color; c.lineWidth = main[2] === "find" ? 3 : 2; c.beginPath(); c.arc(k.x, k.y, BUB, 0, 7); c.stroke();
         if (k.items.length > 1){
           const t = "+" + (k.items.length - 1); c.font = `600 9px ${css("--f-mono")}`; const w = c.measureText(t).width + 6;
           c.fillStyle = ink; c.beginPath(); c.roundRect ? c.roundRect(k.x + BUB - 5, k.y - BUB - 3, w, 12, 6) : c.rect(k.x + BUB - 5, k.y - BUB - 3, w, 12); c.fill();
@@ -792,7 +1113,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
         }
       }
     });
-    if (!TL.rows.length){ c.fillStyle = muted; c.textAlign = "left"; c.font = `13px ${css("--f-body")}`; c.fillText("เลือกฮีโร่จากรายชื่อด้านบนเพื่อแสดงไทม์ไลน์", 16, TOP + 30); }
+    if (!TL.rows.length){ c.fillStyle = muted; c.textAlign = "left"; c.font = `13px ${css("--f-body")}`; c.fillText(translate("เลือกฮีโร่จากรายชื่อด้านบนเพื่อแสดงไทม์ไลน์"), 16, TOP + 30); }
     // replay cursor
     if (S.t >= TL.v0 && S.t <= TL.v1){
       const x = tx(S.t); c.fillStyle = css("--rad") || "#2a78d6"; c.fillRect(x - 1, TOP - 6, 2, TH - TOP + 6);
@@ -842,7 +1163,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
       const k = tlHit(x, y); let html = null, px = x, py = y;
       if (k){
         html = `<b>${esc(k.hero.name)}</b> · ${k.items.length} ชิ้น<div class="tl-tip-items">` +
-          k.items.map(b => `<div><img src="${iconSrc(b[1])}" alt=""><span class="num">${clk(b[0])}</span>${esc(nameOf(b[1]))}${b[2] === "find" ? ` <span style="color:var(--good)">(ไอเทมป่า · ${esc(b[3])} ${b[4]})</span>` : CONSUMABLE.test(b[1]) ? ' <span style="color:var(--muted)">(ของใช้)</span>' : ""}</div>`).join("") + "</div>";
+          k.items.map(b => `<div><img src="${iconSrc(b[1])}" alt=""><span class="num">${clk(b[0])}</span>${esc(nameOf(b[1]))}${b[2] === "find" ? ` <span style="color:var(--good)">(ไอเทมป่า · ${esc(b[3])} ${b[4]})</span>` : isConsumableItem(patchData, b[1]) ? ' <span style="color:var(--muted)">(ของใช้)</span>' : ""}</div>`).join("") + "</div>";
         px = k.x; py = k.y - BUB;
       } else if (x > LABEL){
         const row = Math.floor((y - TOP) / ROW), h = TL.rows[row];
@@ -994,7 +1315,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
     if (!bkb) return {list: [], freed: 0};
     const h = R.h, s0 = R.t0, s1 = R.t0 + bkb.bkb, list = [];
     for (const [a, b, n, src] of h.mods){
-      const sh = S.D.byId[src]; if (!sh || sh.team === h.team || a < s0 - .05 || a > s1 || !CC.some(k => n.includes(k))) continue;
+      const sh = S.D.byId[src]; if (!sh || sh.team === h.team || a < s0 - .05 || a > s1 || !isControlEffect(patchData, n)) continue;
       const ab = ccSourceAbility(n, src, a), pierce = ab ? (S.D.statdb.abpierce[ab] || S.D.statdb.pierce[ab] || 0) : 0;
       if (b - a >= .1) list.push({mod: n, src, ab, a, b, dur: b - a, pierce, known: !!ab});
     }
@@ -1033,7 +1354,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
     if (tStar != null) ev.push({k: "time", txt: `จุดถอยสุดท้ายประมาณ ${clk(tStar)} (${(tStar - R.T).toFixed(1)}s) ตอนนั้น HP ${pct(hpAt(R, tStar))}` });
     ev.push({k: "time", txt: retreatStart != null ? `เริ่มถอยจริง ${clk(retreatStart)} (${(retreatStart - R.T).toFixed(1)}s) HP ${pct(hpAt(R, retreatStart))}` : "ไม่พบช่วงที่วิ่งออกจากศัตรูต่อเนื่อง 2 วินาทีก่อนตาย"});
     const lo = Math.min(at, retreatStart != null ? retreatStart : R.T) - .5, hi = retreatStart != null ? Math.max(retreatStart, at) : R.T;
-    const ccs = h.mods.filter(([a, b, n, src]) => { const sh = S.D.byId[src]; return sh && sh.team !== h.team && CC.some(k => n.includes(k)) && b > lo && a < hi; });
+    const ccs = h.mods.filter(([a, b, n, src]) => { const sh = S.D.byId[src]; return sh && sh.team !== h.team && isControlEffect(patchData, n) && b > lo && a < hi; });
     const ccTime = ccs.reduce((s, [a, b]) => s + Math.min(b, hi) - Math.max(a, lo), 0);
     if (ccs.length) ev.push({k: "cc", w: ccTime >= 1 ? 3 : 1, txt: `ติด CC รวม ${ccTime.toFixed(1)} วินาทีในช่วงที่ควรถอย: ${[...new Set(ccs.map(c => prettyMod(c[2], c[3])))].join(", ")}`});
     for (const [k, [first, seen]] of Object.entries(d.seen || {})){
@@ -1050,8 +1371,8 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
     if (used.length) ev.push({k: "cast", w: 0, txt: `ใช้ระหว่างไฟต์: ${[...new Set(used)].join(", ")}`});
     // escape tools at the decision point
     const tools = [];
-    for (const a of h.abil) if (MOBILITY.test(a.n) && a.lv[i] > 0) tools.push([nameOf(a.n), a.cd[i], a.mc[i] > h.mp[i]]);
-    for (const [s, n] of invAt(h, at)) if ((s <= 5 || s === 15) && MOBILITY.test(n)){ const v = h.icd[s] && h.icd[s][Math.floor(at)]; tools.push([nameOf(n), v ? v[0] : 0, false]); }
+    for (const a of h.abil) if (isMobilityAbility(patchData, h.id, a.n) && a.lv[i] > 0) tools.push([nameOf(a.n), a.cd[i], a.mc[i] > h.mp[i]]);
+    for (const [s, n] of invAt(h, at)) if ((s <= 5 || s === 15) && isMobilityItem(patchData, n)){ const v = h.icd[s] && h.icd[s][Math.floor(at)]; tools.push([nameOf(n), v ? v[0] : 0, false]); }
     if (tools.length){
       const TP = /Town Portal|Boots of Travel/, ready = tools.filter(x => !x[1] && !x[2] && !TP.test(x[0])), usedNames = new Set(used);
       ev.push({k: "tool", w: ready.some(x => !usedNames.has(x[0])) ? 2 : 0, txt: "ตัวช่วยหนีตอนนั้น: " + tools.map(([n, cd, nm]) => `${n} ${cd ? `ติด cd ${Math.ceil(cd)}s` : nm ? "มานาไม่พอ" : (usedNames.has(n) ? "พร้อม (ใช้แล้ว)" : TP.test(n) ? "พร้อม (ต้องร่าย 3 วินาที ใช้หนีกลางไฟต์ยาก)" : "พร้อมแต่ไม่ได้ใช้")}`).join(" · ")});
@@ -1098,7 +1419,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
     // CC bands on the victim
     const h = R.h;
     for (const [a, b, n, src] of h.mods){
-      const sh = S.D.byId[src]; if (!sh || sh.team === h.team || b < t0 || a > t1 || !CC.some(k => n.includes(k))) continue;
+      const sh = S.D.byId[src]; if (!sh || sh.team === h.team || b < t0 || a > t1 || !isControlEffect(patchData, n)) continue;
       c.fillStyle = "rgba(225,75,75,.14)"; c.fillRect(x(Math.max(a, t0)), Tm, x(Math.min(b, t1)) - x(Math.max(a, t0)), hgt - Tm - B);
       c.fillStyle = "#c63c3b"; c.textAlign = "left"; c.fillText(prettyMod(n, src), x(Math.max(a, t0)) + 3, Tm + 11);
     }
@@ -1111,11 +1432,11 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
     if (A){
       c.beginPath(); A.buf.forEach((p, j) => { const xx = x(p[0]), yy = y(Math.min(ymax, p[1])); j ? c.lineTo(xx, yy) : c.moveTo(xx, yy); });
       c.strokeStyle = "#e0a030"; c.setLineDash([2, 3]); c.lineWidth = 1.6; c.stroke(); c.setLineDash([]);
-      const mark = (t, col, lab) => { if (t == null || t < t0 || t > t1) return; c.fillStyle = col; c.fillRect(x(t) - 1, Tm, 2, hgt - Tm - B); c.textAlign = "left"; c.fillText(lab, x(t) + 4, Tm + 24); };
+      const mark = (t, col, lab) => { if (t == null || t < t0 || t > t1) return; c.fillStyle = col; c.fillRect(x(t) - 1, Tm, 2, hgt - Tm - B); c.textAlign = "left"; c.fillText(translate(lab), x(t) + 4, Tm + 24); };
       mark(A.tStar, "#e0a030", "ควรถอย"); mark(A.retreatStart, "#4a7fe0", "ถอยจริง");
     }
     c.strokeStyle = ink; c.setLineDash([3, 3]); c.beginPath(); c.moveTo(x(R.T), Tm); c.lineTo(x(R.T), hgt - B); c.stroke(); c.setLineDash([]);
-    c.fillStyle = ink; c.textAlign = "right"; c.fillText("ตาย " + clk(R.T), x(R.T) - 4, hgt - B - 4);
+    c.fillStyle = ink; c.textAlign = "right"; c.fillText(translate("ตาย " + clk(R.T)), x(R.T) - 4, hgt - B - 4);
     $("dl-legend").innerHTML = `<span><i style="background:var(--bad)"></i>HP จริง (คำนวณจาก combat log)</span>${R.any ? `<span><i class="dash" style="background:var(--good)"></i>HP ในสถานการณ์จำลอง</span>` : ""}<span><i style="background:rgba(225,75,75,.3)"></i>ช่วงที่โดน CC</span>${A ? `<span><i style="background:#e0a030;height:2px"></i>HP ที่ต้องเหลือไว้เพื่อหนีทัน (เส้นประ)</span><span><i style="background:#e0a030"></i>จุดถอยสุดท้าย</span><span><i style="background:#4a7fe0"></i>เริ่มถอยจริง</span>` : ""}`;
   }
 
@@ -1168,7 +1489,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
     const fc = S.fogCv; fc.width = cv.width; fc.height = cv.height; const f = fc.getContext("2d");
     f.setTransform(dpr, 0, 0, dpr, 0, 0); f.fillStyle = "rgba(4,8,12,.62)"; f.fillRect(0, 0, W, H);
     f.globalCompositeOperation = "destination-out";
-    const pxPerUnit = MAP.a / MAP.size * W * S.view.k;
+    const pxPerUnit = mapCalibration.a / mapCalibration.size * W * S.view.k;
     const hole = (p, r) => { const [x, y] = scr(p), R = r * pxPerUnit; const g = f.createRadialGradient(x, y, R * .82, x, y, R); g.addColorStop(0, "rgba(0,0,0,1)"); g.addColorStop(1, "rgba(0,0,0,0)"); f.fillStyle = g; f.beginPath(); f.arc(x, y, R, 0, 7); f.fill(); };
     for (const h of S.D.heroes) if (h.team === team && h.alive[idx(t)]) hole(posAt(h, t), night ? 800 : 1800);
     for (const tr of S.W.tracks){
@@ -1226,7 +1547,13 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
 
   {
     const D = bundle.match;
+    D.statdb = D.statdb || {};
+    D.statdb.buffs = patchData.buffs;
+    D.statdb.heroes = D.statdb.heroes || {};
+    D.statdb.rules = { ...(D.statdb.rules || {}), ...patchData.rules };
     D.byId = {}; for (const h of D.heroes){ D.byId[h.id] = h; h.short = shortOf(h.name);
+      const speed = baseAttackSpeed(patchData, h.id);
+      if (D.statdb.heroes[h.id] && speed !== null) D.statdb.heroes[h.id].bas = speed;
       const dec = a => { const o = new Float64Array(a.length); let s = 0; for (let k = 0; k < a.length; k++){ s += a[k]; o[k] = s / (D.dtick || 10); } return o; };
       if (h.din){ h.DT = dec(h.din[0]); h.DV = h.din[1]; h.DY = h.din[2]; }
       if (h.hin){ h.HT = dec(h.hin[0]); h.HV = h.hin[1]; } const im = new Image(); im.onload = () => draw(); im.src = portSrc(h.id); S.port[h.id] = im; }
@@ -1250,7 +1577,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, hasM
     $("dl-ownbkb").addEventListener("change", e => { DL.ownBkb = e.target.checked; renderDeathLab(DL.d); });
     $("dl-x").addEventListener("input", e => { DL.X = +e.target.value; renderDeathLab(DL.d); });
     new ResizeObserver(() => DL.d && renderDeathLab(DL.d)).observe($("dl"));
-    renderDeathLab(D.deaths.find(d => d.hero.endsWith(DEFAULT_DEATH.heroSuffix) && d.t > DEFAULT_DEATH.from && d.t < DEFAULT_DEATH.to) || D.deaths[0]);
+    if (D.deaths[0]) renderDeathLab(D.deaths[0]);
   }
 
   return () => {

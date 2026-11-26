@@ -1,0 +1,81 @@
+.shell-page-head-tools {
+  display: grid;
+  flex: 1 1 700px;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  grid-template-areas: "status start monitor mute";
+  align-items: center;
+  justify-content: stretch;
+  gap: 6px;
+  min-width: 0;
+}
+.shell-page-head-tools > .shell-status-line { grid-area: status; flex: 1 1 auto; justify-content: flex-start; min-width: 0; }
+.shell-page-head-tools > .shell-live-start-control { grid-area: start; min-width: 0; }
+.shell-page-head-tools > .sm-toggle { grid-area: monitor; }
+.shell-page-head-tools > .shell-mute-control { grid-area: mute; }
+.shell-page-head-tools .shell-status-items { justify-content: flex-start; }
+.shell-page-head-tools .shell-status-line, .shell-page-head-tools .shell-status-items { max-width: 100%; }
+.shell-page-head-tools .shell-status-item--deck { flex: 0 1 auto; }
+.shell-page-head-tools .shell-status-detail, .shell-page-head-tools .shell-host-lost { display: none; }
+.shell-page-head-tools .shell-status-item .chip { max-width: 100%; overflow-wrap: anywhere; }
+.shell-live-start-control .steam-service-chips, .shell-live-start-control .steam-launch-message,
+.shell-live-start-control .steam-launch-reason { display: none; }
+.shell-live-start-control .steam-start-bar { min-width: 0; }
+
+@media (max-width: 1599px) {
+  .shell-page-head-tools {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas: "status status status" "start monitor mute";
+  }
+  .shell-page-head-tools > .shell-status-line { grid-column: 1 / -1; }
+}
+
+/* Analytics owns one compact shell-header row for its replay controls. */
+.shell-page-header[data-analytics-layout="true"] {
+  position: relative;
+  z-index: 20;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  min-height: 48px;
+  padding: 0;
+  overflow: visible;
+}
+.shell-page-header[data-analytics-layout="true"] .shell-page-heading {
+  flex: 0 0 auto;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+.shell-page-header[data-analytics-layout="true"] .shell-page-eyebrow { display: none; }
+.shell-page-header[data-analytics-layout="true"] .shell-page-heading h1 { font-size: 18px; white-space: nowrap; }
+.shell-page-header[data-analytics-layout="true"] .shell-subtabs { flex: none; gap: 2px; }
+.shell-page-header[data-analytics-layout="true"] .shell-subtabs button { min-height: 32px; padding: 3px 7px; font-size: 12px; }
+.shell-page-header[data-analytics-layout="true"] .shell-page-head-tools {
+  display: flex;
+  flex: 1 1 0%;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+  overflow: visible;
+}
+.shell-page-header[data-analytics-layout="true"] .analytics-shell-tools { flex: 1 1 0%; min-width: 0; overflow: visible; }
+.shell-page-header[data-analytics-layout="true"] .shell-page-head-tools > .shell-status-line { flex: none; width: auto; }
+.shell-page-header[data-analytics-layout="true"] .shell-status-items { flex-wrap: nowrap; gap: 3px; }
+.shell-page-header[data-analytics-layout="true"] .shell-status-item:not(.shell-status-item--gsi):not(.shell-status-item--capture):not(.shell-status-item--deck) { display: none; }
+.shell-page-header[data-analytics-layout="true"] .shell-status-item .chip {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  max-width: 18px;
+  padding: 0;
+  overflow: visible;
+  font-size: 0;
+  white-space: nowrap;
+}
+.shell-page-header[data-analytics-layout="true"] .shell-status-item .chip-glyph { margin: 0; }
+.shell-page-header[data-analytics-layout="true"] .shell-status-setup { min-height: 30px; padding: 3px 6px; font-size: 11px; }
+.shell-page-header[data-analytics-layout="true"] .shell-mute-control { flex: none; }
+.shell-page-header[data-analytics-layout="true"] .shell-mute-control button { min-height: 32px; max-width: none; padding: 3px 7px; white-space: nowrap; }

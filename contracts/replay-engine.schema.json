@@ -1,0 +1,239 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kohbor.invalid/contracts/replay-engine.schema.json",
+  "title": "Kohbor Replay Engine CLI Contract",
+  "description": "Host-side invocation and process contract for the pinned replay-engine-rs CLI.",
+  "x-kohbor-contract-version": "1.0.0",
+  "type": "object",
+  "required": [
+    "engine",
+    "invocation",
+    "exit_codes",
+    "stdout",
+    "stderr",
+    "output_files",
+    "limits",
+    "host_controls",
+    "privacy"
+  ],
+  "properties": {
+    "engine": {
+      "type": "object",
+      "required": ["name", "version", "bundle_schema", "sha256", "binary_status", "path_precedence"],
+      "properties": {
+        "name": { "const": "replay-engine-rs" },
+        "version": { "const": "0.2.0" },
+        "bundle_schema": { "const": "3.0" },
+        "sha256": {
+          "type": "array",
+          "items": { "const": "5955ddc1b2c8bc5881876ca29e6fb73d1be7c449a6715fe76ede849f5828b46a" },
+          "minItems": 1,
+          "maxItems": 1
+        },
+        "binary_status": {
+          "description": "The currently pinned executable predates the inspected source HEAD; it is for Lab/dev verification only.",
+          "const": "development_binary"
+        },
+        "path_precedence": {
+          "type": "array",
+          "prefixItems": [
+            { "const": "app_resource_dir/binaries/replay-engine-rs.exe" },
+            { "const": "KOHBOR_REPLAY_ENGINE (Lab/dev only)" }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        }
+      },
+      "additionalProperties": false
+    },
+    "invocation": {
+      "type": "object",
+      "required": ["arguments", "argument_transport"],
+      "properties": {
+        "arguments": {
+          "type": "array",
+          "prefixItems": [
+            { "const": "analyze" },
+            { "type": "string", "description": "One regular .dem input file." },
+            { "const": "--out" },
+            { "type": "string", "description": "A new empty staging directory inside the local replay library." }
+          ],
+          "items": false,
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "optional_cli_arguments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["flag", "value"],
+            "properties": {
+              "flag": { "const": "--pack" },
+              "value": { "type": "string" }
+            },
+            "additionalProperties": false
+          },
+          "description": "The engine supports --pack <dir>; RP1 omits it and uses the engine's embedded pack."
+        },
+        "unsupported_arguments": {
+          "type": "array",
+          "items": { "type": "string" },
+          "const": ["--contract"]
+        },
+        "argument_transport": {
+          "const": "CreateProcess argument array; no shell."
+        }
+      },
+      "additionalProperties": false
+    },
+    "exit_codes": {
+      "type": "object",
+      "required": ["0", "2"],
+      "properties": {
+        "0": { "const": "success; output files and stdout summary must validate" },
+        "2": { "const": "usage error or engine analysis error" },
+        "other": {
+          "description": "Operating-system process creation or termination status; treated as engine_failed.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "stdout": {
+      "type": "object",
+      "required": ["success", "error", "host_handling"],
+      "properties": {
+        "success": {
+          "type": "object",
+          "required": ["ok", "out", "patch", "meta", "timing_s", "bytes"],
+          "properties": {
+            "ok": { "const": true },
+            "out": { "type": "string" },
+            "patch": { "type": ["string", "null"] },
+            "meta": { "type": "object" },
+            "timing_s": { "type": "object" },
+            "bytes": { "type": "object" }
+          },
+          "additionalProperties": true
+        },
+        "error": {
+          "type": "object",
+          "required": ["ok", "error"],
+          "properties": {
+            "ok": { "const": false },
+            "error": {
+              "type": "object",
+              "required": ["code", "message"],
+              "properties": {
+                "code": { "type": "string" },
+                "message": { "type": "string" }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        },
+        "host_handling": {
+          "const": "Parse only the summary ok flag or error code. Discard the complete stdout buffer after the job; never log it."
+        }
+      },
+      "additionalProperties": false
+    },
+    "stderr": {
+      "type": "object",
+      "required": ["progress", "host_handling"],
+      "properties": {
+        "progress": {
+          "type": "string",
+          "pattern": "^\\[engine\\] [0-9]+%$"
+        },
+        "host_handling": {
+          "const": "Capture within the bounded pipe buffer; write only the fixed code ENGINE_STDERR_CAPTURED to the application log."
+        }
+      },
+      "additionalProperties": false
+    },
+    "output_files": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "prefixItems": [
+        {
+          "type": "object",
+          "required": ["name", "max_bytes"],
+          "properties": {
+            "name": { "const": "manifest.json" },
+            "max_bytes": { "const": 1048576 }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["name", "max_bytes"],
+          "properties": {
+            "name": { "const": "match.json" },
+            "max_bytes": { "const": 50331648 }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["name", "max_bytes"],
+          "properties": {
+            "name": { "const": "world.json" },
+            "max_bytes": { "const": 25165824 }
+          },
+          "additionalProperties": false
+        }
+      ],
+      "items": false
+    },
+    "limits": {
+      "type": "object",
+      "required": [
+        "dem_max_bytes",
+        "bundle_max_bytes",
+        "timeout_seconds",
+        "pipe_capture_max_bytes",
+        "library_default_matches",
+        "library_default_bytes"
+      ],
+      "properties": {
+        "dem_max_bytes": { "const": 419430400 },
+        "bundle_max_bytes": { "const": 76546048 },
+        "timeout_seconds": { "const": 120 },
+        "pipe_capture_max_bytes": { "const": 1048576 },
+        "library_default_matches": { "const": 20 },
+        "library_default_bytes": { "const": 2147483648 }
+      },
+      "additionalProperties": false
+    },
+    "host_controls": {
+      "type": "object",
+      "required": ["priority", "concurrency", "match_gate", "pin_check"],
+      "properties": {
+        "priority": { "const": "below_normal" },
+        "concurrency": { "const": 1 },
+        "match_gate": {
+          "const": "Keep jobs queued while the existing match_active barrier is true; recheck before spawn and terminate if it becomes true."
+        },
+        "pin_check": {
+          "const": "SHA-256 is checked against the pinned allowlist immediately before every spawn."
+        }
+      },
+      "additionalProperties": false
+    },
+    "privacy": {
+      "type": "object",
+      "required": ["network", "raw_match_id", "source_replay"],
+      "properties": {
+        "network": { "const": "The host performs no replay network request; the pinned CLI is built without source2-demo default download features and has no network call." },
+        "raw_match_id": { "const": "May occur in bundle stdout or files; stdout is discarded and the raw value is stored only under the local replay library." },
+        "source_replay": { "const": "Read-only. The input .dem is never moved, copied, written or deleted by Kohbor." }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

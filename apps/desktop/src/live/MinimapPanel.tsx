@@ -3,8 +3,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { RiskView } from "./types";
 import { DangerMeter } from "./DangerMeter";
 import { EnemySeen } from "./EnemySeen";
-import { liveCopy, phaseLabel, proposalStatusLabel, type LiveLocale } from "./copy";
-import { captureGatedRiskView, formatNullable, showAutoLayoutUnconfirmed } from "./state";
+import { liveCopy, proposalStatusLabel, type LiveLocale } from "./copy";
+import { captureGatedRiskView } from "./state";
 import { liveMockRequested } from "./mockMode";
 import {
   CAPTURE_DISPLAY_RATES,
@@ -17,20 +17,21 @@ import {
   togglePause,
 } from "./captureConfig";
 import { ResourcePanel } from "./ResourcePanel";
-import { visibilityText } from "./preview";
 import { useCaptureStatus } from "./useCaptureStatus";
 import { useCaptureConfig } from "./useCaptureConfig";
 import { useMinimap } from "./useMinimap";
 import { useRisk } from "./useRisk";
-import { usePageVisibility } from "./usePageVisibility";
 import { useCanvasBox } from "./useCanvasBox";
-import { advanceInvalidation, phaseReasonText, UNSUPPORTED_CAPTURE_REASONS } from "./captureRecovery";
-import { deriveCaptureDisplay } from "./captureDisplay";
+import { advanceInvalidation, UNSUPPORTED_CAPTURE_REASONS } from "./captureRecovery";
 import { useCaptureCounterRates } from "./useCaptureCounterRates";
 import { PreviewDiagnosticsPanel } from "./PreviewDiagnosticsPanel";
 import { deriveMinimapPresentation } from "./minimapPresentation";
 import { MinimapStage } from "./MinimapStage";
 import { deriveMinimapState } from "./minimapStageModel";
+import type { OwnSnapshot } from "../types";
+import { ScoreboardHeader } from "./ScoreboardHeader";
+import type { ScoreSample } from "./scoreboardModel";
+import { useScoreSamples } from "./useScoreSamples";
 import type { SteamStatus } from "../steam/model";
 import "./live.css";
 import { DialogButton } from "../shared/Dialog";
@@ -38,19 +39,31 @@ import { DialogButton } from "../shared/Dialog";
 export function MinimapPanel({
   locale = "th",
   layout = "standalone",
+  snapshot = null,
+  gamePhase = null,
   renderAlerts,
+  toolbarExtra,
   steamStatus = null,
+  mapEdge = "right",
   mapOverlay,
+  scoreSamples: sharedScoreSamples,
   stageOverride,
   stageAlerts,
 }: {
   locale?: LiveLocale;
-  /** "pinned" is the second-monitor mode (UI-016): map pane only, tools in its toolbar, the quick strip below it. */
-  layout?: "standalone" | "deck" | "pinned";
+  /** "pinned" is second-monitor mode; "field" is the centred in-match map without a side panel. */
+  layout?: "standalone" | "deck" | "pinned" | "field" | "settings";
+  snapshot?: OwnSnapshot | null;
+  gamePhase?: string | null;
   renderAlerts?: (input: { risk: RiskView | null; captureLive: boolean }) => ReactNode;
+  toolbarExtra?: ReactNode;
   steamStatus?: SteamStatus | null;
+  /** Inner edge used by the left/right second-monitor map stage. */
+  mapEdge?: "left" | "right";
   /** Pinned layout only: drawn over the minimap canvas at the same size (UI-018 rune countdowns). */
   mapOverlay?: ReactNode;
+  /** Optional shared stream so the scoreboard and pinned kill timeline use identical score samples. */
+  scoreSamples?: readonly ScoreSample[];
   /** Pinned layout only: replaces the minimap stage inside the same square (UI-019 draft board). */
   stageOverride?: ReactNode;
   /**
@@ -75,9 +88,10 @@ export function MinimapPanel({
   const paused = isCapturePaused(captureConfig.config?.paused, capture?.paused ?? null);
   const canShowPicture = capturePictureEnabled(phase, paused);
   const minimap = useMinimap(capture?.calibration_generation ?? null, canShowPicture);
-  const canvasBox = useCanvasBox(minimap.frameSize);
-  const visibilityNotice = visibilityText(usePageVisibility(), locale);
+  const canvasBox = useCanvasBox(minimap.frameSize, layout === "pinned");
   const mock = liveMockRequested();
+  const localScoreSamples = useScoreSamples(snapshot, gamePhase, snapshot?.session_epoch ?? null, false, sharedScoreSamples === undefined);
+  const scoreSamples = sharedScoreSamples ?? localScoreSamples;
 
   useEffect(() => {
     if (armedUntil === null) return;
@@ -133,47 +147,8 @@ export function MinimapPanel({
     }
   };
 
-  const display = deriveCaptureDisplay(capture, minimap.metrics);
-  const age = formatNullable(display.capture?.frame_age_ms ?? null);
-  const reasonText = phaseReasonText(phase, reason, locale, capture?.phase_detail ?? null);
-  const phaseText = reasonText
-    ? `${phaseLabel(phase, locale)} · ${reasonText}`
-    : phaseLabel(phase, locale);
-  // Capture state and frame age only: the sent/received/painted rates live in the status footer (CAP/RX/PAINT) and are
-  // not repeated here (owner report on build 4467634, 2026-11-24).
-  const statusBadge = `${phaseText} · ${age} ms`;
   const presentation = deriveMinimapPresentation(phase, reason, minimap.hasFrame, locale);
   const mapSource = deriveMinimapState(steamStatus, capture, paused || userInvalidated);
-
-  let plate: string | null = null;
-  let plateTone = "";
-  if (phase === "idle") {
-    plate = reasonText;
-  } else if (phase === "unsupported") {
-    plate = reasonText;
-  } else if (paused) {
-    plate = phaseReasonText(phase, "paused", locale);
-  } else {
-    switch (phase) {
-      case "coverage_unavailable":
-        plate = text.noVisibility;
-        plateTone = " is-critical";
-        break;
-      case "lost":
-        plate = reasonText ?? text.lost;
-        plateTone = " is-warning";
-        break;
-      case "calibrating":
-        plate = reasonText ?? text.calibrating;
-        break;
-      case "stale":
-        plate = presentation.staleOverlay === "age" ? text.stale(age)
-          : presentation.staleOverlay === "waiting" ? text.waitingFrame : null;
-        break;
-      default:
-        if (!canShowPicture || !minimap.hasFrame) plate = text.waitingFrame;
-    }
-  }
 
   const config = captureConfig.config;
   const effectiveRect = config?.effective_rect ?? null;
@@ -194,16 +169,9 @@ export function MinimapPanel({
     if (patch.crop) void clearInvalidationAfter(captureConfig.setCrop(patch.crop));
   };
 
-  const pinned = layout === "pinned";
-  const statusBlock = (
-    <div className="live-sidebar-status">
-      {mock && <span className="live-experimental">{text.mockPreview}</span>}
-      {showAutoLayoutUnconfirmed(capture) && <span className="live-auto-layout-tag">{text.autoLayoutUnconfirmed}</span>}
-      {visibilityNotice && <span className="live-visibility-notice" role="status">{visibilityNotice}</span>}
-      {minimap.error && <span className="live-error" role="alert">{minimap.error}</span>}
-      {captureConfig.error && <span className="live-error" role="alert">{captureConfig.error}</span>}
-    </div>
-  );
+  const pinned = layout === "pinned" || layout === "field";
+  const field = layout === "field";
+  const stackedPinned = layout === "pinned";
   const actions = (
         <div className="live-sidebar-actions">
           <DialogButton label={text.cropSettings} closeLabel={text.closeDialog} className="live-dialog">
@@ -325,31 +293,42 @@ export function MinimapPanel({
 
   const pinnedAlerts = pinned && stageAlerts
     ? <div className="sm-alerts">{stageAlerts({ risk: displayedRisk, captureLive: phase === "live" && !paused })}</div> : null;
+  const toolbar = (
+    <header className={`live-map-toolbar${field ? " is-field" : ""}${stackedPinned ? " is-pinned" : ""}`}>
+      <ScoreboardHeader snapshot={snapshot} phase={gamePhase} locale={locale === "en" ? "en" : "th"} scoreSamples={scoreSamples} />
+      {pinned && toolbarExtra && <div className="live-map-tools">{toolbarExtra}</div>}
+    </header>
+  );
+  const stage = pinned && stageOverride ? <div className="live-map-stage live-map-override">{stageOverride}{pinnedAlerts}</div> : <MinimapStage source={mapSource} hasFrame={minimap.hasFrame} covered={presentation.coveredBadge !== null && !paused && !userInvalidated}
+    stageRef={canvasBox.stageRef} locale={locale}>
+    <canvas
+      ref={minimap.canvasRef}
+      style={canvasBox.canvasStyle}
+      className={`live-map-canvas${presentation.dimmed || paused || userInvalidated ? " is-stale" : ""}`}
+      aria-hidden="true"
+    />
+    {stackedPinned && (gamePhase === "pregame" || gamePhase === "live") && minimap.hasFrame && !stageOverride && mapOverlay
+      && <div className="sm-map-overlay" style={{ width: "100%", height: "100%" }}>{mapOverlay}</div>}
+    {pinnedAlerts}
+  </MinimapStage>;
   const mapPane = (
-      <section className="live-map-pane" aria-labelledby="live-map-heading">
-        <header className="live-map-toolbar">
-          <h1 id="live-map-heading">{text.mapLabel}</h1>
-          <span className="live-map-badge mono" role="status" title={statusBadge}>{statusBadge}</span>
-          {pinned && <div className="live-pinned-tools">{statusBlock}{actions}</div>}
-        </header>
-        {pinned && stageOverride ? <div className="live-map-stage live-map-override">{stageOverride}{pinnedAlerts}</div> : <MinimapStage source={mapSource} hasFrame={minimap.hasFrame} covered={presentation.coveredBadge !== null && !paused && !userInvalidated}
-          waitingReason={steamStatus === null && phase === "idle" ? reasonText : null}
-          stageRef={canvasBox.stageRef} locale={locale} plate={plate && (
-            <div className={`live-map-plate${plateTone}`}>
-              <span>{plate}</span>
-              {userInvalidated && <button type="button" disabled={controlsBusy} onClick={() => void retry()}>{text.retryCapture}</button>}
-            </div>
-          )}>
-          <canvas
-            ref={minimap.canvasRef}
-            style={canvasBox.canvasStyle}
-            className={`live-map-canvas${presentation.dimmed ? " is-stale" : ""}`}
-            aria-hidden="true"
-          />
-          {pinned && mapOverlay && <div className="sm-map-overlay" style={{ width: canvasBox.canvasStyle.minWidth, height: canvasBox.canvasStyle.minHeight }}>{mapOverlay}</div>}
-          {pinnedAlerts}
-        </MinimapStage>}
-      </section>
+    <section className="live-map-pane" aria-label={locale === "en" ? "Live minimap and scoreboard" : "แผนที่ย่อสดและสกอร์บอร์ด"}>
+      {stackedPinned ? (
+        <div className={`live-map-body is-pinned${stageOverride ? " is-draft" : ""}`} data-map-edge={mapEdge}>
+          <div className="live-map-pinned-stack">
+            {toolbar}
+            <div className={stageOverride ? "live-map-draft-slot" : "live-map-square-slot"}>{stage}</div>
+          </div>
+        </div>
+      ) : field ? (
+        <>
+          {toolbar}
+          <div className="live-map-body is-field"><div className="live-map-square-slot">{stage}</div></div>
+        </>
+      ) : (
+        <>{toolbar}{stage}</>
+      )}
+    </section>
   );
 
   const panelContents = (
@@ -364,17 +343,21 @@ export function MinimapPanel({
           <EnemySeen risk={displayedRisk} locale={locale} />
         </section>
         {layout === "deck" && renderAlerts && <div className="live-deck-alerts">{renderAlerts({ risk: displayedRisk, captureLive: phase === "live" && !paused })}</div>}
-        {statusBlock}
-        {actions}
       </aside>
     </>
   );
 
-  return pinned ? (
+  return layout === "settings" ? (
+    <section className="live-capture-settings" aria-label={locale === "en" ? "Minimap capture settings" : "ตั้งค่าแผนที่ย่อและการจับภาพ"}>
+      {actions}
+    </section>
+  ) : layout === "pinned" ? (
     <section className="live-pinned-panel" lang={locale}>
       {mapPane}
       {renderAlerts?.({ risk: displayedRisk, captureLive: phase === "live" && !paused })}
     </section>
+  ) : field ? (
+    mapPane
   ) : layout === "deck" ? (
     <section className="live-tab live-dashboard live-deck-panel" lang={locale}>
       {panelContents}

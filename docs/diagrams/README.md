@@ -4,6 +4,8 @@
 
 Open [INDEX.html](INDEX.html) for the offline searchable atlas, or open the SVG links below. Each editable Mermaid source has one generated SVG. The catalog identifies its purpose, governing document, requirement IDs and open decisions. Read the notes in the atlas/catalog with the image: short labels cannot express every guard or invariant.
 
+All 19 catalog diagrams were rendered with the pinned offline Mermaid, jsdom and svgdom modules from `F:/kohbor/tools/node_modules`; structural SVG validation passes. Visual inspection and application/native acceptance remain NOT_RUN.
+
 These are tailored engineering views: system context, containers, deployment, data flow, logical ERD, sequences, states and user/release flows. They are not a claim to implement every UML diagram type or every C4 level. A missing detailed protocol is still an open decision even when its interaction is pictured.
 
 ## Diagram inventory

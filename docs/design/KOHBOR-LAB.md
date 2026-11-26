@@ -2,9 +2,9 @@
 title: "Kohbor Lab: dev-stage event-logic studio (design)"
 doc_id: "KOHBOR-LAB"
 status: draft
-version: "0.1.0"
-updated: "2026-11-15"
-authority: "Agent design proposal for owner review. Changes no requirement statement, contract or threshold. Everything marked PROPOSED needs the owner's decision before implementation; everything marked UNVERIFIED was not observed in code, a test or a run."
+version: "0.1.1"
+updated: "2026-11-24"
+authority: "Agent design proposal for owner review; LAB-001 follows the owner instruction recorded 2026-11-24. Changes no unrelated requirement, contract or threshold."
 approval_status: "agent_decision_not_owner_approved"
 ---
 
@@ -331,3 +331,13 @@ The dev-only editor stores the six HUD module layouts under `layout.hud.<id>` in
 With `KOHBOR_LAB=1` in a `lab` or debug build, `lab_hud_layout_get`, `lab_hud_layout_apply`, `lab_hud_layout_reset` and `lab_hud_preview` are available. The HUD window receives `hud://layout` (schema 1, six modules and `strip_height_percent`) at thread start, after a layout revision and every two seconds. Preview accepts 1..60 seconds and emits fixed synthetic stats through `hud://state` until its deadline, then resumes the real snapshot; preview data is **synthetic evidence** only.
 
 Source and test coverage do not verify the rendered editor, native window placement, live event delivery, a Windows display or a real match. No app was started for this change.
+
+### 11.4 Lab minimap frame recorder (LAB-001)
+
+The owner instruction to build a Lab tool for minimap test-data collection is recorded in the [Decision Log](../governance/DECISION-LOG.md). The recorder is available through the Lab consent switch only when `lab` is compiled and `KOHBOR_LAB=1`; consent defaults off. It records only the already admitted minimap crop while both capture and GSI phase are live and fresh, the crop is confirmed, and candidate session epoch matches the fresh GSI session. It does not open another capture source, identify heroes or alter UI-016.
+
+One background worker receives `Arc`-backed crop samples through a bounded eight-frame queue. The capture thread uses `try_send` and never encodes or writes. A full queue increments the drop count; later successful frame writes include the current counter in the match manifest. PNG encoding uses the existing `flate2` dependency. Sampling is 1–5 fps (default 2 fps).
+
+The local data root is `<app-data>/lab/minimap-recordings/<match-hash>/`, with configuration at `<app-data>/lab/minimap-recorder.json`. The total cap defaults to 5 GB (5,000,000,000 bytes) and is configurable; one match can store at most 150 MB (150,000,000 bytes) of PNG frames. A cap stops recording for that match and reports the reason in Lab status. Older recordings are never automatically deleted; Lab asks before deleting only the selected match. The manifest stores only an HMAC-SHA256 derived from the install key and session epoch, safe match metadata, capture settings and frame/drop counts. Each JSONL frame entry stores filename, game clock, epoch, phase, capture age, source crop rectangle, source capture size and stale state. PNGs contain the minimap crop only.
+
+Only the current read model's team side and session epoch are available at the capture hook. Game clock, build and full team lineups stay null until an approved read-only intake view supplies them. Dota's hero-icon toggle and hero-size values are read without writes from the active Steam user's convars file; missing or invalid values stay null. The host status payload exposes `minimap_recording` for the Live status chip, but its UI consumer remains outside this change's authorized file scope. The evaluator adapter reads `manifest.json`, `frames.jsonl` and PNG crops; human marker annotations remain a separate input and are never inferred.

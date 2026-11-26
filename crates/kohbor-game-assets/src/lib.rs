@@ -1,8 +1,80 @@
+pub mod game_stats;
+pub mod keyvalues;
 mod texture;
 mod vpk;
 
-pub use texture::{decode_vtex_c, Image};
+pub use texture::{
+    decode_vtex_c, decode_vtex_c_for_display, decode_vtex_c_for_display_with_format,
+    decode_vtex_c_with_format, decode_vtex_c_with_format_and_flags, Image, TextureDecodeFlags,
+};
 pub use vpk::{Entry, Error, Result, Vpk};
+
+/// Game-owned stat icons found in the installed Dota VPK. Output names are
+/// stable asset keys; source paths are exact, case-normalized VPK entries.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct StatIconSource {
+    pub name: &'static str,
+    pub source_path: &'static str,
+}
+
+pub const STAT_ICON_SOURCES: [StatIconSource; 13] = [
+    StatIconSource {
+        name: "primary_strength",
+        source_path:
+            "panorama/images/primary_attribute_icons/primary_attribute_icon_strength_psd.vtex_c",
+    },
+    StatIconSource {
+        name: "primary_agility",
+        source_path:
+            "panorama/images/primary_attribute_icons/primary_attribute_icon_agility_psd.vtex_c",
+    },
+    StatIconSource {
+        name: "primary_intelligence",
+        source_path:
+            "panorama/images/primary_attribute_icons/primary_attribute_icon_intelligence_psd.vtex_c",
+    },
+    StatIconSource {
+        name: "primary_universal",
+        source_path:
+            "panorama/images/primary_attribute_icons/primary_attribute_icon_all_psd.vtex_c",
+    },
+    StatIconSource {
+        name: "damage",
+        source_path: "panorama/images/hud/reborn/icon_damage_psd.vtex_c",
+    },
+    StatIconSource {
+        name: "health_regen",
+        source_path: "panorama/images/hud/reborn/health_regen_png.vtex_c",
+    },
+    StatIconSource {
+        name: "mana_regen",
+        source_path: "panorama/images/hud/reborn/mana_regen_png.vtex_c",
+    },
+    StatIconSource {
+        name: "armor",
+        source_path: "panorama/images/hud/reborn/icon_armor_psd.vtex_c",
+    },
+    StatIconSource {
+        name: "magic_resist",
+        source_path: "panorama/images/hud/reborn/icon_magic_resist_psd.vtex_c",
+    },
+    StatIconSource {
+        name: "attack_speed",
+        source_path: "panorama/images/hud/reborn/icon_attack_speed_psd.vtex_c",
+    },
+    StatIconSource {
+        name: "move_speed",
+        source_path: "panorama/images/hud/reborn/icon_speed_psd.vtex_c",
+    },
+    StatIconSource {
+        name: "evasion",
+        source_path: "panorama/images/hud/reborn/icon_evasion_png.vtex_c",
+    },
+    StatIconSource {
+        name: "lifesteal",
+        source_path: "panorama/images/items/lifesteal_png.vtex_c",
+    },
+];
 
 /// Kinds of card icon that the asset build tool exports from the installed game.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

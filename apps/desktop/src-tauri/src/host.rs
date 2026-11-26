@@ -1,24 +1,24 @@
 //! Tauri-independent host glue for the critical media and audio paths.
 
-use crate::audio::device::{spawn_device_supervisor, DeviceCmd, Opener, Sleeper};
+use crate::audio::device::{DeviceCmd, Opener, Sleeper, spawn_device_supervisor};
 use crate::audio::engine::Engine;
 use crate::audio::lanes::{
-    AuditionRefusal, AuditionRequest, Control, EngineOut, EngineShared, EngineTx,
-    AUDITION_ADMISSION_TIMEOUT, OUT_LANE,
+    AUDITION_ADMISSION_TIMEOUT, AuditionRefusal, AuditionRequest, Control, EngineOut, EngineShared,
+    EngineTx, OUT_LANE,
 };
 use crate::audio::publisher::{self, HistoryHandle};
 use crate::clock::MonoClock;
 use crate::containment::Sample;
-use crate::intake::{self, lock, Runtime};
+use crate::intake::{self, Runtime, lock};
 use crate::media::inventory::media_status;
-use crate::media::prewarm::{new_visual_index_handle, VisualIndexHandle};
+use crate::media::prewarm::{VisualIndexHandle, new_visual_index_handle};
 use crate::media::protocol::{self, ProtocolRequest, ProtocolResponse};
 use crate::media::service::{self, FactsHandle, MediaHandle, ServiceConfig};
 use kohbor_audio::pcm::Pcm;
 use kohbor_events::Event;
 use kohbor_pack::catalog::Catalog;
 use kohbor_pack::store::ActivationPolicy;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::io;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -62,8 +62,21 @@ pub trait MediaJobs: Send + Sync {
         install_id: &str,
         policy: ActivationPolicy,
     ) -> Result<Value, String>;
+    fn uninstall(&self, install_id: &str) -> Result<Value, String> {
+        let _ = install_id;
+        Err("CAPABILITY_UNAVAILABLE".to_owned())
+    }
     fn cancel_pending_activation(&self, install_id: &str) -> Result<Value, String> {
         let _ = install_id;
+        Err("CAPABILITY_UNAVAILABLE".to_owned())
+    }
+    fn loadout(&self) -> Result<Value, String> {
+        Err("CAPABILITY_UNAVAILABLE".to_owned())
+    }
+    fn set_loadout(&self, _request: &Value) -> Result<Value, String> {
+        Err("CAPABILITY_UNAVAILABLE".to_owned())
+    }
+    fn cancel_loadout(&self) -> Result<Value, String> {
         Err("CAPABILITY_UNAVAILABLE".to_owned())
     }
     fn list(&self) -> Result<Value, String>;
@@ -136,8 +149,24 @@ impl MediaJobs for MediaHandle {
         MediaHandle::activate(self, request_id, install_id, policy)
     }
 
+    fn uninstall(&self, install_id: &str) -> Result<Value, String> {
+        MediaHandle::uninstall(self, install_id)
+    }
+
     fn cancel_pending_activation(&self, install_id: &str) -> Result<Value, String> {
         MediaHandle::cancel_pending_activation(self, install_id)
+    }
+
+    fn loadout(&self) -> Result<Value, String> {
+        MediaHandle::loadout(self)
+    }
+
+    fn set_loadout(&self, request: &Value) -> Result<Value, String> {
+        MediaHandle::set_loadout(self, request)
+    }
+
+    fn cancel_loadout(&self) -> Result<Value, String> {
+        MediaHandle::cancel_loadout(self)
     }
 
     fn list(&self) -> Result<Value, String> {
@@ -306,9 +335,29 @@ impl CommandApi {
         self.media.activate(request_id, install_id, policy)
     }
 
+    pub fn media_uninstall(&self, install_id: &str) -> Result<Value, String> {
+        self.ensure_running()?;
+        self.media.uninstall(install_id)
+    }
+
     pub fn media_cancel_pending_activation(&self, install_id: &str) -> Result<Value, String> {
         self.ensure_running()?;
         self.media.cancel_pending_activation(install_id)
+    }
+
+    pub fn media_loadout(&self) -> Result<Value, String> {
+        self.ensure_running()?;
+        self.media.loadout()
+    }
+
+    pub fn media_set_loadout(&self, request: &Value) -> Result<Value, String> {
+        self.ensure_running()?;
+        self.media.set_loadout(request)
+    }
+
+    pub fn media_cancel_loadout(&self) -> Result<Value, String> {
+        self.ensure_running()?;
+        self.media.cancel_loadout()
     }
 
     pub fn media_list(&self) -> Result<Value, String> {
@@ -431,7 +480,7 @@ impl CommandApi {
             .media
             .active_bindings()
             .map_err(|_| AuditionRefusal::MediaStateUnknown)?;
-        let install_id = audition_preflight(event, &bindings)?;
+        let install_id = audition_preflight(&event, &bindings)?;
 
         let (reply, result) = mpsc::sync_channel(1);
         self.engine.offer_audition(AuditionRequest {
@@ -573,7 +622,7 @@ fn valid_audition_variant_id(value: &str) -> bool {
         })
 }
 
-fn audition_preflight(event: Event, bindings: &Value) -> Result<&str, AuditionRefusal> {
+fn audition_preflight<'a>(event: &Event, bindings: &'a Value) -> Result<&'a str, AuditionRefusal> {
     let media_match_active = bindings
         .as_object()
         .and_then(|object| object.get("media_match_active"))
@@ -978,6 +1027,7 @@ impl Host {
             // Epoch 1 never exceeds a real session's epoch, so a demo cannot fence a real match.
             session_epoch: 1,
             game_clock_seconds: None,
+            own_hero: None,
             generation: crate::demo::DEMO_GENERATION,
             sequence: DEMO_SEQUENCE.fetch_add(1, Ordering::Relaxed) + 1,
             events: vec![event],
@@ -1589,9 +1639,11 @@ mod tests {
                 thread::park();
             }
         });
-        assert!(worker_entered_rx
-            .recv_timeout(Duration::from_secs(1))
-            .is_ok());
+        assert!(
+            worker_entered_rx
+                .recv_timeout(Duration::from_secs(1))
+                .is_ok()
+        );
 
         let (stopped_tx, stopped_rx) = mpsc::sync_channel(1);
         let started = Instant::now();
@@ -1716,6 +1768,7 @@ mod tests {
             at_ms: 1,
             session_epoch: 1,
             game_clock_seconds: None,
+            own_hero: None,
             generation: 1,
             sequence: 1,
             events: Vec::new(),
@@ -1771,12 +1824,14 @@ mod tests {
             at_ms: shared.heartbeat_ms.load(Ordering::Acquire),
             session_epoch: 1,
             game_clock_seconds: None,
+            own_hero: None,
             generation: 1,
             sequence,
             events: vec![kohbor_events::Event {
                 id: kohbor_events::EventId::HealthDanger,
                 tier: None,
                 at_ms: shared.heartbeat_ms.load(Ordering::Acquire),
+                payload: None,
             }],
         }) == crate::audio::lanes::Offer::Sent
     }

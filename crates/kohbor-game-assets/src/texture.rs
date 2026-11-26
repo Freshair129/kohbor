@@ -15,12 +15,37 @@ pub struct Image {
     pub rgba: Vec<u8>,
 }
 
-/// Decode a single-mip compiled Source 2 texture to straight RGBA8.
+/// Decode hints recorded in Source 2 resource-edit metadata.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct TextureDecodeFlags {
+    pub ycocg_conversion: bool,
+    pub normalize: bool,
+    pub hemi_oct: bool,
+    pub invert: bool,
+}
+
+/// Decode a single-mip compiled Source 2 texture to RGBA8, preserving any
+/// encoded YCoCg channels for callers that already handle that representation.
 ///
-/// Supported formats observed in the installed hero portrait census are
-/// DXT5, embedded PNG, and raw RGBA8888. DXT1 is also supported for synthetic
-/// compatibility coverage. Unsupported formats return a value-level error.
+/// Supported formats observed in the installed assets include DXT5, embedded
+/// PNG, format 4 raw RGBA8888, and format 28 raw BGRA8888. DXT1 is also
+/// supported for synthetic compatibility coverage. Unsupported formats
+/// return a value-level error.
 pub fn decode_vtex_c(bytes: &[u8]) -> Result<Image> {
+    decode_vtex_c_with_format(bytes).map(|(image, _)| image)
+}
+
+/// Decode one compiled texture and return its Source 2 image-format code for provenance/debugging.
+pub fn decode_vtex_c_with_format(bytes: &[u8]) -> Result<(Image, u8)> {
+    decode_vtex_c_with_format_and_flags(bytes).map(|(image, format, _)| (image, format))
+}
+
+/// Decode one compiled texture and report resource-edit decode hints. The
+/// returned pixels retain their stored channels; use `decode_vtex_c_for_display`
+/// when a consumer needs display-ready pixels.
+pub fn decode_vtex_c_with_format_and_flags(
+    bytes: &[u8],
+) -> Result<(Image, u8, TextureDecodeFlags)> {
     if bytes.len() < 16 {
         return Err(Error::InvalidTexture("resource header is truncated"));
     }
@@ -53,6 +78,7 @@ pub fn decode_vtex_c(bytes: &[u8]) -> Result<Image> {
     }
 
     let mut data_block = None;
+    let mut edit_info_blocks = Vec::new();
     for index in 0..block_count {
         let entry = table_start + index * 12;
         let tag = bytes
@@ -77,6 +103,10 @@ pub fn decode_vtex_c(bytes: &[u8]) -> Result<Image> {
                 return Err(Error::InvalidTexture("duplicate DATA block"));
             }
             data_block = Some((offset, length));
+        } else if tag == b"RED2" || tag == b"REDI" {
+            edit_info_blocks.push(bytes.get(offset..end).ok_or(Error::InvalidTexture(
+                "resource edit info block is truncated",
+            ))?);
         }
     }
     let (data_offset, data_length) =
@@ -113,6 +143,7 @@ pub fn decode_vtex_c(bytes: &[u8]) -> Result<Image> {
             "unsupported dimensions or mip layout",
         ));
     }
+    let flags = parse_decode_flags(&edit_info_blocks);
     let output_len = checked_rgba_len(width, height)?;
     let payload = bytes
         .get(metadata_len..)
@@ -122,19 +153,80 @@ pub fn decode_vtex_c(bytes: &[u8]) -> Result<Image> {
         1 => decode_dxt(payload, width, height, DxtKind::Dxt1)?,
         2 => decode_dxt(payload, width, height, DxtKind::Dxt5)?,
         16 | 18 if payload.starts_with(PNG_SIGNATURE) => decode_png_rgba(payload, width, height)?,
-        // 4 is RGBA8888 (the minimap overviews); 28 is the format seen on portraits.
-        4 | 28 => decode_raw_rgba(payload, output_len)?,
+        // Format 4 is RGBA8888 (minimap overviews); panorama stat icons use
+        // format 28, whose raw pixels are BGRA8888.
+        4 => decode_raw_rgba(payload, output_len)?,
+        28 => decode_raw_bgra(payload, output_len)?,
         other => return Err(Error::UnsupportedTextureFormat(other)),
     };
 
     if rgba.len() != output_len {
         return Err(Error::InvalidTexture("decoded byte count is inconsistent"));
     }
-    Ok(Image {
-        width,
-        height,
-        rgba,
-    })
+    Ok((
+        Image {
+            width,
+            height,
+            rgba,
+        },
+        format,
+        flags,
+    ))
+}
+
+/// Decode a texture to display-ready RGBA8, applying scaled YCoCg conversion
+/// only when the resource-edit marker is present and the stored format is DXT5.
+pub fn decode_vtex_c_for_display(bytes: &[u8]) -> Result<Image> {
+    decode_vtex_c_for_display_with_format(bytes).map(|(image, _, _)| image)
+}
+
+/// Display-ready decode with the original format code and parsed metadata flags.
+pub fn decode_vtex_c_for_display_with_format(
+    bytes: &[u8],
+) -> Result<(Image, u8, TextureDecodeFlags)> {
+    let (mut image, format, flags) = decode_vtex_c_with_format_and_flags(bytes)?;
+    if format == 2 && flags.ycocg_conversion {
+        convert_scaled_ycocg(&mut image.rgba);
+    }
+    Ok((image, format, flags))
+}
+
+fn parse_decode_flags(edit_info_blocks: &[&[u8]]) -> TextureDecodeFlags {
+    let contains = |marker: &[u8]| {
+        edit_info_blocks
+            .iter()
+            .any(|block| contains_ascii_case_insensitive(block, marker))
+    };
+    TextureDecodeFlags {
+        // This is the marker stored under RED2's special texture compiler
+        // dependency in the installed game files ("YCoCg Conv").
+        ycocg_conversion: contains(b"YCoCg Conv"),
+        normalize: contains(b"normalize"),
+        hemi_oct: contains(b"hemi-oct") || contains(b"hemi oct"),
+        invert: contains(b"invert"),
+    }
+}
+
+fn contains_ascii_case_insensitive(haystack: &[u8], needle: &[u8]) -> bool {
+    !needle.is_empty()
+        && haystack
+            .windows(needle.len())
+            .any(|window| window.eq_ignore_ascii_case(needle))
+}
+
+fn convert_scaled_ycocg(rgba: &mut [u8]) {
+    for pixel in rgba.chunks_exact_mut(4) {
+        let scale = f32::from(pixel[2]) / (255.0 / 8.0) + 1.0;
+        let co = (f32::from(pixel[0]) - 128.0) / scale;
+        let cg = (f32::from(pixel[1]) - 128.0) / scale;
+        let y = f32::from(pixel[3]);
+        pixel[0] = (y + co - cg).round().clamp(0.0, 255.0) as u8;
+        pixel[1] = (y + cg).round().clamp(0.0, 255.0) as u8;
+        pixel[2] = (y - co - cg).round().clamp(0.0, 255.0) as u8;
+        // In this encoding alpha stores luma. The sampled resources have no
+        // separate alpha plane, so display alpha is fully opaque.
+        pixel[3] = 255;
+    }
 }
 
 fn decode_raw_rgba(payload: &[u8], output_len: usize) -> Result<Vec<u8>> {
@@ -146,6 +238,20 @@ fn decode_raw_rgba(payload: &[u8], output_len: usize) -> Result<Vec<u8>> {
         .try_reserve_exact(output_len)
         .map_err(|_| Error::AllocationFailed)?;
     output.extend_from_slice(pixels);
+    Ok(output)
+}
+
+fn decode_raw_bgra(payload: &[u8], output_len: usize) -> Result<Vec<u8>> {
+    let pixels = payload
+        .get(..output_len)
+        .ok_or(Error::InvalidTexture("BGRA8888 payload is truncated"))?;
+    let mut output = Vec::new();
+    output
+        .try_reserve_exact(output_len)
+        .map_err(|_| Error::AllocationFailed)?;
+    for pixel in pixels.chunks_exact(4) {
+        output.extend_from_slice(&[pixel[2], pixel[1], pixel[0], pixel[3]]);
+    }
     Ok(output)
 }
 
@@ -709,7 +815,10 @@ pub(crate) fn png_crc32(bytes: &[u8]) -> u32 {
 
 #[cfg(test)]
 mod tests {
-    use super::{decode_vtex_c, png_crc32};
+    use super::{
+        convert_scaled_ycocg, decode_vtex_c, decode_vtex_c_for_display,
+        decode_vtex_c_for_display_with_format, decode_vtex_c_with_format_and_flags, png_crc32,
+    };
     use crate::Error;
     use flate2::write::ZlibEncoder;
     use flate2::Compression;
@@ -771,6 +880,87 @@ mod tests {
     }
 
     #[test]
+    fn resource_edit_info_flags_parse_ycocg_and_related_decode_hints() {
+        let mut dxt5 = [0_u8; 16];
+        dxt5[0] = 113;
+        dxt5[1] = 113;
+        let resource = make_vtex_with_red2(
+            4,
+            4,
+            2,
+            &dxt5,
+            b"Texture Compiler Version YCoCg Conv Normalize Hemi-Oct Invert",
+        );
+
+        let (_, format, flags) = decode_vtex_c_with_format_and_flags(&resource)
+            .expect("synthetic RED2 texture should decode");
+        assert_eq!(format, 2);
+        assert!(flags.ycocg_conversion);
+        assert!(flags.normalize);
+        assert!(flags.hemi_oct);
+        assert!(flags.invert);
+    }
+
+    #[test]
+    fn scaled_ycocg_conversion_matches_the_known_pixel_formula() {
+        let mut pixel = [203, 116, 0, 113];
+        convert_scaled_ycocg(&mut pixel);
+        assert_eq!(pixel, [200, 101, 50, 255]);
+    }
+
+    #[test]
+    fn display_decode_converts_only_flagged_dxt5_and_preserves_other_formats() {
+        // DXT5 decodes this endpoint to (206, 117, 0, 113) before YCoCg conversion.
+        let rgb565 = ((25_u16) << 11) | ((29_u16) << 5);
+        let mut flagged_block = [0_u8; 16];
+        flagged_block[..2].copy_from_slice(&[113, 113]);
+        flagged_block[8..10].copy_from_slice(&rgb565.to_le_bytes());
+        flagged_block[10..12].copy_from_slice(&rgb565.to_le_bytes());
+        let flagged = make_vtex_with_red2(4, 4, 2, &flagged_block, b"YCoCg Conv");
+        let (raw, format, flags) = decode_vtex_c_with_format_and_flags(&flagged).unwrap();
+        let (display, display_format, display_flags) =
+            decode_vtex_c_for_display_with_format(&flagged).unwrap();
+        assert!(flags.ycocg_conversion && display_flags.ycocg_conversion);
+        assert_eq!((format, display_format), (2, 2));
+        assert_eq!(&raw.rgba[..4], &[206, 117, 0, 113]);
+        assert_eq!(&display.rgba[..4], &[202, 102, 46, 255]);
+
+        let unflagged_dxt5 = make_vtex(4, 4, 2, &flagged_block);
+        let raw = decode_vtex_c(&unflagged_dxt5).unwrap();
+        assert_eq!(decode_vtex_c_for_display(&unflagged_dxt5).unwrap(), raw);
+
+        for (format, payload) in [
+            (1, vec![0x00, 0xf8, 0, 0, 0, 0, 0, 0]),
+            (4, vec![10, 20, 30, 40]),
+            (28, vec![30, 20, 10, 40]),
+        ] {
+            let resource = make_vtex(1, 1, format, &payload);
+            let raw = decode_vtex_c(&resource).unwrap();
+            assert_eq!(decode_vtex_c_for_display(&resource).unwrap(), raw);
+        }
+
+        // Resource-edit metadata can carry the conversion dependency for a PNG-backed
+        // selection portrait; the formula applies only when DATA stores DXT5 channels.
+        let png = make_png(1, 1, 6, &[0, 10, 20, 30, 40]);
+        let png_resource = make_vtex_with_red2(1, 1, 18, &png, b"YCoCg Conv");
+        let (raw, _, flags) = decode_vtex_c_with_format_and_flags(&png_resource).unwrap();
+        assert!(flags.ycocg_conversion);
+        assert_eq!(decode_vtex_c_for_display(&png_resource).unwrap(), raw);
+    }
+
+    #[test]
+    fn ycocg_marker_in_texture_payload_does_not_set_resource_flags() {
+        let mut dxt5 = [0_u8; 16];
+        dxt5[..2].copy_from_slice(&[113, 113]);
+        let mut resource = make_vtex(4, 4, 2, &dxt5);
+        resource.extend_from_slice(b"YCoCg Conv");
+
+        let (_, _, flags) = decode_vtex_c_with_format_and_flags(&resource)
+            .expect("extra texture payload bytes should remain ignored");
+        assert!(!flags.ycocg_conversion);
+    }
+
+    #[test]
     fn dxt5_alpha_interpolation_covers_both_endpoint_orders() {
         for (endpoints, expected) in [
             ([255_u8, 0], [255, 0, 218, 182, 145, 109, 72, 36]),
@@ -822,11 +1012,21 @@ mod tests {
     #[test]
     fn decodes_synthetic_rgba8888_payload() {
         let pixels = [255, 0, 0, 255, 0, 255, 0, 128];
-        let resource = make_vtex(2, 1, 28, &pixels);
-        let image = decode_vtex_c(&resource).expect("synthetic RGBA should decode");
-        assert!(image.rgba[..] == pixels[..], "RGBA8888 pixels differ");
+        let bgra = [0, 0, 255, 255, 0, 255, 0, 128];
+        let resource = make_vtex(2, 1, 28, &bgra);
+        let image = decode_vtex_c(&resource).expect("synthetic BGRA should decode");
+        assert!(image.rgba[..] == pixels[..], "BGRA8888 pixels differ");
         let overview = decode_vtex_c(&make_vtex(2, 1, 4, &pixels)).expect("format 4 decodes");
         assert!(overview.rgba[..] == pixels[..], "format 4 pixels differ");
+    }
+
+    #[test]
+    fn format_28_bgra8888_decodes_a_known_red_pixel_as_red() {
+        // The source stores channels as B, G, R, A; this pixel is pure red.
+        let image = decode_vtex_c(&make_vtex(1, 1, 28, &[0, 0, 255, 255]))
+            .expect("synthetic format 28 BGRA should decode");
+
+        assert_eq!(image.rgba, [255, 0, 0, 255]);
     }
 
     #[test]
@@ -992,20 +1192,33 @@ mod tests {
     }
 
     fn make_vtex(width: u16, height: u16, format: u8, payload: &[u8]) -> Vec<u8> {
-        let metadata_len = 124_u32;
+        make_vtex_with_red2(width, height, format, payload, &[0_u8; 24])
+    }
+
+    fn make_vtex_with_red2(
+        width: u16,
+        height: u16,
+        format: u8,
+        payload: &[u8],
+        red2: &[u8],
+    ) -> Vec<u8> {
+        let red2_start = 44_usize;
+        let data_start = (red2_start + red2.len()).next_multiple_of(4).max(96);
+        let metadata_len = u32::try_from(data_start + 28).expect("small synthetic metadata");
         let mut bytes = vec![0_u8; metadata_len as usize];
         bytes[0..4].copy_from_slice(&metadata_len.to_le_bytes());
         bytes[4..8].copy_from_slice(&0x0001_000c_u32.to_le_bytes());
         bytes[8..12].copy_from_slice(&8_u32.to_le_bytes());
         bytes[12..16].copy_from_slice(&2_u32.to_le_bytes());
         bytes[16..20].copy_from_slice(b"RED2");
-        bytes[20..24].copy_from_slice(&20_u32.to_le_bytes());
-        bytes[24..28].copy_from_slice(&24_u32.to_le_bytes());
+        bytes[20..24].copy_from_slice(&u32::try_from(red2_start - 20).unwrap().to_le_bytes());
+        bytes[24..28].copy_from_slice(&u32::try_from(red2.len()).unwrap().to_le_bytes());
         bytes[28..32].copy_from_slice(b"DATA");
-        bytes[32..36].copy_from_slice(&64_u32.to_le_bytes());
+        bytes[32..36].copy_from_slice(&u32::try_from(data_start - 32).unwrap().to_le_bytes());
         bytes[36..40].copy_from_slice(&28_u32.to_le_bytes());
 
-        let texture = 96;
+        bytes[red2_start..red2_start + red2.len()].copy_from_slice(red2);
+        let texture = data_start;
         bytes[texture..texture + 2].copy_from_slice(&1_u16.to_le_bytes());
         bytes[texture + 20..texture + 22].copy_from_slice(&width.to_le_bytes());
         bytes[texture + 22..texture + 24].copy_from_slice(&height.to_le_bytes());

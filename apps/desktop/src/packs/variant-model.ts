@@ -7,8 +7,14 @@ export interface EventVariant {
   variant_id: string;
   clip_id?: string;
   caption?: string;
+  hero?: string;
   duration_ms: number;
   has_visual: boolean;
+  install_id?: string;
+  package_id?: string;
+  equipped_slot?: number;
+  state?: "ready" | "not_loaded" | "invalid_media";
+  reason?: string;
 }
 
 export interface VariantAuditionResult {

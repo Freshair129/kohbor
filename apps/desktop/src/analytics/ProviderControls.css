@@ -1,0 +1,39 @@
+.analytics-provider-details,
+.analytics-provider-section {
+  border-bottom: 1px solid var(--line, #343945);
+  padding: 0.5rem;
+}
+
+.analytics-provider-details > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.analytics-provider-controls {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.5rem 0;
+}
+
+.analytics-provider-controls label {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.analytics-provider-controls input,
+.analytics-provider-controls select {
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.analytics-provider-controls > div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.analytics-provider-controls .analytics-provider-local {
+  color: var(--muted, #aab0bc);
+}
