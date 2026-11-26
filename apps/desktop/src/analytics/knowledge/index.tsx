@@ -1,6 +1,10 @@
 import type { ReactNode } from "react";
 import { ANALYTICS_TABS } from "../analyticsModel";
-import { buildLineSegments, heroComparisonEngineMetric, heroMetricValue, laneBadgeLabel, laneExpectationReading, matchResultPresentation, matchupRows, orderedDraftEntries, showLaneExpectationInStrip } from "./presentationModel.mjs";
+import { buildLineSegments, heroComparisonEngineMetric, laneBadgeLabel, laneExpectationReading, matchupRows, showLaneExpectationInStrip } from "./presentationModel.mjs";
+import { buildingMapPoint, buildMatchSummaryViewModel } from "./matchSummaryModel.mjs";
+import { BUNDLED } from "../../replay/bundledIcons";
+import { gameModeName, iconResolver } from "../../replay/matchBundle";
+import type { MapCalibration } from "../../replay/replayPack.mjs";
 import { HeroBenchmarksPanel } from "./HeroBenchmarksPanel";
 import "./knowledge.css";
 
@@ -62,6 +66,8 @@ export interface KnowledgePanelProps {
   onSelectOpponentHero?: (heroId: string) => void;
   /** Seek the replay scrubber to a game-clock time in seconds. */
   onSeek?: (seconds: number) => void;
+  /** Locally selected replay map calibration for the destroyed-building overlay. */
+  mapCalibration?: MapCalibration | null;
   /** Persisted report metadata; load markdown through the host read command. */
   reports?: SavedReport[];
   selectedReportId?: string | null;
@@ -88,6 +94,7 @@ const timeText = (seconds: unknown) => {
 const profileLane = (hero: KnowledgeHero) => hero.lane?.lane ?? null;
 const phaseLabel = (phase: string) => ({ laning: "ช่วงยืนเลน", mid: "ช่วงกลางเกม", late: "ช่วงท้ายเกม" }[phase] ?? "ช่วงที่ไม่ทราบ");
 const objectiveIcon = (group: string) => group === "buildings" ? "▣" : group === "wards" ? "◉" : "◆";
+const localSummaryIcon = iconResolver(BUNDLED.icons);
 
 function itemRows(value: unknown): Record<string, unknown>[] {
   const rows = Array.isArray(value) ? value : value && typeof value === "object" ? Object.values(value as Record<string, unknown>) : [];
@@ -115,32 +122,46 @@ export function AdvantageChart({ digest, onSeek }: Pick<KnowledgePanelProps, "di
   const height = 190;
   const pad = 18;
   const series = [
-    { key: "radiant_nw_diff", label: "ส่วนต่างมูลค่าสุทธิ", color: "#7aa2f7" },
-    { key: "radiant_xp_diff", label: "ส่วนต่างประสบการณ์", color: "#e6a85c" },
+    { key: "radiant_nw_diff", label: "ส่วนต่างมูลค่าสุทธิ", color: "var(--ally)" },
+    { key: "radiant_xp_diff", label: "ส่วนต่างประสบการณ์", color: "var(--warning)" },
   ];
   const points = series.map(({ key }) => rows.map((row) => typeof row[key] === "number" ? row[key] as number : null));
   const finite = points.flat().filter((value): value is number => value !== null && Number.isFinite(value));
+  const noAdvantageSamples = finite.length === 0;
   const domain: [number, number] = finite.length ? [Math.min(...finite), Math.max(...finite)] : [0, 1];
-  const zeroY = domain[0] <= 0 && domain[1] >= 0 && domain[0] !== domain[1]
+  const zeroY = !noAdvantageSamples && domain[0] <= 0 && domain[1] >= 0 && domain[0] !== domain[1]
     ? pad + ((domain[1] - 0) * (height - pad * 2)) / (domain[1] - domain[0])
     : height / 2;
   const duration = typeof digest?.meta?.duration_s === "number" ? digest.meta.duration_s : 0;
+  const sideByHero = new Map((digest?.heroes ?? []).flatMap((hero) => hero.id && (hero.side === "radiant" || hero.side === "dire") ? [[hero.id, hero.side] as const] : []));
+  const killMarkers = (digest?.deaths ?? []).flatMap((death) => {
+    const side = typeof death.killer === "string" ? sideByHero.get(death.killer) : null;
+    return side && duration > 0 && typeof death.time_s === "number" && death.time_s >= 0 && death.time_s <= duration
+      ? [{ eventRef: String(death.event_ref ?? `${side}-${death.time_s}`), side, time: death.time_s }]
+      : [];
+  });
   const axisValue = (value: number) => `${value > 0 ? "+" : ""}${Math.round(value).toLocaleString("th-TH")}`;
   return <section className="a2k-chart" aria-label="กราฟความได้เปรียบตามเวลา">
     <div className="a2k-chart__legend">{series.map((item) => <span key={item.key}><i style={{ background: item.color }} />{item.label}</span>)}</div>
+    {noAdvantageSamples && <p>— ไม่ทราบ · {digest?.advantage_per_min_reason ?? "ไม่มีตัวอย่างความได้เปรียบใน digest"}</p>}
     <div className="a2k-chart__sides"><span>Radiant นำ</span><span>Dire นำ</span></div>
-    <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="กราฟส่วนต่าง Radiant ต่อ Dire">
-      <text className="a2k-chart__axis-title" transform={`translate(7 ${height / 2}) rotate(-90)`} textAnchor="middle">ส่วนต่าง Radiant − Dire</text>
-      <text className="a2k-chart__y-label" x={pad} y={pad + 4}>{axisValue(domain[1])}</text>
-      <text className="a2k-chart__y-label" x={pad} y={height / 2}>{axisValue((domain[0] + domain[1]) / 2)}</text>
-      <text className="a2k-chart__y-label" x={pad} y={height - pad}>{axisValue(domain[0])}</text>
-      <line x1={pad} x2={width - pad} y1={zeroY} y2={zeroY} className="a2k-chart__zero" />
+    <svg viewBox={`0 0 ${width} ${height}`} role="group" aria-label="กราฟส่วนต่าง Radiant ต่อ Dire">
+      {!noAdvantageSamples && <>
+        <text className="a2k-chart__axis-title" transform={`translate(7 ${height / 2}) rotate(-90)`} textAnchor="middle">ส่วนต่าง Radiant − Dire</text>
+        <text className="a2k-chart__y-label" x={pad} y={pad + 4}>{axisValue(domain[1])}</text>
+        <text className="a2k-chart__y-label" x={pad} y={height / 2}>{axisValue((domain[0] + domain[1]) / 2)}</text>
+        <text className="a2k-chart__y-label" x={pad} y={height - pad}>{axisValue(domain[0])}</text>
+        <line x1={pad} x2={width - pad} y1={zeroY} y2={zeroY} className="a2k-chart__zero" />
+      </>}
       {series.map((item, seriesIndex) => buildLineSegments(points[seriesIndex] ?? [], width - pad * 2, height - pad * 2, domain).map((segment, index) => {
         const coords = segment.map(({ x, y }) => `${x + pad},${y + pad}`).join(" ");
         return <polyline key={`${item.key}-${index}`} points={coords} fill="none" stroke={item.color} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />;
       }))}
-      {(digest?.deaths ?? []).filter((death) => death.killer != null && typeof death.time_s === "number").map((death) => <circle key={String(death.event_ref)} cx={pad + (duration > 0 ? (death.time_s! / duration) * (width - pad * 2) : 0)} cy={zeroY} r="3" fill="#dc6e76" opacity="0.8" />)}
       {rows.map((row) => typeof row.minute === "number" && <rect key={`seek-${row.minute}`} x={pad + (row.minute * (width - pad * 2)) / Math.max(rows.length - 1, 1) - 4} y={pad} width="8" height={height - pad * 2} fill="transparent" role="button" tabIndex={0} aria-label={`ไปนาที ${row.minute}`} onClick={() => onSeek?.(row.minute * 60)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onSeek?.(row.minute * 60); }} />)}
+      {killMarkers.map((marker) => <g key={marker.eventRef} role="button" tabIndex={0} aria-label={`${marker.side === "radiant" ? "Radiant" : "Dire"} สังหารที่ ${timeText(marker.time)}`} onClick={() => onSeek?.(marker.time)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onSeek?.(marker.time); }}>
+        <circle cx={pad + (marker.time / duration) * (width - pad * 2)} cy={zeroY} r="5" fill={marker.side === "radiant" ? "var(--ally)" : "var(--enemy)"} stroke="var(--surface)" strokeWidth="2" />
+        <title>{marker.side === "radiant" ? "Radiant" : "Dire"} · {timeText(marker.time)}</title>
+      </g>)}
     </svg>
     <div className="a2k-chart__axis"><span>เวลาในแมตช์</span><span>0:00 – {timeText(digest?.meta?.duration_s)}</span></div>
     <small>ช่วงที่ไม่มีตัวเลขหมายถึงรีเพลย์ไม่มีข้อมูลในเวลานั้น</small>
@@ -178,6 +199,51 @@ export function LaneCards({ digest, onSeek }: Pick<KnowledgePanelProps, "digest"
   })}</div>;
 }
 
+function BuildingLosses({ digest, mapCalibration, onSeek }: Pick<KnowledgePanelProps, "digest" | "mapCalibration" | "onSeek">) {
+  const buildings = Array.isArray(digest?.objectives?.buildings) ? digest.objectives.buildings : [];
+  const buildingsKnown = Array.isArray(digest?.objectives?.buildings);
+  const destroyed = buildings.filter((item: any) => item.destroyed === true);
+  const unknownCount = buildings.filter((item: any) => item.destroyed == null).length;
+  const mapUrl = BUNDLED.icons.get("map:");
+  const positioned = destroyed.flatMap((building: any, index: number) => {
+    const point = buildingMapPoint(building.position, mapCalibration);
+    return point ? [{ building, index, point }] : [];
+  });
+  const showMap = !!mapUrl && !!mapCalibration && positioned.length > 0;
+  const mapReason = !mapUrl
+    ? "ไม่มีภาพมินิแมปในไอคอนที่ติดตั้งในเครื่อง"
+    : !mapCalibration
+      ? "ไม่มี calibration ของ replay สำหรับแปลงพิกัดโลกเป็นตำแหน่งบนแผนที่"
+      : "ไม่มีตำแหน่งอาคารที่แปลงได้ด้วย calibration ของแผนที่";
+  return <section className="a2k-building-losses" aria-label="อาคารที่ถูกทำลาย">
+    <h3>อาคารที่ถูกทำลาย</h3>
+    {showMap ? <div className="a2k-building-map" role="group" aria-label="มินิแมปตำแหน่งอาคารที่ถูกทำลาย">
+      <img src={mapUrl} alt="" aria-hidden="true" />
+      {positioned.map(({ building, index, point }: any) => {
+        const side = building.team === "radiant" || building.team === "dire" ? building.team : "unknown";
+        const at = typeof building.destroyed_at_s === "number" ? building.destroyed_at_s : null;
+        const name = typeof building.name === "string" ? building.name : "อาคารไม่ทราบชื่อ";
+        return <button key={`${building.name ?? "building"}-${index}`} type="button" className={`a2k-building-map__mark is-${side}`}
+          style={{ left: `${point.x}%`, top: `${point.y}%` }} disabled={at === null}
+          aria-label={`${side === "unknown" ? "ทีมไม่ทราบ" : side === "radiant" ? "Radiant" : "Dire"} · ${name} · ${timeText(at)}`}
+          title={`${side === "unknown" ? "ทีมไม่ทราบ" : side === "radiant" ? "Radiant" : "Dire"} · ${name} · ${timeText(at)}`}
+          onClick={() => at !== null && onSeek?.(at)}>▣</button>;
+      })}
+    </div> : destroyed.length > 0 ? <p className="a2k-building-losses__unknown">— แสดงรายการแทนมินิแมป · {mapReason}</p> : null}
+    {showMap && positioned.length < destroyed.length && <small className="a2k-building-losses__unknown">อาคารที่เหลือไม่มีตำแหน่งซึ่งแปลงได้ด้วย calibration นี้ จึงแสดงเป็นรายการ</small>}
+    {destroyed.length > 0 ? <ul className="a2k-building-losses__list">{destroyed.map((building: any, index: number) => <li key={`${building.name ?? "building"}-${index}`}>
+      <span className={`a2k-side-dot is-${building.team === "radiant" || building.team === "dire" ? building.team : "unknown"}`} aria-hidden="true" />
+      <span>{building.team === "radiant" ? "Radiant" : building.team === "dire" ? "Dire" : "ทีมไม่ทราบ"} · {typeof building.name === "string" ? building.name : "อาคารไม่ทราบชื่อ"}</span>
+      <button type="button" disabled={typeof building.destroyed_at_s !== "number"} title={building.destroyed_at_s_reason ?? undefined}
+        onClick={() => typeof building.destroyed_at_s === "number" && onSeek?.(building.destroyed_at_s)}>{timeText(building.destroyed_at_s)}</button>
+    </li>)}</ul> : !buildingsKnown
+      ? <p className="a2k-building-losses__unknown">— ไม่ทราบ · {digest?.objectives?.buildings_reason ?? "objective tracks are missing"}</p>
+      : unknownCount > 0 ? <p className="a2k-building-losses__unknown">— ไม่ทราบ · สถานะอาคาร {unknownCount} รายการไม่ทราบ</p>
+        : <p className="a2k-building-losses__unknown">ไม่พบอาคารที่ถูกทำลายใน digest</p>}
+    {unknownCount > 0 && destroyed.length > 0 && <small className="a2k-building-losses__unknown">ไม่ทราบสถานะอาคาร {unknownCount} รายการ · {buildings.find((item: any) => item.destroyed == null)?.destroyed_reason ?? "ไม่มีตัวอย่าง health ที่ใช้ยืนยันสถานะ"}</small>}
+  </section>;
+}
+
 /** Compact matchup strip for lane-by-lane hero assignment; unknown positions remain visible. */
 export function MatchupStrip({ digest, selectedHeroId, onSelectHero }: Pick<KnowledgePanelProps, "digest" | "selectedHeroId" | "onSelectHero">) {
   const heroes = digest?.heroes ?? [];
@@ -198,43 +264,143 @@ export function MatchupStrip({ digest, selectedHeroId, onSelectHero }: Pick<Know
   </div>;
 }
 
-/** Summary tab for the free, locally computed K0-K2 match digest. */
-export function MatchSummaryTab({ digest, loading, onSeek }: Pick<KnowledgePanelProps, "digest" | "loading" | "onSeek">) {
+/** Combined post-match summary using only fields present in the local digest. */
+export function MatchSummaryTab({ digest, loading, onSeek, mapCalibration }: Pick<KnowledgePanelProps, "digest" | "loading" | "onSeek" | "mapCalibration">) {
   if (loading) return <div className="a2k-empty" role="status">กำลังอ่านข้อมูลแมตช์…</div>;
   if (!digest) return <div className="a2k-empty">สรุปข้อมูลแมตช์ยังไม่พร้อม</div>;
+  const view = buildMatchSummaryViewModel(digest);
+  const { header, cards, scoreboard, draft } = view;
+  const gameMode = typeof header.gameMode === "string"
+    ? header.gameMode
+    : typeof header.gameMode === "number" ? gameModeName(header.gameMode) : null;
+  const gameModeReason = header.gameModeReason ?? (typeof header.gameMode === "number" && gameMode === null ? `ไม่รู้จักรหัสโหมด ${header.gameMode}` : undefined);
   const objectiveGroups = [
-    { id: "buildings", label: "อาคาร", items: (digest.objectives?.buildings ?? []).filter((item: any) => item.destroyed === true) },
     { id: "wards", label: "วอร์ด", items: digest.objectives?.wards ?? [] },
     { id: "other_tracks", label: "อื่น ๆ", items: digest.objectives?.other_tracks ?? [] },
   ].filter((group) => group.items.length > 0);
   const unknownBuildingCount = (digest.objectives?.buildings ?? []).filter((item: any) => item.destroyed == null).length;
-  const result = matchResultPresentation(digest.meta?.result);
-  const resultText = result.text === "Radiant" ? "Radiant ชนะ" : result.text === "Dire" ? "Dire ชนะ" : "— ไม่ทราบ";
-  const draft = orderedDraftEntries(digest.meta?.draft);
+  const metricText = (metric: { value: number | null; reason: string | null }) => metric.value === null ? "— ไม่ทราบ" : Math.round(metric.value).toLocaleString("th-TH");
+  const metricTitle = (metric: { value: number | null; reason: string | null }) => metric.value === null ? metric.reason ?? undefined : undefined;
+  const sideNames: Record<string, string> = { radiant: "Radiant", dire: "Dire" };
   return <div className="a2k-summary">
-    <header className="a2k-summary__header"><h2>สรุปแมตช์</h2><span>{valueAt(digest.meta?.patch)} · {timeText(digest.meta?.duration_s)}</span></header>
-    <p className="a2k-summary__score">Radiant {valueAt(digest.meta?.kills?.radiant)} : {valueAt(digest.meta?.kills?.dire)} Dire · ผลแมตช์ {resultText}</p>
-    {result.warning && <p className="a2k-result-warning" role="alert">{result.warning}</p>}
+    <header className="a2k-summary__header">
+      <div><h2>สรุปแมตช์</h2><strong className={`a2k-summary__winner is-${header.winner ?? "unknown"}`}>{header.winnerText}</strong></div>
+      <div className="a2k-summary__facts">
+        <span>คะแนนสังหาร · Radiant <b title={metricTitle(header.kills.radiant)}>{metricText(header.kills.radiant)}</b> : <b title={metricTitle(header.kills.dire)}>{metricText(header.kills.dire)}</b> Dire</span>
+        <span>เวลา {timeText(header.durationSeconds)}</span>
+        <span title={gameModeReason}>โหมด {gameMode ?? "— ไม่ทราบ"}</span>
+        <span title={header.patchReason ?? undefined}>แพตช์ {header.patch ?? "— ไม่ทราบ"}</span>
+        {header.winnerSource && <span>ที่มาผลแมตช์ · {header.winnerSource}</span>}
+      </div>
+    </header>
+    {header.warning && <p className="a2k-result-warning" role="alert">{header.warning}</p>}
+
+    <section className="a2k-summary__hero-teams" aria-label="การ์ดฮีโร่ทั้งสองทีม">
+      <h3>ฮีโร่ในแมตช์</h3>
+      {(["radiant", "dire"] as const).map((side) => <section className={`a2k-summary__hero-team is-${side}`} key={side} aria-label={`ฮีโร่ทีม ${sideNames[side]}`}>
+        <h4>{sideNames[side]}</h4>
+        <div className="a2k-summary__hero-scroll" role="region" aria-label={`การ์ดฮีโร่ ${sideNames[side]}`} tabIndex={0}>
+          <div className="a2k-summary__hero-track">{cards[side].length ? cards[side].map((hero, index) => <article className="a2k-summary__hero-card" key={hero.heroId ?? `${side}-${index}`}>
+            {hero.heroIconName ? <img src={localSummaryIcon("hero", hero.heroIconName)} alt="" aria-hidden="true" /> : <span className="a2k-summary__hero-icon-unknown" aria-hidden="true">?</span>}
+            <strong>{hero.hero ?? "— ไม่ทราบ"}</strong>
+            <span className="a2k-summary__hero-side">{sideNames[side]}</span>
+            <span className="a2k-summary__lane" title={hero.laneReason ?? undefined}>{hero.lane ? LANE_NAMES[hero.lane] ?? "— ไม่ทราบ" : "— ไม่ทราบเลน"}</span>
+            <span className={`a2k-summary__lane-result${hero.laneResult ? "" : " is-unknown"}`} title={hero.laneResultReason ?? undefined}>{hero.laneResult ?? "— ไม่ทราบผลเลน"}</span>
+            <span className="a2k-summary__kda" aria-label="สังหาร ตาย ช่วยเหลือ">
+              <b title={metricTitle(hero.kda.k)}>{metricText(hero.kda.k)}</b> /
+              <b title={metricTitle(hero.kda.d)}>{metricText(hero.kda.d)}</b> /
+              <b title={metricTitle(hero.kda.a)}>{metricText(hero.kda.a)}</b>
+            </span>
+            <span className="a2k-summary__economy"><span>{hero.economyLabel}</span><b title={metricTitle(hero.economy)}>{metricText(hero.economy)}</b></span>
+          </article>) : <p className="a2k-summary__unknown">— ไม่ทราบ · ไม่มีข้อมูลฮีโร่ของทีมนี้ใน digest</p>}</div>
+        </div>
+      </section>)}
+    </section>
+
+    <section className="a2k-summary__middle" aria-label="ความได้เปรียบ แผนที่ และผลเลน">
+      <AdvantageChart digest={digest} onSeek={onSeek} />
+      <BuildingLosses digest={digest} mapCalibration={mapCalibration} onSeek={onSeek} />
+      <div className="a2k-summary__lane-results"><h3>ผลเลน</h3><LaneCards digest={digest} onSeek={onSeek} /></div>
+    </section>
+
+    <section className="a2k-scoreboards" aria-label="ตารางสถิติรายทีม">
+      <h3>ตารางสถิติ</h3>
+      {(["radiant", "dire"] as const).map((side) => {
+        const team = scoreboard[side];
+        return <section className={`a2k-scoreboard is-${side}`} key={side} aria-label={`ตาราง ${sideNames[side]}`}>
+          <h4>{sideNames[side]}</h4>
+          <div className="a2k-scoreboard__scroll" role="region" aria-label={`เลื่อนตาราง ${sideNames[side]} ในแนวนอน`} tabIndex={0}>
+            <table><thead><tr><th>ฮีโร่</th><th>K</th><th>D</th><th>A</th><th>NW</th><th>LH / DN</th><th>GPM / XPM</th><th>Hero damage</th><th>ไอเท็มสุดท้าย · นาทีที่ซื้อ</th></tr></thead>
+              <tbody>{team.rows.map((row, index) => <tr key={row.heroId ?? `${side}-${index}`}>
+                <th scope="row"><span className="a2k-scoreboard__hero">{row.heroIconName ? <img src={localSummaryIcon("hero", row.heroIconName)} alt="" aria-hidden="true" /> : <span className="a2k-summary__hero-icon-unknown" aria-hidden="true">?</span>}{row.hero ?? "— ไม่ทราบ"}</span></th>
+                <td title={metricTitle(row.metrics.k)}>{metricText(row.metrics.k)}</td>
+                <td title={metricTitle(row.metrics.d)}>{metricText(row.metrics.d)}</td>
+                <td title={metricTitle(row.metrics.a)}>{metricText(row.metrics.a)}</td>
+                <td title={metricTitle(row.metrics.nw)}>{metricText(row.metrics.nw)}</td>
+                <td title={`${metricTitle(row.metrics.lh) ?? ""} ${metricTitle(row.metrics.dn) ?? ""}`.trim() || undefined}>{metricText(row.metrics.lh)} / {metricText(row.metrics.dn)}</td>
+                <td title={`${metricTitle(row.metrics.gpm) ?? ""} ${metricTitle(row.metrics.xpm) ?? ""}`.trim() || undefined}>{metricText(row.metrics.gpm)} / {metricText(row.metrics.xpm)}</td>
+                <td title={metricTitle(row.metrics.heroDamage)}>{metricText(row.metrics.heroDamage)}</td>
+                <td>{!row.itemsKnown ? <span title={row.itemsReason ?? undefined}>— ไม่ทราบ</span> : row.items.length === 0 ? "ไม่มีไอเท็มในช่องที่บันทึก" :
+                  <ul className="a2k-scoreboard__items">{row.items.map((item, itemIndex) => <li key={`${item.id}-${itemIndex}`} title={item.id}>
+                    <img src={localSummaryIcon("item", item.iconName ?? item.id)} alt={item.id} />
+                    {item.purchaseMinute !== null && <span>{item.purchaseMinute}m</span>}
+                  </li>)}</ul>}</td>
+              </tr>)}
+                <tr className="a2k-scoreboard__total"><th scope="row">รวมทีม · {team.totals.playerCount} ฮีโร่</th>
+                  <td title={metricTitle(team.totals.metrics.k)}>{metricText(team.totals.metrics.k)}</td>
+                  <td title={metricTitle(team.totals.metrics.d)}>{metricText(team.totals.metrics.d)}</td>
+                  <td title={metricTitle(team.totals.metrics.a)}>{metricText(team.totals.metrics.a)}</td>
+                  <td title={metricTitle(team.totals.metrics.nw)}>{metricText(team.totals.metrics.nw)}</td>
+                  <td title={`${metricTitle(team.totals.metrics.lh) ?? ""} ${metricTitle(team.totals.metrics.dn) ?? ""}`.trim() || undefined}>{metricText(team.totals.metrics.lh)} / {metricText(team.totals.metrics.dn)}</td>
+                  <td title={`${metricTitle(team.totals.metrics.gpm) ?? ""} ${metricTitle(team.totals.metrics.xpm) ?? ""}`.trim() || undefined}>{metricText(team.totals.metrics.gpm)} / {metricText(team.totals.metrics.xpm)}</td>
+                  <td title={metricTitle(team.totals.metrics.heroDamage)}>{metricText(team.totals.metrics.heroDamage)}</td><td>—</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>;
+      })}
+    </section>
+
     <section className="a2k-draft" aria-label="ลำดับการเลือกและแบนฮีโร่">
-      <h3>ลำดับการเลือกและแบน</h3>
-      {draft === null ? <p>— ไม่ทราบ</p> : draft.length === 0 ? <p>ไม่มีข้อมูลการเลือกหรือแบนในรีเพลย์</p> :
-        <ol>{draft.map((entry) => <li key={entry.order}><span>{entry.order}</span> · {entry.team} · {entry.kind === "Pick" ? "เลือก" : entry.kind === "Ban" ? "แบน" : "— ไม่ทราบ"} · {entry.hero}</li>)}</ol>}
+      <h3>ดราฟต์ · เลือกและแบนตามลำดับ</h3>
+      {draft.state === "unknown" ? <p title={draft.reason ?? undefined}>— ไม่ทราบ · {draft.reason ?? "ไม่มีข้อมูลดราฟต์"}</p>
+        : draft.state === "empty" ? <p>ไม่มีรายการเลือกหรือแบนในข้อมูลรีเพลย์</p>
+          : <div className="a2k-draft__teams">{(["radiant", "dire", "unknown"] as const).map((side) => {
+            const entries = draft.groups[side];
+            if (side !== "unknown" && entries.length === 0) return null;
+            if (side === "unknown" && entries.length === 0) return null;
+            return <section key={side} className={`a2k-draft__team is-${side}`}>
+              <h4>{side === "unknown" ? "ทีมไม่ทราบ" : sideNames[side]}</h4>
+              <ol>{entries.map((entry) => <li key={`${entry.order}-${entry.kind}`}><span className="a2k-draft__order">{entry.order}</span>
+                <span>{entry.kind === "Pick" ? "เลือก" : entry.kind === "Ban" ? "แบน" : "— ไม่ทราบ"}</span>
+                {entry.heroIconName ? <img src={localSummaryIcon("hero", entry.heroIconName)} alt="" aria-hidden="true" /> : <span className="a2k-summary__hero-icon-unknown" aria-hidden="true">?</span>}
+                <span>{entry.hero}</span>
+              </li>)}</ol>
+            </section>;
+          })}</div>}
     </section>
-    <section className="a2k-engine-hero-stats" aria-label="สถิติฮีโร่จากรีเพลย์">
-      <h3>สถิติฮีโร่จากรีเพลย์</h3>
-      <div className="a2k-engine-hero-stats__head"><b>ฮีโร่</b><b>ความเสียหายต่อฮีโร่</b><b>ทองต่อนาที</b></div>
-      {(digest.heroes ?? []).map((hero) => <div className="a2k-engine-hero-stats__row" key={hero.id}>
-        <span>{hero.hero}</span>
-        <span>{heroMetricValue(hero.hero_damage)}</span>
-        <span>{heroMetricValue(hero.rates?.gpm)}</span>
-      </div>)}
+
+    <section className="a2k-summary__teamfights"><h3>จังหวะสำคัญ</h3><ul className="a2k-event-rows">{(digest.teamfights ?? []).map((fight) => {
+      const start = typeof fight.t?.[0] === "number" ? fight.t[0] : null;
+      const end = typeof fight.t?.[1] === "number" ? fight.t[1] : null;
+      const deaths = Array.isArray(fight.deaths) ? fight.deaths.length : null;
+      return <li key={fight.n}><span aria-hidden="true">⚔</span>{start !== null ? <button type="button" onClick={() => onSeek?.(start)}>{timeText(start)}–{timeText(end)}</button> : <span>— ไม่ทราบ</span>}<span>ทีมไฟต์ · ตาย {deaths ?? "— ไม่ทราบ"}</span></li>;
+    })}</ul></section>
+
+    <section className="a2k-objectives"><h3>วัตถุประสงค์</h3>
+      {unknownBuildingCount > 0 && <small>ไม่ทราบสถานะอาคาร {unknownBuildingCount} รายการ</small>}
+      {objectiveGroups.length === 0 ? <p>{Array.isArray(digest.objectives?.wards) && Array.isArray(digest.objectives?.other_tracks)
+        ? "ไม่พบวอร์ดหรือวัตถุประสงค์อื่นใน digest"
+        : `— ไม่ทราบ · ${digest.objectives?.wards_reason ?? digest.objectives?.other_tracks_reason ?? "objective tracks are missing"}`}</p> : objectiveGroups.map((group) => <details key={group.id}>
+        <summary>{group.label} ({group.items.length})</summary><ul className="a2k-event-rows">{group.items.map((item: any, index: number) => {
+          const time = item.destroyed_at_s ?? item.start_s ?? item.t;
+          return <li key={`${group.id}-${index}`}><span aria-hidden="true">{objectiveIcon(group.id)}</span>
+            {typeof time === "number" ? <button type="button" title={item.name ?? undefined} onClick={() => onSeek?.(time)}>{timeText(time)}</button> : <span>— ไม่ทราบ</span>}
+            <span>{typeof item.name === "string" ? item.name : group.label}</span></li>;
+        })}</ul>
+      </details>)}
     </section>
-    <AdvantageChart digest={digest} onSeek={onSeek} />
-    <LaneCards digest={digest} onSeek={onSeek} />
-    <section><h3>จังหวะสำคัญ</h3><ul className="a2k-event-rows">{(digest.teamfights ?? []).map((fight) => <li key={fight.n}><span aria-hidden="true">⚔</span><button onClick={() => onSeek?.(Number(fight.t?.[0] ?? 0))}>{timeText(fight.t?.[0])}–{timeText(fight.t?.[1])}</button><span>ทีมไฟต์ · ตาย {fight.deaths?.length ?? "— ไม่ทราบ"}</span></li>)}</ul></section>
-    <section className="a2k-objectives"><h3>วัตถุประสงค์</h3>{unknownBuildingCount > 0 && <small>ไม่ทราบสถานะอาคาร {unknownBuildingCount} รายการ</small>}{objectiveGroups.map((group) => <details key={group.id}>
-      <summary>{group.label} ({group.items.length})</summary><ul className="a2k-event-rows">{group.items.map((item: any, index: number) => { const time = item.destroyed_at_s ?? item.start_s ?? item.t; return <li key={`${group.id}-${index}`}><span aria-hidden="true">{objectiveIcon(group.id)}</span><button onClick={() => typeof time === "number" && onSeek?.(time)}>{timeText(time)}</button><span>{group.label}</span></li>; })}</ul>
-    </details>)}</section>
   </div>;
 }
 
