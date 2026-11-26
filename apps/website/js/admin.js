@@ -29,19 +29,35 @@
     invited: ['เชิญแล้ว', 'Invited'],
     waiting: ['รอคิว', 'Waiting'],
     doInvite: ['เชิญแล้ว', 'Mark invited'],
-    undo: ['กลับเข้าคิว', 'Back to queue']
+    undo: ['กลับเข้าคิว', 'Back to queue'],
+    sendOne: ['ส่งคำเชิญ', 'Send invite'],
+    resend: ['ส่งลิงก์ใหม่', 'Send new link'],
+    confirmSend: ['ส่งอีเมลเชิญพร้อมลิงก์ดาวน์โหลดให้ {n} คน จาก Gmail ที่ตั้งไว้?', 'Email {n} people their own download link from the configured Gmail?'],
+    confirmResend: ['ส่งลิงก์ใหม่ให้คนนี้? ลิงก์เก่าของเขาจะใช้ไม่ได้อีก', 'Send this person a new link? Their old link will stop working.'],
+    sending: ['กำลังส่ง… {n} คน', 'Sending… {n} left'],
+    sentAll: ['ส่งคำเชิญแล้ว {n} คน', 'Sent {n} invites.'],
+    sentSome: ['ส่งแล้ว {n} คน บางคนส่งไม่สำเร็จ (ยังอยู่ในคิว ลองใหม่ได้)', 'Sent {n}. Some could not be sent and stay in the queue; try again.'],
+    mail_not_configured: ['ยังไม่ได้ตั้งค่า Gmail', 'Gmail is not set up.'],
+    mail_login: ['Gmail ไม่ยอมให้เข้าสู่ระบบ ตรวจ App Password ใน Supabase Secrets', 'Gmail refused the sign-in. Check the App Password in Supabase Secrets.'],
+    mail_failed: ['ส่งอีเมลไม่สำเร็จ ลองใหม่อีกครั้ง', 'Sending failed. Try again.'],
+    bad_request: ['ข้อมูลไม่ถูกต้อง', 'That was not accepted.'],
+    tplSaved: ['บันทึกเทมเพลตแล้ว', 'Template saved.'],
+    tplNeedsLink: ['เนื้อหาต้องมี {link}', 'The body must contain {link}.'],
+    testSent: ['ส่งอีเมลทดสอบแล้ว ดูในกล่องจดหมายของคุณ', 'Test sent. Check your inbox.']
   };
   function t(k, n) { return T[k][lang === 'th' ? 0 : 1].replace('{n}', String(n)); }
   var shown = null;
   function say(k) { shown = k; $('adMsg').textContent = k ? t(k) : ''; }
 
-  var token = null, queue = [], links = [], batch = [], batchNote = null;
+  var token = null, queue = [], links = [], batch = [], batchNote = null, mailReady = false, busy = false;
+  var notes = {};
 
   function setLang(l) {
     lang = l; root.dataset.lang = l; root.lang = l; store.set(window.localStorage, 'kohbor.lang', l);
     Array.prototype.forEach.call(document.querySelectorAll('[data-set-lang]'), function (b) { b.setAttribute('aria-pressed', String(b.dataset.setLang === l)); });
     if (shown) say(shown);
     if (batchNote) $('adBatchMsg').textContent = t(batchNote[0], batchNote[1]);
+    Object.keys(notes).forEach(function (id) { if (notes[id]) $(id).textContent = t(notes[id][0], notes[id][1]); });
     render();
   }
   Array.prototype.forEach.call(document.querySelectorAll('[data-set-lang]'), function (b) { b.addEventListener('click', function () { setLang(b.dataset.setLang); }); });
@@ -69,7 +85,8 @@
     }).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (b) {
         if (r.ok) return b;
-        throw new Error(r.status === 401 ? 'expired' : r.status === 403 ? 'forbidden' : 'unavailable');
+        var known = { mail_not_configured: 1, mail_login: 1, mail_failed: 1, bad_request: 1 };
+        throw new Error(r.status === 401 ? 'expired' : r.status === 403 ? 'forbidden' : known[b && b.error] ? b.error : 'unavailable');
       });
     }, function () { throw new Error('unavailable'); });
   }
@@ -77,12 +94,27 @@
     var k = e && e.message;
     if (k === 'expired' || k === 'forbidden') signedOut(k); else say('unavailable');
   }
+  // A status line under one section, kept across language switches.
+  function noteIn(id, k, n) { notes[id] = k ? [k, n] : null; $(id).textContent = k ? t(k, n) : ''; }
+  function failIn(id) {
+    return function (e) {
+      var k = e && e.message;
+      if (k === 'expired' || k === 'forbidden') { signedOut(k); return; }
+      noteIn(id, T[k] ? k : 'unavailable');
+    };
+  }
 
   function load() {
     say('loading');
     return call({ action: 'queue' }).then(function (b) {
       queue = Array.isArray(b.queue) ? b.queue : [];
       links = Array.isArray(b.links) ? b.links : [];
+      mailReady = b.mail_ready === true;
+      if (b.template && !$('adSubject').dataset.loaded) {
+        $('adSubject').value = b.template.subject || '';
+        $('adBody').value = b.template.body || '';
+        $('adSubject').dataset.loaded = '1';
+      }
       $('adSignin').hidden = true; $('adPanel').hidden = false;
       say(null); render();
     }).catch(fail);
@@ -93,6 +125,9 @@
     var waiting = queue.filter(function (q) { return !q.invited_at; });
     $('stWaiting').textContent = String(waiting.length);
     $('stInvited').textContent = String(queue.length - waiting.length);
+    $('adMailSetup').hidden = mailReady;
+    $('adSend').disabled = !mailReady || busy || !waiting.length;
+    $('adTest').disabled = !mailReady || busy;
     $('stDownloads').textContent = String(links.reduce(function (s, l) { return s + (Number(l.downloads) || 0); }, 0));
     var body = $('adRows'); body.textContent = '';
     queue.forEach(function (q) {
@@ -107,12 +142,23 @@
       pill.className = 'ad-pill' + (q.invited_at ? ' on' : '');
       pill.textContent = q.invited_at ? t('invited') + ' · ' + fmt(q.invited_at) : t('waiting');
       st.appendChild(pill);
-      var act = cell('');
+      cell(String(Number(q.downloads) || 0), 'num');
+      var act = cell(''); var acts = document.createElement('div'); acts.className = 'ad-acts'; act.appendChild(acts);
+      if (mailReady && q.email) {
+        var s1 = document.createElement('button');
+        s1.type = 'button'; s1.className = 'ad-btn ad-small'; s1.disabled = busy;
+        s1.textContent = q.invited_at ? t('resend') : t('sendOne');
+        s1.addEventListener('click', function () {
+          if (q.invited_at && !window.confirm(t('confirmResend'))) return;
+          sendInvites([q.user_id]);
+        });
+        acts.appendChild(s1);
+      }
       var b = document.createElement('button');
       b.type = 'button'; b.className = 'ad-btn ad-quiet ad-small';
       b.textContent = q.invited_at ? t('undo') : t('doInvite');
       b.addEventListener('click', function () { setInvited([q.user_id], !q.invited_at, b); });
-      act.appendChild(b);
+      acts.appendChild(b);
       body.appendChild(tr);
     });
     $('adEmpty').hidden = queue.length > 0;
@@ -152,6 +198,55 @@
       if (n < 0) return;
       batch = []; btn.disabled = true; $('adEmails').hidden = true; note('marked', n);
     });
+  });
+
+  // Send in groups of 20 (the function's limit per request), one group after another.
+  function sendInvites(ids) {
+    if (busy || !ids.length) return;
+    busy = true; render();
+    var sent = 0, failed = 0, rest = ids.slice();
+    function next() {
+      if (!rest.length) return Promise.resolve();
+      var group = rest.splice(0, 20);
+      noteIn('adSendMsg', 'sending', rest.length + group.length);
+      return call({ action: 'invite', users: group }).then(function (b) {
+        var changed = {};
+        (b.changed || []).forEach(function (c) { changed[c.user_id] = c.invited_at; });
+        queue.forEach(function (q) { if (Object.prototype.hasOwnProperty.call(changed, q.user_id)) q.invited_at = changed[q.user_id]; });
+        sent += (b.sent || []).length; failed += (b.failed || []).length;
+        render();
+        if ((b.failed || []).length) { failed += rest.length; rest = []; return; }
+        return next();
+      });
+    }
+    next().then(function () {
+      noteIn('adSendMsg', failed ? 'sentSome' : 'sentAll', sent);
+    }, failIn('adSendMsg')).then(function () { busy = false; load(); });
+  }
+
+  $('adSend').addEventListener('click', function () {
+    var n = Math.max(1, Math.min(200, parseInt($('adSendCount').value, 10) || 0));
+    var ids = queue.filter(function (q) { return !q.invited_at && q.email; }).slice(0, n).map(function (q) { return q.user_id; });
+    if (!ids.length) { noteIn('adSendMsg', 'none'); return; }
+    if (!window.confirm(t('confirmSend', ids.length))) return;
+    sendInvites(ids);
+  });
+
+  $('adSaveTpl').addEventListener('click', function () {
+    var subject = $('adSubject').value.trim(), body = $('adBody').value;
+    if (body.indexOf('{link}') < 0) { noteIn('adTplMsg', 'tplNeedsLink'); return; }
+    var btn = $('adSaveTpl'); btn.disabled = true;
+    call({ action: 'set_template', subject: subject, body: body }).then(function () { noteIn('adTplMsg', 'tplSaved'); }, failIn('adTplMsg'))
+      .then(function () { btn.disabled = false; });
+  });
+
+  $('adTest').addEventListener('click', function () {
+    var subject = $('adSubject').value.trim(), body = $('adBody').value;
+    if (body.indexOf('{link}') < 0) { noteIn('adTplMsg', 'tplNeedsLink'); return; }
+    var btn = $('adTest'); btn.disabled = true;
+    // Save first, so the test shows exactly what is on screen.
+    call({ action: 'set_template', subject: subject, body: body }).then(function () { return call({ action: 'test_mail' }); }).then(function () { noteIn('adTplMsg', 'testSent'); }, failIn('adTplMsg'))
+      .then(function () { btn.disabled = !mailReady; });
   });
 
   $('adRefresh').addEventListener('click', function () { load(); });

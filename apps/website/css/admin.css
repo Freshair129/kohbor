@@ -30,6 +30,17 @@
 .ad-pill.on { border-color: var(--ink); color: var(--ink); }
 .ad-emails { display: block; width: 100%; margin-top: 12px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: var(--ink2); font: 0.8125rem/1.5 var(--mono); resize: vertical; }
 .ad-emails[hidden] { display: none; }
+.ad-warn { margin-bottom: 16px; border-color: var(--warning); }
+.ad-warn h2 { margin: 0 0 12px; color: var(--warning); font-size: 1.0625rem; }
+.ad-warn code, .ad-batch code { font: 0.8125rem var(--mono); color: var(--ink); }
+.ad-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.ad-row input { width: 84px; min-height: 40px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--paper); color: var(--ink); font: inherit; }
+.ad-primary { border-width: 2px; }
+.ad-field { display: block; margin: 14px 0 6px; color: var(--ink2); font-size: 0.875rem; }
+.ad-input { display: block; width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--paper); color: var(--ink); font: inherit; }
+.ad-body { font: 0.9375rem/1.55 var(--font); resize: vertical; }
+.ad-input:focus-visible, .ad-row input:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.ad-acts { display: flex; gap: 6px; }
 @media (max-width: 640px) {
   .ad-stat b { font-size: 1.375rem; }
   .ad-table th:nth-child(3), .ad-table td:nth-child(3), .ad-table th:nth-child(4), .ad-table td:nth-child(4) { display: none; }

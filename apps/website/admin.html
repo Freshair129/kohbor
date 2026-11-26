@@ -37,8 +37,43 @@
       <div class="ad-stat"><b id="stDownloads">0</b><span class="th">ดาวน์โหลดผ่านลิงก์</span><span class="en">link downloads</span></div>
     </section>
 
+    <section id="adMailSetup" class="rg-card ad-warn" hidden>
+      <h2><span class="th">ยังไม่ได้ตั้งค่า Gmail สำหรับส่งคำเชิญ</span><span class="en">Gmail is not set up for sending invites</span></h2>
+      <ol class="ad-steps">
+        <li><span class="th">เปิด 2-Step Verification ในบัญชี Google ที่จะใช้ส่ง แล้วสร้าง App Password ที่ myaccount.google.com/apppasswords</span><span class="en">Turn on 2-Step Verification on the sending Google account, then create an App Password at myaccount.google.com/apppasswords.</span></li>
+        <li><span class="th">ใน Supabase Dashboard ไปที่ Edge Functions → Secrets แล้วเพิ่ม</span><span class="en">In the Supabase dashboard, open Edge Functions → Secrets and add</span>
+          <code>KOHBOR_GMAIL_USER</code> <span class="th">(อีเมล Gmail)</span><span class="en">(the Gmail address)</span> <span class="th">และ</span><span class="en">and</span> <code>KOHBOR_GMAIL_APP_PASSWORD</code> <span class="th">(App Password)</span><span class="en">(the App Password)</span></li>
+        <li><span class="th">กด "โหลดใหม่" แล้วกด "ส่งอีเมลทดสอบหาตัวเอง"</span><span class="en">Press Refresh, then "Send a test to myself".</span></li>
+      </ol>
+    </section>
+
     <section class="rg-card ad-batch">
-      <h2><span class="th">เชิญรอบถัดไป</span><span class="en">Invite the next group</span></h2>
+      <h2><span class="th">ส่งคำเชิญรอบถัดไป</span><span class="en">Send the next invites</span></h2>
+      <p class="rg-small"><span class="th">แต่ละคนได้ลิงก์ดาวน์โหลดของตัวเอง ส่งจาก Gmail ตามเทมเพลตด้านล่าง แล้วระบบบันทึกว่าเชิญแล้วให้เอง</span><span class="en">Each person gets their own download link, sent from Gmail with the template below, and is marked invited.</span></p>
+      <div class="ad-row">
+        <label for="adSendCount"><span class="th">จำนวนคน</span><span class="en">How many</span></label>
+        <input id="adSendCount" type="number" min="1" max="200" value="10" inputmode="numeric">
+        <button type="button" class="ad-btn ad-primary" id="adSend" disabled><span class="th">ส่งคำเชิญ</span><span class="en">Send invites</span></button>
+      </div>
+      <p id="adSendMsg" class="ad-note" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="rg-card ad-batch">
+      <h2><span class="th">เทมเพลตอีเมล</span><span class="en">Email template</span></h2>
+      <p class="rg-small"><span class="th">ช่องเติมอัตโนมัติ: <code>{name}</code> ชื่อ, <code>{email}</code> อีเมล, <code>{link}</code> ลิงก์ดาวน์โหลด (ต้องมี)</span><span class="en">Filled in per person: <code>{name}</code>, <code>{email}</code>, <code>{link}</code> (required).</span></p>
+      <label class="ad-field" for="adSubject"><span class="th">หัวเรื่อง</span><span class="en">Subject</span></label>
+      <input id="adSubject" class="ad-input" type="text" maxlength="200">
+      <label class="ad-field" for="adBody"><span class="th">เนื้อหา</span><span class="en">Body</span></label>
+      <textarea id="adBody" class="ad-input ad-body" rows="14" maxlength="10000"></textarea>
+      <div class="ad-row">
+        <button type="button" class="ad-btn" id="adSaveTpl"><span class="th">บันทึกเทมเพลต</span><span class="en">Save template</span></button>
+        <button type="button" class="ad-btn ad-quiet" id="adTest" disabled><span class="th">ส่งอีเมลทดสอบหาตัวเอง</span><span class="en">Send a test to myself</span></button>
+      </div>
+      <p id="adTplMsg" class="ad-note" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="rg-card ad-batch">
+      <h2><span class="th">เชิญเอง (ไม่ผ่าน Gmail)</span><span class="en">Invite by hand (without Gmail)</span></h2>
       <ol class="ad-steps">
         <li><label for="adCount"><span class="th">จำนวนคน</span><span class="en">How many</span></label>
           <input id="adCount" type="number" min="1" max="500" value="10" inputmode="numeric">
@@ -62,6 +97,7 @@
           <th scope="col"><span class="th">ชื่อ</span><span class="en">Name</span></th>
           <th scope="col"><span class="th">ลงทะเบียน</span><span class="en">Joined</span></th>
           <th scope="col"><span class="th">สถานะ</span><span class="en">Status</span></th>
+          <th scope="col"><span class="th">ดาวน์โหลด</span><span class="en">Downloads</span></th>
           <th scope="col"><span class="th">เปลี่ยน</span><span class="en">Change</span></th>
         </tr></thead>
         <tbody id="adRows"></tbody>
