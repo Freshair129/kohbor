@@ -347,7 +347,7 @@ def split_row(line: str) -> list[str]:
     return cells
 
 
-ID_RANGE = re.compile(r"\b([A-Z]{3,7})-(\d{3})(?:\s*(?:\.\.|–|—)\s*(\d{3}))?")
+ID_RANGE = re.compile(r"\b([A-Z]{2,7})-(\d{3})(?:\s*(?:\.\.|–|—)\s*(\d{3}))?")  # two letters admit UI-xxx
 SPRINT_TASK_ID = re.compile(r"\bS\d+-\d+[a-z]?\b")
 
 

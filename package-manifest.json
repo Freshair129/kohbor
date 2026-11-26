@@ -17278,8 +17278,8 @@
     },
     {
       "path": "tools/progress_map.py",
-      "bytes": 99169,
-      "sha256": "255d0061824f2e726c34ad197e49247ba49d146066acfc2baa5fd4f81db6db57"
+      "bytes": 99197,
+      "sha256": "a2995d5941c3d74c7730f63bca924a1e9d2ebd3447104e82efabd3308afd56a5"
     },
     {
       "path": "tools/progress_map_template.html",
@@ -17438,8 +17438,8 @@
     },
     {
       "path": "tools/tests/test_progress_map.py",
-      "bytes": 63946,
-      "sha256": "d1d8d414397eaf5c7958831ea9b7c3ba068611a2d7dc1b8060920d7ead2cf273"
+      "bytes": 64210,
+      "sha256": "544a7ead886567ab4d94d7519e560c05d42e25bc43aafe030ab5e99f208c7450"
     },
     {
       "path": "tools/tests/test_release_build_candidate.py",
