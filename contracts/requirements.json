@@ -7905,7 +7905,10 @@
           "apps/desktop/src/shared/heroCardDisplay.mjs",
           "apps/desktop/src/settings/HeroCardDisplaySettings.tsx",
           "apps/desktop/src/settings/heroCardDisplaySettings.css",
-          "apps/desktop/tests/analytics-layout.test.mjs"
+          "apps/desktop/tests/analytics-layout.test.mjs",
+          "apps/desktop/src/analytics/knowledge/matchSummaryModel.mjs",
+          "apps/desktop/src/analytics/knowledge/matchSummaryModel.d.mts",
+          "apps/desktop/tests/match-summary-model.test.mjs"
         ],
         "procedure_ids": [
           "TP-05",
