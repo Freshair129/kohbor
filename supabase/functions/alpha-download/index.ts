@@ -1,8 +1,10 @@
-// Kohbor alpha download gate. POST {code} -> {url} (short-lived GitHub asset link) or a fixed error.
-// Never logs the code, the token or the URL. verify_jwt is off: the invite code is the credential.
+// Kohbor alpha download gate. POST {link} or {code} -> {url} (short-lived GitHub asset link) or a fixed error.
+// {link} is the secret part of a shared download link (no use limit, revocable); {code} is the older invite code.
+// Never logs the link, the code, the token or the URL. verify_jwt is off: the link or code is the credential.
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 
 const ALLOWED_ORIGIN = /^https:\/\/(kohbor-site-prototype\.vercel\.app|kohbor-site-prototype-[a-z0-9]+-pornpons-projects\.vercel\.app)$/;
+const LINK_SHAPE = /^[A-Za-z0-9_-]{32,64}$/;
 const CODE_SHAPE = /^KB-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/;
 
 function cors(origin: string | null): Record<string, string> {
@@ -55,12 +57,22 @@ Deno.serve(async (req: Request) => {
   const origin = req.headers.get("origin");
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors(origin) });
   if (req.method !== "POST") return reply(405, { error: "method" }, origin);
-  let body: { code?: unknown } = {};
+  let body: { code?: unknown; link?: unknown } = {};
   try { body = await req.json(); } catch { return reply(400, { error: "invalid" }, origin); }
+  const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
+
+  if (body.link !== undefined) {
+    if (typeof body.link !== "string" || !LINK_SHAPE.test(body.link)) return reply(403, { error: "invalid" }, origin);
+    const { data: rows, error } = await db.rpc("use_alpha_download_link", { p_link_hash: await sha256Hex(body.link) });
+    if (error) return reply(503, { error: "unavailable" }, origin);
+    if (!(Array.isArray(rows) && rows.length)) return reply(403, { error: "invalid" }, origin);
+    let url: string | null = null;
+    try { url = await releaseAssetUrl(); } catch { url = null; }
+    return url ? reply(200, { url }, origin) : reply(503, { error: "not_ready" }, origin);
+  }
+
   const code = normalize(body.code);
   if (!code) return reply(403, { error: "invalid" }, origin);
-
-  const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
   const hash = await sha256Hex(code);
   const { data: rows, error } = await db.rpc("redeem_alpha_invite", { p_code_hash: hash });
   if (error) return reply(503, { error: "unavailable" }, origin);

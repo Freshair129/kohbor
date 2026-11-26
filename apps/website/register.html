@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="th" data-lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ลงทะเบียนทดสอบ · เกาะเบาะ Kohbor</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#141414">
+<link rel="icon" href="assets/mark.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/register.css">
+</head>
+<body>
+<header class="rg-top">
+  <a class="rg-brand" href="./"><img src="assets/mark.svg" alt="" width="26" height="26"><span class="th">เกาะเบาะ</span><span class="en">Kohbor</span></a>
+  <div class="rg-lang" role="group" aria-label="ภาษา / Language">
+    <button type="button" data-set-lang="th" aria-pressed="true">ไทย</button>
+    <button type="button" data-set-lang="en" aria-pressed="false">EN</button>
+  </div>
+</header>
+
+<main class="rg-main">
+  <h1><span class="th">ลงทะเบียนเข้าคิวทดสอบ</span><span class="en">Join the test queue</span></h1>
+  <p class="rg-lead">
+    <span class="th">ช่วง alpha เราเปิดให้ทดสอบทีละกลุ่ม ลงทะเบียนด้วย Google แล้วเราจะส่งลิงก์ดาวน์โหลดไปที่อีเมลของคุณเมื่อถึงคิว</span>
+    <span class="en">During the alpha we let testers in a group at a time. Sign up with Google and we will email you a download link when your turn comes.</span>
+  </p>
+
+  <section id="rgStart" class="rg-card">
+    <h2><span class="th">ข้อมูลที่เราเก็บ</span><span class="en">What we keep</span></h2>
+    <ul class="rg-list">
+      <li><span class="th">อีเมล ชื่อ และรูปโปรไฟล์จากบัญชี Google ของคุณ (เก็บที่ Supabase ผู้ให้บริการระบบบัญชีของเรา)</span><span class="en">The email, name and profile picture of your Google account (held by Supabase, our account provider)</span></li>
+      <li><span class="th">เวลาที่คุณลงทะเบียน เพื่อเรียงคิว</span><span class="en">When you signed up, to order the queue</span></li>
+    </ul>
+    <p class="rg-small">
+      <span class="th">ใช้เพื่อติดต่อคุณเรื่องการทดสอบเท่านั้น ไม่ขายหรือส่งต่อ ขอลบข้อมูลได้ทุกเมื่อโดยตอบกลับอีเมลที่ได้รับจากเรา เว็บนี้ไม่มีคุกกี้ติดตามหรือระบบวัดสถิติ</span>
+      <span class="en">Used only to contact you about testing. Never sold or passed on. Ask us to delete it at any time by replying to our email. This site has no tracking cookies or analytics.</span>
+    </p>
+    <label class="rg-check"><input type="checkbox" id="rgAgree">
+      <span><span class="th">ฉันยินยอมให้เก็บข้อมูลข้างต้นเพื่อเข้าคิวทดสอบ</span><span class="en">I agree to this data being kept for the test queue</span></span>
+    </label>
+    <button type="button" class="rg-btn" id="rgGoogle" disabled>
+      <span class="th">ลงทะเบียนด้วย Google</span><span class="en">Sign up with Google</span>
+    </button>
+  </section>
+
+  <section id="rgDone" class="rg-card rg-done" hidden>
+    <h2><span class="th">ลงทะเบียนแล้ว</span><span class="en">You are signed up</span></h2>
+    <p id="rgDoneText"></p>
+  </section>
+
+  <p id="rgMsg" class="rg-msg" role="status" aria-live="polite"></p>
+</main>
+
+<footer class="rg-foot">
+  <span class="th">Dota 2 เป็นเครื่องหมายการค้าของ Valve Corporation เกาะเบาะเป็นโปรแกรมของบุคคลที่สาม ไม่ได้รับการรับรองจากและไม่มีส่วนเกี่ยวข้องกับ Valve</span>
+  <span class="en">Dota 2 is a trademark of Valve Corporation. Kohbor is a third-party program, not endorsed by or affiliated with Valve.</span>
+</footer>
+<script src="js/register.js" defer></script>
+</body>
+</html>

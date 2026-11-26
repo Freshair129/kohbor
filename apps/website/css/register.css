@@ -1,0 +1,36 @@
+/* Sign-up and download-link pages. Command Deck tokens, charcoal room only. */
+:root {
+  --font: "IBM Plex Sans Thai", "Leelawadee UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", Consolas, monospace;
+  --paper: #141414; --surface: #1c1c1c; --raised: #272625;
+  --ink: #ede6d8; --ink2: #cbc4b7; --muted: #a69f93;
+  --line: #3b3936; --line-strong: #8f897e;
+  --warning: #e9b44c; --red: #b3261e; --red-hover: #c12b22;
+}
+html[data-lang="th"] .en, html[data-lang="en"] .th { display: none !important; }
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; background: var(--paper); color: var(--ink); font: 400 1rem/1.6 var(--font); }
+a { color: var(--ink); }
+.rg-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px clamp(16px, 4vw, 48px); border-bottom: 1px solid var(--line); }
+.rg-brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 600; text-decoration: none; }
+.rg-lang { display: flex; gap: 4px; }
+.rg-lang button { min-height: 36px; padding: 0 12px; border: 1px solid var(--line); border-radius: 6px; background: none; color: var(--ink2); font: inherit; font-size: 0.875rem; cursor: pointer; }
+.rg-lang button[aria-pressed="true"] { border-color: var(--ink); color: var(--ink); }
+.rg-main { flex: 1; width: min(560px, 100%); margin: 0 auto; padding: 40px 16px 32px; }
+.rg-main h1 { margin: 0 0 12px; font-size: clamp(1.75rem, 5vw, 2.5rem); line-height: 1.25; }
+.rg-lead { margin: 0 0 28px; color: var(--ink2); }
+.rg-card { padding: 24px 20px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.rg-card h2 { margin: 0 0 12px; font-size: 1.125rem; }
+.rg-list { margin: 0 0 12px; padding-left: 1.2em; color: var(--ink2); }
+.rg-small { margin: 0 0 20px; font-size: 0.875rem; color: var(--muted); }
+.rg-check { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 20px; cursor: pointer; }
+.rg-check input { width: 20px; height: 20px; margin-top: 3px; accent-color: var(--ink); }
+.rg-btn { display: inline-flex; align-items: center; justify-content: center; width: 100%; min-height: 52px; padding: 0 20px; border: 2px solid var(--ink); border-radius: 8px; background: var(--raised); color: var(--ink); font: 600 1.0625rem var(--font); cursor: pointer; }
+.rg-btn:hover:not(:disabled) { background: var(--line); }
+.rg-btn:disabled { border-style: dashed; border-color: var(--line-strong); color: var(--muted); cursor: not-allowed; }
+.rg-btn:focus-visible, .rg-lang button:focus-visible, .rg-check input:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.rg-done { border-color: var(--ink); }
+.rg-done p { margin: 0; color: var(--ink2); }
+.rg-done b { color: var(--ink); }
+.rg-msg { min-height: 1.6em; margin: 16px 0 0; font-size: 0.9375rem; color: var(--warning); }
+.rg-foot { padding: 20px clamp(16px, 4vw, 48px); border-top: 1px solid var(--line); font-size: 0.75rem; color: var(--muted); }

@@ -52,3 +52,12 @@ Secrets live only in Supabase (Edge Function secrets, Google client secret) and 
 3. DEC-PRIVACY-LEGAL is open, but personal data of testers is now collected. The privacy wording in the app is marked pending legal review.
 4. **Recorded by DEC-ALPHA-AUTH-DEVIATION:** ACCOUNT-001..010 are now in `contracts/requirements.json`; the alpha deviation from ACCOUNT-002/005/007 is in `contracts/decisions.json`.
 5. The Supabase-only migrations and the Edge Function source are now in `supabase/` (copied from live state on 2026-11-22; see its README). The invite-code generator is `supabase/tools/make-invite-codes.mjs` (offline; plain codes to a private file, hashes-only SQL).
+
+## 7. Change requested 2026-11-26: sign-up queue and shared download link
+
+Owner words (2026-11-26): remove the code so that anyone with the link can download, without posting the link on the website; the landing page Download button goes to a registration page, and after registering the person is told the link will be sent by email in test-queue order. Sign-up method chosen: "Google sign-in".
+
+- Website: the Download button links to `register.html`. The invite-code dialog is removed. `register.html` asks for consent, signs in with Google through Supabase Auth (PKCE, no SDK, token kept in memory only), calls the Edge Function `alpha-waitlist`, and shows the place in the queue and the email the link will go to.
+- Shared link: `get.html#<key>`. The key sits in the URL fragment, so it reaches no server log; the page posts it to `alpha-download` as `{link}`. Only the key's SHA-256 hash is stored, in `alpha_download_links`; a link has no use limit, counts downloads, and is revoked by setting `revoked`. No page links to `get.html`. Invite codes still work in the function but nothing on the site asks for them.
+- The owner reads the queue (joined `auth.users` email by `joined_at`), emails the link from their own mailbox, and sets `invited_at`. No automated email: that needs an outside mail service, an owner decision.
+- Limits: a shared link can be forwarded without limit and the download is not tied to a person. The data collection adds to the open DEC-PRIVACY-LEGAL item; the consent text on `register.html` is not legal review.

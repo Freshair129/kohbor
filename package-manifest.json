@@ -13852,9 +13852,9 @@
       "sha256": "16c3df38c8146e7672deefd0498c618a72129c600e25ef6584a511b61a487a3a"
     },
     {
-      "path": "apps/website/css/download.css",
-      "bytes": 1197,
-      "sha256": "70a03ba8882abac298927eb180326d5803061f175391d7a10ea9822a0861f683"
+      "path": "apps/website/css/register.css",
+      "bytes": 2983,
+      "sha256": "9b0e0791879e8f212af3942d17a2a75c7f80682e0e0de94c2345a493566cd6b7"
     },
     {
       "path": "apps/website/css/site.css",
@@ -13862,14 +13862,14 @@
       "sha256": "27efa65c249d288a713626092437e41f230b069bc38c9b196df78bcee841a481"
     },
     {
-      "path": "apps/website/index.html",
-      "bytes": 39305,
-      "sha256": "86a654f89023df1e383204107fc578b8079982af5586919f8ba85ce458d7682e"
+      "path": "apps/website/get.html",
+      "bytes": 2551,
+      "sha256": "67412311e7568866d9c7972b9b16e6780306dd18af2861cf5addf763fdc73917"
     },
     {
-      "path": "apps/website/js/download.js",
-      "bytes": 2912,
-      "sha256": "6c7e3a6dd75be2494f5c1bdbfcc473c198ad5c7e5ab04e880cc7a47db251556c"
+      "path": "apps/website/index.html",
+      "bytes": 38177,
+      "sha256": "34799739aa48af3d9d3da6ae1b2f79a1e4c27ee99630f4c68b7842681c02e927"
     },
     {
       "path": "apps/website/js/film.js",
@@ -13877,14 +13877,29 @@
       "sha256": "e1288a604c8a4137b164e1d0b74895b283cb7653b1d9cdfb6f39ce63d9393751"
     },
     {
+      "path": "apps/website/js/get.js",
+      "bytes": 3205,
+      "sha256": "969573b4bab15328abe41612057cb9ad3f2c8c330bbb3d5c7ced88160f23a3aa"
+    },
+    {
       "path": "apps/website/js/main.js",
       "bytes": 22591,
       "sha256": "48f80891ab04e64fae99da51cf7f28962484b0652a117102698ccee995f648d0"
     },
     {
+      "path": "apps/website/js/register.js",
+      "bytes": 6883,
+      "sha256": "fae3b2973ba457ebdb8063e0557fecc0ca9c696770a1a75f4c53806d3d062fd7"
+    },
+    {
       "path": "apps/website/js/stage.js",
       "bytes": 30005,
       "sha256": "7f443e9390db03a2796e51ae0ef9fa942b5ee32bfe7a0ce5c50176dfdbb5ef1a"
+    },
+    {
+      "path": "apps/website/register.html",
+      "bytes": 4840,
+      "sha256": "752d47d7d27ea1434714c4f8fd30f0bd3e8605eff8896bbbcd874af88a4cad63"
     },
     {
       "path": "apps/website/serve.mjs",
@@ -14893,8 +14908,8 @@
     },
     {
       "path": "docs/design/ALPHA-LAUNCH.md",
-      "bytes": 7160,
-      "sha256": "09369507f8c9cec05d48f5ed95a57dab399e56f56abf4d959f2ab7a92dd23e2e"
+      "bytes": 8707,
+      "sha256": "c5d5e0aa13511e6912df153e82b4607a237e4e6194fa8b123bb4d20f5ab2adb7"
     },
     {
       "path": "docs/design/BACKEND-STACK.md",
@@ -16163,8 +16178,8 @@
     },
     {
       "path": "services/kohbor-broker/scripts/check-supabase.mjs",
-      "bytes": 17147,
-      "sha256": "58866cee1a4391b3d1983fdb8afb51f6e101e142bac2f3f7ea9d4810ab17a257"
+      "bytes": 17304,
+      "sha256": "7d57741239d77383183047dad38aa93bc085e50e5489cb41d6bcb711facef9e8"
     },
     {
       "path": "services/kohbor-broker/scripts/create-local-fixture.mjs",
@@ -16293,13 +16308,18 @@
     },
     {
       "path": "supabase/README.md",
-      "bytes": 4066,
-      "sha256": "d047166416ee04231dba7d650798ab1e5d3e468038ebe014539b4c62ad5dd8a6"
+      "bytes": 4627,
+      "sha256": "5c1fb6c0194b5865626e88d0bfd28e02a87ae9f133ba0ed61f84c9d284b6c182"
     },
     {
       "path": "supabase/functions/alpha-download/index.ts",
-      "bytes": 4018,
-      "sha256": "91bbb388e23a8654ee1249dbeb64e41527a439be491e0e1966c4ac6be200ecc1"
+      "bytes": 4847,
+      "sha256": "0d66a12dd4e4aba10c8c65bdb401f2bb106d5a21464eb37b42459bedadbe2f55"
+    },
+    {
+      "path": "supabase/functions/alpha-waitlist/index.ts",
+      "bytes": 2160,
+      "sha256": "e69024afef55eee1cb2a508df560330ad8539e9974777a046939291ee3ed01b8"
     },
     {
       "path": "supabase/sql/20261122040048_supabase_close_data_api.sql",
@@ -16315,6 +16335,11 @@
       "path": "supabase/sql/20261122050945_alpha_invite_functions.sql",
       "bytes": 957,
       "sha256": "561ee0432702e6a9cb7cca50e5d04437d6be728f17097a2a05f3523572cdb49a"
+    },
+    {
+      "path": "supabase/sql/20261126102344_alpha_waitlist.sql",
+      "bytes": 2350,
+      "sha256": "2f66dc66988af08ebf81213ff2fc2937942e7f08b344b3f42e23d8b04fd59ee3"
     },
     {
       "path": "supabase/tools/make-invite-codes.mjs",
