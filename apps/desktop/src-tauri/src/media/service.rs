@@ -367,6 +367,20 @@ struct ServiceState {
     stripped_visuals: Vec<EventId>,
 }
 
+/// Kind and reason of a failed `Store::open`, for the local log. The store's messages name
+/// the step and the OS error (for example "create staging: Access is denied. (os error 5)"),
+/// never a file path; the reason is capped so a long message cannot flood the log.
+fn store_open_failure(error: &StoreError) -> (&'static str, String) {
+    const MAX_REASON_CHARS: usize = 240;
+    let (kind, reason) = match error {
+        StoreError::Io(message) => ("io", message.clone()),
+        StoreError::Corrupt(message) => ("corrupt", message.clone()),
+        StoreError::Interrupted(step) => ("interrupted", format!("{step:?}")),
+        StoreError::UninstallRefused(_) => ("uninstall_refused", String::new()),
+    };
+    (kind, reason.chars().take(MAX_REASON_CHARS).collect())
+}
+
 fn run_service(
     config: ServiceConfig,
     jobs: Receiver<Job>,
@@ -397,7 +411,15 @@ fn run_service(
                 state.publish_current_facts(true);
             }
         }
-        Err(_) => {
+        Err(error) => {
+            let (kind, reason) = store_open_failure(&error);
+            crate::log_warn!(
+                "audio",
+                "media_store_open_failed",
+                "the announcer pack store could not be opened",
+                kind = kind,
+                reason = reason,
+            );
             replace_mutex_value(
                 &state.config.facts,
                 MediaFacts {
@@ -2205,6 +2227,21 @@ fn list_json(store: &Store<NoHook>) -> Value {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn store_open_failure_names_the_kind_and_caps_the_reason() {
+        use super::{StoreError, store_open_failure};
+        let denied = "create staging: Access is denied. (os error 5)";
+        assert_eq!(
+            store_open_failure(&StoreError::Io(denied.to_owned())),
+            ("io", denied.to_owned())
+        );
+        let not_dir = StoreError::Corrupt("store root is not a real directory".to_owned());
+        assert_eq!(store_open_failure(&not_dir).0, "corrupt");
+        let (kind, reason) = store_open_failure(&StoreError::Io("x".repeat(1000)));
+        assert_eq!(kind, "io");
+        assert_eq!(reason.chars().count(), 240);
+    }
+
     fn png_fixture(width: u32, height: u32) -> Vec<u8> {
         fn chunk(output: &mut Vec<u8>, kind: &[u8; 4], data: &[u8]) {
             output.extend_from_slice(&(data.len() as u32).to_be_bytes());

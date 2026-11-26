@@ -638,8 +638,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/media/service.rs",
-      "bytes": 163859,
-      "sha256": "f6baf66f57c213bdeb39945df6eccd22f4753363fdaae4d869b3d91f60d9006b"
+      "bytes": 165608,
+      "sha256": "15ca4e9a64f4a22282b361e3b710d55b6f4611c3b718912b8f48b0ad538643ee"
     },
     {
       "path": "apps/desktop/src-tauri/src/minimap_recorder/mod.rs",
