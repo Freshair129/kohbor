@@ -86,6 +86,10 @@ Schemas provide neutral shapes and closed allowlists, not complete production pr
 
 Where information is incomplete, resolve the named decision into a concrete neutral specification. No original repository or hidden historical document is required to understand an obligation already stated here.
 
+## Change record for DEC-POSTGAME-BREAKDOWN (2026-11-27, same baseline version)
+
+The 2026-11-27 owner-approved CR-POSTGAME-BREAKDOWN adds DEC-POSTGAME-BREAKDOWN and amends UI-002's post-game summary: result banner with the match ID, hero header with opt-in benchmark comparison, final inventory, Summary/Timeline/Replay tabs, hero cards that keep their last observed state, and Stage 2 embedding the UI-023 summary blocks. The rule that raw match IDs are never displayed is replaced for the post-game summary only; they are still never logged or persisted from GSI. UX-SPEC and REPLAY-PIPELINE are aligned. SRS, RTM and Gherkin are regenerated. No diagram changes. Runtime and native evidence remain NOT_RUN.
+
 ## Change record for DEC-MATCH-SUMMARY (2026-11-26, same baseline version)
 
 The 2026-11-26 owner-approved CR-MATCH-SUMMARY adds DEC-MATCH-SUMMARY and requirement UI-023 (Analytics match summary tab) under PN-008 and CMP-READMODEL, and moves the summary view-model files from UI-021's implementation references to UI-023. SRS, RTM and Gherkin are regenerated from the structured requirements. No diagram changes. Runtime and native evidence remain NOT_RUN.

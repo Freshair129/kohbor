@@ -83,8 +83,8 @@
     },
     {
       "path": "acceptance/scenarios.feature",
-      "bytes": 88177,
-      "sha256": "da2ac564844700445529ea0cc69938388310ee58225f7d30d111d9753f10b189"
+      "bytes": 88657,
+      "sha256": "e3e2cf9d88dd8b8a6a5a5e6474923ab4a099048d2c0471f6fe635d0bb78e1b41"
     },
     {
       "path": "acceptance/spec-validation.json",
@@ -14723,8 +14723,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 185550,
-      "sha256": "18de85b95652906fb57784f57e7755ab0b42d66f349f2f1e6bce995cd7908f89"
+      "bytes": 187834,
+      "sha256": "49ae1f80a70f88c71c85c82ad8e4a3bb18c20f59488990caf601031161625f4e"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -14828,8 +14828,8 @@
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 367808,
-      "sha256": "384e9c5ffad7dba630540fa7256aa31ea794f0441562dccddd5632237048b247"
+      "bytes": 369714,
+      "sha256": "c0ba140f2afea70769d0f5f7dfd501e793e3a7cb91a1d93537b336927ebe2d23"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -15833,8 +15833,8 @@
     },
     {
       "path": "docs/design/REPLAY-PIPELINE.md",
-      "bytes": 17223,
-      "sha256": "de71d3196fece5a000916a5a2879d9be13e955ed2f564b4dd84ff4b3308982f5"
+      "bytes": 17277,
+      "sha256": "57047261615afa3672942a52328f93e53935e6f44d170a17eb80b7bda4c0ebf0"
     },
     {
       "path": "docs/design/RISK-ADMISSION-SPEC.md",
@@ -15883,8 +15883,8 @@
     },
     {
       "path": "docs/design/UX-SPEC.md",
-      "bytes": 55133,
-      "sha256": "96fb5be8819d126d87e6a3e19be154ee32259cd99c79127bb974261c52757764"
+      "bytes": 55810,
+      "sha256": "f3ca5d9340a7cdd4e730e12d7f18aea3996710db23b334d57dedb3d83d93fb57"
     },
     {
       "path": "docs/design/VISUAL-DESIGN-PROPOSAL.md",
@@ -16323,18 +16323,18 @@
     },
     {
       "path": "docs/governance/CHANGELOG.md",
-      "bytes": 39368,
-      "sha256": "338ed7d050db29d44bba92f73796fee60bbfbdf12e732d8a646bb67d892982b0"
+      "bytes": 40105,
+      "sha256": "59e86fd27a5afad83b5788b2aed2cce46a5af2799e1df9ca8d3003d30d25c9b5"
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 130399,
-      "sha256": "021087cd787bea7896dc3de08018a4626294f024f47ee51d51b91f73bcc2af66"
+      "bytes": 131823,
+      "sha256": "4c4d2fad49a50e7a318e25a7b7a21de2a0f11f1bf7b966e7e24e770ccfbbd7eb"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
-      "bytes": 11081,
-      "sha256": "9626ddb49d89574164a8d9f6cf6dbab3052ded964194c23cf68f1f5d5f121a81"
+      "bytes": 11791,
+      "sha256": "43038e3771b211d21cd9459a9ec441c5e10bcd096c5b310309c84019bcb1187f"
     },
     {
       "path": "docs/governance/GLOSSARY.md",
@@ -16418,8 +16418,8 @@
     },
     {
       "path": "docs/requirements/SRS.md",
-      "bytes": 255638,
-      "sha256": "7ac1c04ef7df2e37ed1e9a3bc4d16f3c1ea40d29b7673e6762e3a484277cd45c"
+      "bytes": 257544,
+      "sha256": "226767e134c45fd7b4af893c04ce9cd347471f0c673430d43232b3356c4d7e7f"
     },
     {
       "path": "docs/security/SECURITY-PRIVACY.md",

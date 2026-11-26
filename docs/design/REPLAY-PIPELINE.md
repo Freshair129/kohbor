@@ -57,7 +57,7 @@ The host validates required JSON keys and value types without a new schema crate
 
 ## Privacy and failure handling
 
-The raw match ID is retained in the local replay library's index, per-match directory and bundle, and is returned in local replay-library rows for existing commands. The renderer never displays it, and it is not written to application logs or added to GSI/session history. Engine stdout may include paths and match metadata, so the host consumes only the success flag or a bounded error code, then discards stdout. Stderr contents are never logged; the log receives only `ENGINE_STDERR_CAPTURED`.
+The raw match ID is retained in the local replay library's index, per-match directory and bundle, and is returned in local replay-library rows for existing commands. The renderer displays it only in the Live post-game summary (DEC-POSTGAME-BREAKDOWN), and it is not written to application logs or added to GSI/session history. Engine stdout may include paths and match metadata, so the host consumes only the success flag or a bounded error code, then discards stdout. Stderr contents are never logged; the log receives only `ENGINE_STDERR_CAPTURED`.
 
 Replay processing has no network path. The host makes no replay network request; the inspected engine source uses `source2-demo` without default download features and contains no network call. This is source inspection, not a network-isolation acceptance test. Watch-pass summaries, job transitions and evictions log only counts, stable reason codes, operation/state and durations; they omit IDs and filesystem paths. Kohbor does not write Dota configuration, access game memory, inject input or automate gameplay. Reading Dota's replay folder is not game automation.
 
