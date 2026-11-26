@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="th" data-lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>จัดการคิว alpha · เกาะเบาะ Kohbor</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#141414">
+<link rel="icon" href="assets/mark.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Thai:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/register.css">
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+<header class="rg-top">
+  <a class="rg-brand" href="./"><img src="assets/mark.svg" alt="" width="26" height="26"><span class="th">เกาะเบาะ · จัดการคิว</span><span class="en">Kohbor · Queue admin</span></a>
+  <div class="rg-lang" role="group" aria-label="ภาษา / Language">
+    <button type="button" data-set-lang="th" aria-pressed="true">ไทย</button>
+    <button type="button" data-set-lang="en" aria-pressed="false">EN</button>
+  </div>
+</header>
+
+<main class="ad-main">
+  <section id="adSignin" class="rg-card ad-signin">
+    <h1><span class="th">จัดการคิวทดสอบ</span><span class="en">Test queue admin</span></h1>
+    <p class="rg-small"><span class="th">เฉพาะบัญชีผู้ดูแลเท่านั้น</span><span class="en">Admin accounts only.</span></p>
+    <button type="button" class="rg-btn" id="adGoogle"><span class="th">เข้าสู่ระบบด้วย Google</span><span class="en">Sign in with Google</span></button>
+  </section>
+
+  <div id="adPanel" hidden>
+    <section class="ad-stats" aria-label="สรุป / Summary">
+      <div class="ad-stat"><b id="stWaiting">0</b><span class="th">รอคิว</span><span class="en">waiting</span></div>
+      <div class="ad-stat"><b id="stInvited">0</b><span class="th">เชิญแล้ว</span><span class="en">invited</span></div>
+      <div class="ad-stat"><b id="stDownloads">0</b><span class="th">ดาวน์โหลดผ่านลิงก์</span><span class="en">link downloads</span></div>
+    </section>
+
+    <section class="rg-card ad-batch">
+      <h2><span class="th">เชิญรอบถัดไป</span><span class="en">Invite the next group</span></h2>
+      <ol class="ad-steps">
+        <li><label for="adCount"><span class="th">จำนวนคน</span><span class="en">How many</span></label>
+          <input id="adCount" type="number" min="1" max="500" value="10" inputmode="numeric">
+          <button type="button" class="ad-btn" id="adCopy"><span class="th">คัดลอกอีเมลคนที่ยังรอคิว</span><span class="en">Copy waiting emails</span></button></li>
+        <li><span class="th">วางในช่อง BCC ของอีเมลแล้วส่งลิงก์ดาวน์โหลด</span><span class="en">Paste them into the BCC field and send the download link.</span></li>
+        <li><button type="button" class="ad-btn" id="adMark" disabled><span class="th">บันทึกว่าเชิญกลุ่มนี้แล้ว</span><span class="en">Mark this group invited</span></button></li>
+      </ol>
+      <textarea id="adEmails" class="ad-emails" rows="3" readonly hidden aria-label="อีเมลที่คัดลอก / Copied emails"></textarea>
+      <p id="adBatchMsg" class="ad-note" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="ad-tablewrap">
+      <div class="ad-tablehead">
+        <h2><span class="th">ทุกคนในคิว</span><span class="en">Everyone in the queue</span></h2>
+        <button type="button" class="ad-btn ad-quiet" id="adRefresh"><span class="th">โหลดใหม่</span><span class="en">Refresh</span></button>
+      </div>
+      <table class="ad-table">
+        <thead><tr>
+          <th scope="col">#</th>
+          <th scope="col"><span class="th">อีเมล</span><span class="en">Email</span></th>
+          <th scope="col"><span class="th">ชื่อ</span><span class="en">Name</span></th>
+          <th scope="col"><span class="th">ลงทะเบียน</span><span class="en">Joined</span></th>
+          <th scope="col"><span class="th">สถานะ</span><span class="en">Status</span></th>
+          <th scope="col"><span class="th">เปลี่ยน</span><span class="en">Change</span></th>
+        </tr></thead>
+        <tbody id="adRows"></tbody>
+      </table>
+      <p id="adEmpty" class="ad-note" hidden><span class="th">ยังไม่มีใครลงทะเบียน</span><span class="en">Nobody has signed up yet.</span></p>
+    </section>
+  </div>
+
+  <p id="adMsg" class="rg-msg" role="status" aria-live="polite"></p>
+</main>
+<script src="js/admin.js" defer></script>
+</body>
+</html>

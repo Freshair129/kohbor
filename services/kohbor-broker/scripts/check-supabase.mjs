@@ -16,7 +16,7 @@ const ALLOWED_GRAPHQL_FUNCTION = Object.freeze({
 // Owner request 2026-11-26: alpha_waitlist (Google sign-up queue) and alpha_download_links (shared no-code link)
 // is allowed in public, but it must still have row level security on and no
 // anon/authenticated grants, like every broker table.
-export const SUPABASE_ONLY_PUBLIC_TABLES = Object.freeze(['alpha_invites', 'alpha_waitlist', 'alpha_download_links']);
+export const SUPABASE_ONLY_PUBLIC_TABLES = Object.freeze(['alpha_invites', 'alpha_waitlist', 'alpha_download_links', 'alpha_admins']);
 
 const TRANSACTION_STATE_SQL = `
   SELECT current_setting('transaction_read_only') = 'on' AS read_only,
