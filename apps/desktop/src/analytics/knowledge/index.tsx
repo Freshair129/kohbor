@@ -37,6 +37,7 @@ export type KnowledgeDigest = {
   objectives?: Record<string, any>;
   deaths?: Array<Record<string, any>>;
   advantage_per_min?: Array<Record<string, any>> | null;
+  advantage_per_min_reason?: string | null;
   provisional_thresholds?: { label?: string };
 };
 
