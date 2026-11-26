@@ -17393,8 +17393,8 @@
     },
     {
       "path": "tools/tagpool.py",
-      "bytes": 5816,
-      "sha256": "a40bf7b996d1270f8c7cccfdd00bf0c1f7fb5abf22eedbe1e3751b66c60eda36"
+      "bytes": 5844,
+      "sha256": "1b9aadcccfaa79bbb6bd80fdef450fa7d47fa39aa0f4ba9a190f708898d2424c"
     },
     {
       "path": "tools/tests/fixtures/brief-implement.txt",
@@ -17473,8 +17473,8 @@
     },
     {
       "path": "tools/tests/test_tags.py",
-      "bytes": 15950,
-      "sha256": "52e98c91e9ed49e5b83c3b0ce1da41e6768ce819a04aee34ab8b2697f413d983"
+      "bytes": 16032,
+      "sha256": "62decd0c533aa8f148ce231ed725e2dd54247402c0da746642221cec0409a392"
     },
     {
       "path": "tools/tests/test_validate_agents.py",

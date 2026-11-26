@@ -46,7 +46,7 @@ class Base(unittest.TestCase):
         self.coord = self.dir / "coord"
         (self.coord / "claims").mkdir(parents=True)
         subprocess.run([*GIT, "init", "-q", "-b", "main", str(self.repo)], check=True)
-        self.put("contracts/requirements.json", json.dumps({"requirements": [{"id": "MEDIA-004"}, {"id": "CORE-001"}]}))
+        self.put("contracts/requirements.json", json.dumps({"requirements": [{"id": "MEDIA-004"}, {"id": "CORE-001"}, {"id": "UI-021"}]}))
         self.put("contracts/decisions.json", json.dumps({"decisions": [{"id": "DEC-ACCOUNT-ORIGIN"}, {"id": "DEC-X"}]}))
         self.put("docs/delivery/SPRINT-ROADMAP.md", ROADMAP)
         self.put("README.md", "x")
@@ -70,18 +70,18 @@ class Base(unittest.TestCase):
 class PoolTests(Base):
     def test_pool_reads_requirements_decisions_and_sprint_table_tasks(self) -> None:
         pool = tp.load_pool(self.repo)
-        self.assertEqual(pool["requirements"], {"MEDIA-004", "CORE-001"})
+        self.assertEqual(pool["requirements"], {"MEDIA-004", "CORE-001", "UI-021"})
         self.assertEqual(pool["decisions"], {"DEC-ACCOUNT-ORIGIN", "DEC-X"})
         self.assertEqual(pool["tasks"], {"S1-1", "S1-2"})  # the first token of each sprint-table Task cell; Backlog rows are not sprint tables
         self.assertEqual(pool["errors"], [])
 
     def test_validity_by_kind(self) -> None:
         pool = tp.load_pool(self.repo)
-        for ok in ("MEDIA-004", "DEC-X", "TASK:S1-1", "PROC:progress-chase", "PROC:a1"):
+        for ok in ("MEDIA-004", "UI-021", "DEC-X", "TASK:S1-1", "PROC:progress-chase", "PROC:a1"):
             self.assertTrue(tp.is_valid(ok, pool), ok)
-        for bad in ("MEDIA-999", "DEC-NOPE", "TASK:S9-9", "TASK:", "PROC:Bad Slug", "PROC:", "proc:x", "random", "", "media-004", "TASK:S1-3"):
+        for bad in ("MEDIA-999", "UI-999", "U-021", "DEC-NOPE", "TASK:S9-9", "TASK:", "PROC:Bad Slug", "PROC:", "proc:x", "random", "", "media-004", "TASK:S1-3"):
             self.assertFalse(tp.is_valid(bad, pool), bad)
-        self.assertEqual([tp.kind_of(t) for t in ("MEDIA-004", "DEC-X", "TASK:S1-1", "PROC:x", "zzz")], ["requirement", "decision", "task", "process", None])
+        self.assertEqual([tp.kind_of(t) for t in ("MEDIA-004", "UI-021", "DEC-X", "TASK:S1-1", "PROC:x", "zzz")], ["requirement", "requirement", "decision", "task", "process", None])
 
     def test_missing_files_leave_a_smaller_pool_and_say_so(self) -> None:
         (self.repo / "contracts" / "decisions.json").unlink()
