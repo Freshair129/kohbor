@@ -19,3 +19,9 @@ Pure model tests cover the five target window sizes and map-side calculations, s
 ## OpenDota hero benchmarks
 
 The Analytics compare tab's optional all-rank hero benchmark behavior, consent, ID mapping fallback, request budget, cache and synthetic evidence boundary are documented in [HERO-BENCHMARKS](HERO-BENCHMARKS.md).
+
+## Post-match match summary
+
+The summary tab combines the match header, two five-player hero-card strips, the existing advantage and lane views, destroyed-building map/list, team scoreboards, grouped draft, teamfights and remaining objective tracks. Its view model reads the local knowledge digest as-is: K/D/NW/LH/DN, GPM/XPM, hero damage, purchase timings, final inventory, lanes and result provenance stay attached to their source fields. Assists stay unknown with the digest reason; totals are shown only when five observed heroes have known values. Final-item minutes are matched by item ID and omitted when no purchase time is recorded.
+
+Destroyed-building markers use the local replay map calibration and bundled map icon; if either is unavailable or a position cannot be mapped, the page shows the loss list with the reason. No replay fields are added to provider context. The page uses the existing Command Deck tokens and a 12 px minimum for its text. Node fixture checks are synthetic; renderer and Windows native acceptance remain separate.

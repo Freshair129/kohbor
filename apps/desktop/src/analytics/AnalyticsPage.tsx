@@ -17,6 +17,7 @@ import type { ReplayLibraryEntry, ReplayLibraryList, ReplayStatus } from "../rep
 import { MatchViewerSurface, analyticsPlayerShadowCss } from "../replay/MatchViewPanel";
 import { BUNDLED } from "../replay/bundledIcons";
 import { admitLibraryBundle, type MatchBundle } from "../replay/matchBundle";
+import { chooseMapCalibration, replayPackForPatch } from "../replay/replayPack.mjs";
 import { ANALYTICS_TEMPLATE_QUESTIONS, answerAnalyticsTemplate, clock } from "../replay/coach";
 import { actionFromMarkdownTarget, renderMarkdownSafe, renderMarkdownStreaming } from "./analyticsMarkdown";
 import { createAnalyticsChartResolver } from "./analyticsChart";
@@ -200,6 +201,12 @@ export function AnalyticsPage({ locale, onOpenReplay, onOpenHeroCardSettings, re
   const [library, setLibrary] = useState<ReplayLibraryList | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [bundle, setBundle] = useState<MatchBundle | null>(null);
+  const summaryMapCalibration = useMemo(() => {
+    if (!bundle) return null;
+    const lookup = replayPackForPatch(bundle.patch);
+    if (lookup.state !== "ready") return null;
+    return chooseMapCalibration(bundle.calibration, bundle.mapSize, lookup.pack.map).calibration;
+  }, [bundle]);
   const [notes, setNotes] = useState<Note[]>([]);
   const [openNote, setOpenNote] = useState(SYSTEM_NOTE_ID);
   const [knowledge, setKnowledge] = useState<KnowledgeSnapshot | null>(null);
@@ -1221,7 +1228,7 @@ export function AnalyticsPage({ locale, onOpenReplay, onOpenHeroCardSettings, re
         <section className="analytics-knowledge-slot" aria-label={t(locale, "แท็บความรู้และโน้ตแมตช์", "Match knowledge and notes tabs")} data-knowledge-tabs-slot>
           <KnowledgeTabs activeTab={knowledgeTab} onSelectTab={setKnowledgeTab} />
           <div className="analytics-knowledge-panel" data-analytics-quotable="summary">
-            {knowledgeTab === "summary" && <MatchSummaryTab digest={knowledge?.digest ?? null} loading={!knowledge && !!selectedId} onSeek={seek} />}
+            {knowledgeTab === "summary" && <MatchSummaryTab digest={knowledge?.digest ?? null} loading={!knowledge && !!selectedId} onSeek={seek} mapCalibration={summaryMapCalibration} />}
             {knowledgeTab === "compare" && <HeroComparisonTab digest={knowledge?.digest ?? null} selectedHeroId={hero ?? ownHero ?? knowledge?.own_hero_id ?? null}
               opponentHeroId={compareHero} onSelectHero={setHero} onSelectOpponentHero={setCompareHero} />}
             {knowledgeTab === "ai" && <AiReportTab reports={reportRows} selectedReportId={selectedReportId ?? reportRows[0]?.id ?? null}
