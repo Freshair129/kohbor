@@ -1058,8 +1058,8 @@
     },
     {
       "path": "apps/desktop/src/analytics/knowledge/index.tsx",
-      "bytes": 42489,
-      "sha256": "d95af25a4cd5ad547448f686168b842b23ecb0272ca908a176eb788f6b483bbc"
+      "bytes": 42533,
+      "sha256": "2925e46cef767d1113a51c8a35c4c4979dcd15bca40eaf44c9ac50bbc0cf25fa"
     },
     {
       "path": "apps/desktop/src/analytics/knowledge/knowledge.css",
