@@ -1351,6 +1351,28 @@ The optional Analytics assistant shall support Anthropic, OpenAI Platform API ke
 
 **Implementation freedom:** Reuse the current replay library and match viewer; keep policy and view-model logic testable without launching the app, and preserve unknown values. Keep the always-sent lane digest fields and consent disclosure synchronized.
 
+#### UI-023 — Analytics match summary tab
+
+**Scope:** mvp · **Priority:** P1 · **Target milestone:** M5 · **Basis:** owner_decision / DEC-MATCH-SUMMARY; DEC-ANALYTICS-LAYOUT; DEC-LANE-EXPECTATION
+
+**Product needs:** PN-008 · **Primary design:** CMP-READMODEL · **Design components:** CMP-READMODEL, CMP-MEMORY
+
+The Analytics summary tab shall show, for the selected local match and from its local replay digest only: a header with winner, team kill totals, duration, game mode and patch; ten hero cards (five per team) with hero, K/D/A, net worth or, when net worth is absent and labelled as such, gold earned, lane and lane result; a per-minute Radiant-minus-Dire advantage chart with kill markers; buildings destroyed, on the minimap when a replay map calibration and building positions exist and otherwise as a list; lane results against the lane expectation; one scoreboard per team with K, D, A, net worth, LH/DN, GPM/XPM, hero damage and final items with purchase minute; the draft in pick and ban order; and key teamfights and objectives. Selecting a chart minute, kill marker, building, teamfight or objective seeks the replay to that time. The tab makes no network request and shows no data that is not in the digest.
+
+**Failure behavior:** Every value absent from the digest renders “—” or “— ไม่ทราบ” with the digest's reason where one exists, never zero or an estimate. Team totals render only when all five heroes have the value. Unknown items differ from an empty item list. A building whose state is unknown is counted as unknown, not standing. Without map calibration or positions the building map is replaced by a list with the stated reason. A missing draft, series or outcome shows an unknown state; the tab never infers a winner.
+
+**AC-UI-023:** Given digest fixtures with complete data, each field missing in turn (outcome, duration, mode, patch, net worth with and without gold earned, items, draft, advantage series, building positions, lane outcome), a roster with fewer than five heroes per team, and map calibration present and absent; and one real replay of a match the owner played; when the user opens the summary tab and selects chart minutes, kill markers, buildings, teamfights and objectives; then present values match the digest exactly; every missing value shows the unknown mark with its reason and nothing is inferred; team totals appear only for complete rosters; the building view falls back to a list with its reason; each selection seeks the replay to the stated time; and no network request is made.
+
+**Verification:** synthetic, native; procedures TP-05, UAT-05; status NOT_RUN.
+
+**Open dependencies:** DEC-NATIVE-EVIDENCE.
+
+**Elaboration:** [DESIGN-IMPLEMENTATION.md](../design/DESIGN-IMPLEMENTATION.md), [UX-SPEC.md](../design/UX-SPEC.md)
+
+**Contracts:** [replay-bundle.schema.json](../../contracts/replay-bundle.schema.json)
+
+**Implementation freedom:** Reuse the current replay library and match viewer; keep policy and view-model logic testable without launching the app, and preserve unknown values. Use one hashed constants table and preserve source provenance, unknown reasons and the raw result.
+
 ### STATS
 
 #### STATS-001 — Separate consent for public hero statistics

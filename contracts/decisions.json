@@ -1689,6 +1689,37 @@
       "closure_evidence": "Owner words ?Approve D1?D8?, relayed by the lead and recorded by an agent on 2026-11-25. Pure logic checks do not establish rendered, native, live-match or packaged WebView acceptance; those remain NOT_RUN."
     },
     {
+      "id": "DEC-MATCH-SUMMARY",
+      "status": "decided",
+      "milestone": "M5",
+      "blocks": "UI-023 Analytics match summary tab.",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-26",
+      "channel": "decided by the product owner 2026-11-26 in the lead session, recorded by an agent",
+      "owner_words": "Approve as recommended",
+      "decision": "The product owner approved CR-MATCH-SUMMARY (F:\\kohbor-coord\\design\\match-summary-cr-20261126\\CR.md, decision sheet OWNER-QUESTIONS.md) as recommended.\n1. Add UI-023 as a new requirement for the Analytics match summary tab instead of amending UI-021.\n2. UI-023 is P1, milestone M5, like UI-021.\n3. Native evidence is the owner opening the summary tab of a real match they played in a release build bound to a commit and exe hash, recorded in a receipt like ALERT-008's (build, keyed match hash, which sections showed values or unknown, and whether seeking worked); a screenshot alone is not PASS.\nThe page itself follows the owner's 2026-11-26 request for a post-match summary modelled on Dotabuff and STRATZ screenshots (owner choice \"Combine both\"); the references are layout inspiration only, with no names, logos, colours, rank badges or data from those services.",
+      "reason": "The summary page shipped without a requirement saying what it shows or how it treats missing data, so a regression had nothing to fail.",
+      "alternatives_considered": [
+        "Amend UI-021 with the summary content (rejected: UI-021 is already long and one PASS would need everything).",
+        "Leave the page as a loose trace under UI-021 (rejected: the behaviour stays ungoverned)."
+      ],
+      "affected_need_ids": [
+        "PN-008"
+      ],
+      "affected_requirement_ids": [
+        "UI-023",
+        "UI-021"
+      ],
+      "related": [
+        "DEC-ANALYTICS-LAYOUT",
+        "DEC-LANE-EXPECTATION",
+        "DEC-NATIVE-EVIDENCE"
+      ],
+      "safe_interim": "Until the native receipt exists, UI-023 stays NOT_RUN; unit fixtures are synthetic evidence only.",
+      "closure_evidence": "Owner words “Approve as recommended” in the lead session on 2026-11-26, recorded by an agent. Synthetic unit checks do not establish rendered, native or live-match acceptance; those remain NOT_RUN."
+    },
+    {
       "id": "DEC-REPLAY-AUTO-PARSE",
       "status": "decided",
       "milestone": "M5",

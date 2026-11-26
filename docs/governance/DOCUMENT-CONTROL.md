@@ -86,6 +86,10 @@ Schemas provide neutral shapes and closed allowlists, not complete production pr
 
 Where information is incomplete, resolve the named decision into a concrete neutral specification. No original repository or hidden historical document is required to understand an obligation already stated here.
 
+## Change record for DEC-MATCH-SUMMARY (2026-11-26, same baseline version)
+
+The 2026-11-26 owner-approved CR-MATCH-SUMMARY adds DEC-MATCH-SUMMARY and requirement UI-023 (Analytics match summary tab) under PN-008 and CMP-READMODEL, and moves the summary view-model files from UI-021's implementation references to UI-023. SRS, RTM and Gherkin are regenerated from the structured requirements. No diagram changes. Runtime and native evidence remain NOT_RUN.
+
 ## Change record in version 0.3.7
 
 The 2026-11-21 owner-approved CR-ORB-MIXER updates DEC-EDGE-ORB and DEC-PICK-STATS, adds UI-011 and MEDIA-009, revises UI-009/UI-010/STATS-002/003, and updates PN-013/014. SRS, RTM and Gherkin are regenerated from the structured requirements. Draft Bar projection advances to 1.2.0 for picked-hero strike-out via 5b. Diagram sources remain unchanged pending offline regeneration. Runtime and native evidence remain NOT_RUN.

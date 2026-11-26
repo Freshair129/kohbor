@@ -467,3 +467,13 @@ Decided by the product owner 2026-11-25, relayed by the lead, recorded by an age
 3. **AI for normal users.** Keep AI in Developer mode until a provider passes a live test with a real key; that test is an owner action.
 4. **Revenue.** Keep the alpha free. Decide revenue together with the rights-review outcome; DEC-COMMERCE-INTENT remains in force.
 5. **Rights review.** Start now. The reported inventory and competitor-study questions are input for the owner's rights team; this decision records no legal conclusion or rights clearance.
+
+### Owner decision: Analytics match summary requirement (DEC-MATCH-SUMMARY, 2026-11-26)
+
+Decided by the product owner 2026-11-26 in the lead session, recorded by an agent. Owner words: “Approve as recommended”. The owner approved CR-MATCH-SUMMARY (`F:\kohbor-coord\design\match-summary-cr-20261126\CR.md`; decision sheet `OWNER-QUESTIONS.md`).
+
+1. **New requirement.** Add UI-023 for the Analytics match summary tab rather than amending UI-021. UI-023 states what the tab shows from the local replay digest only, that selections seek the replay, and that missing values render as unknown with their reason and are never inferred.
+2. **Priority.** UI-023 is P1, milestone M5, like UI-021.
+3. **Native evidence.** The owner opens the summary tab of a real match they played in a release build bound to a commit and exe hash; a receipt like ALERT-008's records the build, the keyed match hash, which sections showed values or unknown, and whether seeking worked. A screenshot alone is not PASS.
+
+The page follows the owner's 2026-11-26 request for a post-match summary modelled on Dotabuff and STRATZ screenshots (“Combine both”). Those references are layout inspiration only: no names, logos, colours, rank badges or data from those services. The summary files traced under UI-021 in eecb12e move to UI-023. UI-023 has no diagram mapping; no diagram changes. UI-023 remains NOT_RUN: unit fixtures are synthetic evidence only.

@@ -83,8 +83,8 @@
     },
     {
       "path": "acceptance/scenarios.feature",
-      "bytes": 86771,
-      "sha256": "4cf4162a46a63f912a0c84e11aed8fa88c784f8d3f186bbbf3d9f062a8c506d6"
+      "bytes": 88177,
+      "sha256": "da2ac564844700445529ea0cc69938388310ee58225f7d30d111d9753f10b189"
     },
     {
       "path": "acceptance/spec-validation.json",
@@ -14693,8 +14693,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 183213,
-      "sha256": "d97fdb07e35eae27a58a516df797f4b3a723c6c043a65e8a2730e6b182a70860"
+      "bytes": 185550,
+      "sha256": "18de85b95652906fb57784f57e7755ab0b42d66f349f2f1e6bce995cd7908f89"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -14783,8 +14783,8 @@
     },
     {
       "path": "contracts/product-needs.json",
-      "bytes": 10203,
-      "sha256": "1fddbcb4626c2d373171ff6af93661025ef2f56d00b9330f91a6df9615118636"
+      "bytes": 10141,
+      "sha256": "9d98d8491bbfcaab745e48d58dfec9742062605ecccd0946820a5cb0f80aaa98"
     },
     {
       "path": "contracts/replay-bundle.schema.json",
@@ -14798,8 +14798,8 @@
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 363634,
-      "sha256": "f31fbb6b4d7e1c9a7b464b5d31e503ad32b6b706059869e42c04bc94f456821d"
+      "bytes": 367808,
+      "sha256": "384e9c5ffad7dba630540fa7256aa31ea794f0441562dccddd5632237048b247"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -15833,8 +15833,8 @@
     },
     {
       "path": "docs/design/SDD.md",
-      "bytes": 37139,
-      "sha256": "7dbc8bb5556041784a26b18e7c9df942344a19e8e7b7435ea6d4f39baf62a9b2"
+      "bytes": 37149,
+      "sha256": "38ccbf1a97fb535d80081c0db624b1f7d1d32589be2ace86cd06c6e9291c7c3b"
     },
     {
       "path": "docs/design/SHARING-MODEL-REVIEW.md",
@@ -16293,18 +16293,18 @@
     },
     {
       "path": "docs/governance/CHANGELOG.md",
-      "bytes": 38716,
-      "sha256": "9bd99c68731581b0b3def6a0043654647a3569e0b59cf1034353fe3bdc738528"
+      "bytes": 39368,
+      "sha256": "338ed7d050db29d44bba92f73796fee60bbfbdf12e732d8a646bb67d892982b0"
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 128966,
-      "sha256": "9f216cf62e7266d8e6f8e6e63f0c4d2c1789d0ce65875205e547915ff54dbade"
+      "bytes": 130399,
+      "sha256": "021087cd787bea7896dc3de08018a4626294f024f47ee51d51b91f73bcc2af66"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
-      "bytes": 10624,
-      "sha256": "38aa8cd9f86ffb849bffe95a605fb4219950e72543953cd8bc3d40fb896f3f5d"
+      "bytes": 11081,
+      "sha256": "9626ddb49d89574164a8d9f6cf6dbab3052ded964194c23cf68f1f5d5f121a81"
     },
     {
       "path": "docs/governance/GLOSSARY.md",
@@ -16358,8 +16358,8 @@
     },
     {
       "path": "docs/product/PRD.md",
-      "bytes": 16905,
-      "sha256": "f52171e620ffb34ab746274cbd700ab2381e2c86d4ca87680584b7c269c36659"
+      "bytes": 16913,
+      "sha256": "c5b06afc9638916675e9b570eb2107ee8b91b500f2fbe80416b7d85df0c2cc53"
     },
     {
       "path": "docs/product/USE-CASES.md",
@@ -16383,13 +16383,13 @@
     },
     {
       "path": "docs/requirements/RTM.csv",
-      "bytes": 68909,
-      "sha256": "561068c43708b947fb236a617c0f08fa40927352e78c34d8114db1911ef2d882"
+      "bytes": 69397,
+      "sha256": "e797e0b5160502bcf0f4ba7e29bcc930e85da7768c957c285ce3f19efdbbc148"
     },
     {
       "path": "docs/requirements/SRS.md",
-      "bytes": 252456,
-      "sha256": "a10b7c808814d87fada498a7d16b74b8527060e8e0369d8868d54ab4b060dadd"
+      "bytes": 255638,
+      "sha256": "7ac1c04ef7df2e37ed1e9a3bc4d16f3c1ea40d29b7673e6762e3a484277cd45c"
     },
     {
       "path": "docs/security/SECURITY-PRIVACY.md",
