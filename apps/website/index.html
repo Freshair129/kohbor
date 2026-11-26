@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>เกาะเบาะ Kohbor</title>
-<meta name="description" content="เกาะเบาะ (Kohbor) เพื่อนคู่ใจบนเดสก์ท็อปสำหรับ Dota 2 บน Windows ช่วยดูแผนที่ เตือนเมื่อมีเหตุ และบอกตรง ๆ เมื่อไม่รู้ ต้นแบบงานออกแบบ ยังไม่เปิดให้ดาวน์โหลด">
+<meta name="description" content="เกาะเบาะ (Kohbor) เพื่อนคู่ใจบนเดสก์ท็อปสำหรับ Dota 2 บน Windows ช่วยดูแผนที่ เตือนเมื่อมีเหตุ และบอกตรง ๆ เมื่อไม่รู้ ช่วง alpha ลงทะเบียนเข้าคิวทดสอบได้">
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#141414">
 <link rel="icon" href="assets/mark.svg" type="image/svg+xml">
@@ -12,7 +12,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/site.css">
-<link rel="stylesheet" href="css/download.css">
 </head>
 <body>
 <a class="skip" href="#see"><span class="th">ข้ามไปที่เนื้อหา</span><span class="en">Skip to content</span></a>
@@ -49,6 +48,7 @@
     <a href="#features"><span class="th">ในแอป</span><span class="en">In the app</span></a>
     <a href="#yours"><span class="th">ของคุณ</span><span class="en">Yours</span></a>
     <a href="#bar"><span class="th">เกณฑ์</span><span class="en">The bar</span></a>  </nav>
+  <a class="top-cta" href="register.html"><span class="th">ลงทะเบียนทดสอบ</span><span class="en">Join the alpha</span></a>
   <div class="top-lang" role="group" aria-label="ภาษา / Language">
     <button type="button" data-set-lang="th" aria-pressed="true">ไทย</button>
     <button type="button" data-set-lang="en" aria-pressed="false">EN</button>
@@ -70,9 +70,9 @@
         <span class="th">เหมือนเพื่อนที่ยืนเกาะเบาะดูคุณเล่นอยู่ข้างหลัง เกาะเบาะคอยดูแผนที่ให้ ร้องเตือนเมื่อมีเหตุ และบอกตรง ๆ เมื่อไม่รู้ แอปเดสก์ท็อปสำหรับ Dota 2 บน Windows</span>
         <span class="en">Like the friend hanging on the back of your chair while you play. Kohbor watches the map for you, calls it out when it matters, and says so plainly when it does not know. A desktop app for Dota 2 on Windows.</span>
       </p>
-      <p class="chip chip-pending">
-        <span class="th">กำลังพัฒนา ยังไม่เปิดให้ดาวน์โหลด</span><span class="en">In development. Not available to download yet.</span>
-      </p>
+      <a class="btn btn-hero-cta" href="register.html">
+        <span class="th">ดาวน์โหลด · ลงทะเบียนเข้าคิว alpha</span><span class="en">Download · join the alpha queue</span>
+      </a>
     </div>
     <p class="hero-hint" aria-hidden="true">
       <span class="th">ขยับเมาส์เหนือแผนที่ ลากเพื่อหมุน</span><span class="en">Move over the map. Drag to turn it.</span>
@@ -394,26 +394,14 @@
   <div class="flow end-in">
     <p class="end-h"><span class="th">ไม่ได้จับเมาส์<br>แต่ขอลุ้นด้วย</span><span class="en">Not on the mouse.<br>Still in every fight.</span></p>
     <div class="end-cta">
-      <button type="button" class="btn btn-dl" id="dlOpen" aria-describedby="dlNote" aria-haspopup="dialog">
+      <a class="btn btn-dl" href="register.html" aria-describedby="dlNote">
         <span class="th">ดาวน์โหลดสำหรับ Windows</span><span class="en">Download for Windows</span>
-        <i class="btn-state"><span class="th">alpha · ต้องมี invite code</span><span class="en">alpha · invite code needed</span></i>
-      </button>
+        <i class="btn-state"><span class="th">alpha · ลงทะเบียนเข้าคิว</span><span class="en">alpha · join the queue</span></i>
+      </a>
       <p id="dlNote" class="end-note">
-        <span class="th">ช่วง alpha ดาวน์โหลดได้เฉพาะคนที่มี invite code สมัครและล็อกอินด้วย Google ทำในแอป</span>
-        <span class="en">During the alpha, only people with an invite code can download. You sign up and sign in with Google inside the app.</span>
+        <span class="th">ช่วง alpha เปิดให้ทดสอบตามคิว ลงทะเบียนด้วย Google แล้วเราจะส่งลิงก์ดาวน์โหลดไปทางอีเมลเมื่อถึงคิว</span>
+        <span class="en">During the alpha, testers get in by queue. Sign up with Google and we will email you a download link when your turn comes.</span>
       </p>
-      <dialog id="dlDialog" class="dl-dialog" aria-labelledby="dlTitle">
-        <form id="dlForm" method="dialog" novalidate>
-          <h2 id="dlTitle"><span class="th">ใส่ invite code</span><span class="en">Enter your invite code</span></h2>
-          <label for="dlCode"><span class="th">รหัสเชิญ</span><span class="en">Invite code</span></label>
-          <input id="dlCode" name="code" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text" maxlength="20" placeholder="KB-XXXX-XXXX-XXXX" required aria-describedby="dlMsg">
-          <p id="dlMsg" class="dl-msg" role="status" aria-live="polite"></p>
-          <div class="dl-actions">
-            <button type="submit" class="btn btn-dl" id="dlGo"><span class="th">ดาวน์โหลด</span><span class="en">Download</span></button>
-            <button type="button" class="btn btn-quiet" id="dlCancel"><span class="th">ยกเลิก</span><span class="en">Cancel</span></button>
-          </div>
-        </form>
-      </dialog>
     </div>
     <footer class="foot">
       <p class="foot-brand"><img src="assets/mark.svg" alt="" width="28" height="28"> เกาะเบาะ <span>Kohbor</span></p>
@@ -438,6 +426,5 @@
 
 <noscript><p class="noscript">หน้านี้ใช้ JavaScript สำหรับฉากสามมิติ เนื้อหาทั้งหมดยังอ่านได้ตามปกติ</p></noscript>
 <script type="module" src="js/main.js"></script>
-<script src="js/download.js" defer></script>
 </body>
 </html>

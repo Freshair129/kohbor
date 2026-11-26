@@ -13797,6 +13797,11 @@
       "sha256": "4600363890c48205a869bb47e6034bbd2ced1f6d46d5ac5b8054951e974f3083"
     },
     {
+      "path": "apps/website/admin.html",
+      "bytes": 9395,
+      "sha256": "502372718db5c1429b8ae1659fe94771853e85bbaaa0afe1a59a61340143ce76"
+    },
+    {
       "path": "apps/website/assets/film/poster.jpg",
       "bytes": 216466,
       "sha256": "4e6c62e1686e89315f641c2ec71e71dc12bfb6bd5d41ccd63fd0eaed0513f538"
@@ -13852,24 +13857,34 @@
       "sha256": "16c3df38c8146e7672deefd0498c618a72129c600e25ef6584a511b61a487a3a"
     },
     {
-      "path": "apps/website/css/download.css",
-      "bytes": 1197,
-      "sha256": "70a03ba8882abac298927eb180326d5803061f175391d7a10ea9822a0861f683"
+      "path": "apps/website/css/admin.css",
+      "bytes": 4133,
+      "sha256": "74b1fd8050a3a697ad0db037ae316cf696a9d13207e00eadef098ff53ac20387"
+    },
+    {
+      "path": "apps/website/css/register.css",
+      "bytes": 2983,
+      "sha256": "9b0e0791879e8f212af3942d17a2a75c7f80682e0e0de94c2345a493566cd6b7"
     },
     {
       "path": "apps/website/css/site.css",
-      "bytes": 30715,
-      "sha256": "27efa65c249d288a713626092437e41f230b069bc38c9b196df78bcee841a481"
+      "bytes": 31240,
+      "sha256": "089f6653068d08bd2546d327f2232317c793277e94c3f84901bdc89eec38dcc7"
+    },
+    {
+      "path": "apps/website/get.html",
+      "bytes": 2551,
+      "sha256": "67412311e7568866d9c7972b9b16e6780306dd18af2861cf5addf763fdc73917"
     },
     {
       "path": "apps/website/index.html",
-      "bytes": 39305,
-      "sha256": "86a654f89023df1e383204107fc578b8079982af5586919f8ba85ce458d7682e"
+      "bytes": 38343,
+      "sha256": "6a2d55016f952feaf8e274738f5a8eb257f1093996308bc7f31a123431cd8fb3"
     },
     {
-      "path": "apps/website/js/download.js",
-      "bytes": 2912,
-      "sha256": "6c7e3a6dd75be2494f5c1bdbfcc473c198ad5c7e5ab04e880cc7a47db251556c"
+      "path": "apps/website/js/admin.js",
+      "bytes": 16694,
+      "sha256": "9ae8cfb0d909933e1677b63062b23eb0ffee537b68ee7ce2aff29523d98c8166"
     },
     {
       "path": "apps/website/js/film.js",
@@ -13877,14 +13892,29 @@
       "sha256": "e1288a604c8a4137b164e1d0b74895b283cb7653b1d9cdfb6f39ce63d9393751"
     },
     {
+      "path": "apps/website/js/get.js",
+      "bytes": 3205,
+      "sha256": "969573b4bab15328abe41612057cb9ad3f2c8c330bbb3d5c7ced88160f23a3aa"
+    },
+    {
       "path": "apps/website/js/main.js",
       "bytes": 22591,
       "sha256": "48f80891ab04e64fae99da51cf7f28962484b0652a117102698ccee995f648d0"
     },
     {
+      "path": "apps/website/js/register.js",
+      "bytes": 6883,
+      "sha256": "fae3b2973ba457ebdb8063e0557fecc0ca9c696770a1a75f4c53806d3d062fd7"
+    },
+    {
       "path": "apps/website/js/stage.js",
       "bytes": 30005,
       "sha256": "7f443e9390db03a2796e51ae0ef9fa942b5ee32bfe7a0ce5c50176dfdbb5ef1a"
+    },
+    {
+      "path": "apps/website/register.html",
+      "bytes": 4840,
+      "sha256": "752d47d7d27ea1434714c4f8fd30f0bd3e8605eff8896bbbcd874af88a4cad63"
     },
     {
       "path": "apps/website/serve.mjs",
@@ -14893,8 +14923,8 @@
     },
     {
       "path": "docs/design/ALPHA-LAUNCH.md",
-      "bytes": 7160,
-      "sha256": "09369507f8c9cec05d48f5ed95a57dab399e56f56abf4d959f2ab7a92dd23e2e"
+      "bytes": 10184,
+      "sha256": "6143ba8fd2eebfbcd485831e58ed2ae5bc55c919dca4433ee15ff2898f87dbfc"
     },
     {
       "path": "docs/design/BACKEND-STACK.md",
@@ -16163,8 +16193,8 @@
     },
     {
       "path": "services/kohbor-broker/scripts/check-supabase.mjs",
-      "bytes": 17147,
-      "sha256": "58866cee1a4391b3d1983fdb8afb51f6e101e142bac2f3f7ea9d4810ab17a257"
+      "bytes": 17345,
+      "sha256": "9ae8b18b512c112c51f8fc672b83bf8b7ad99db25d172388f96e8fbc245db667"
     },
     {
       "path": "services/kohbor-broker/scripts/create-local-fixture.mjs",
@@ -16293,13 +16323,33 @@
     },
     {
       "path": "supabase/README.md",
-      "bytes": 4066,
-      "sha256": "d047166416ee04231dba7d650798ab1e5d3e468038ebe014539b4c62ad5dd8a6"
+      "bytes": 5986,
+      "sha256": "765a269652fe60465d6d14b4b4f10af74895b6662df3f1cdd5bf3c35983b26a3"
+    },
+    {
+      "path": "supabase/functions/alpha-admin/index.ts",
+      "bytes": 9896,
+      "sha256": "a91c3d678e7d35fa5e0f14e75f87299f0fd43023ef7dc585261885e0c7479e09"
+    },
+    {
+      "path": "supabase/functions/alpha-admin/mail.test.mjs",
+      "bytes": 5271,
+      "sha256": "d3050ba886a8c6abffb3ebe88725ce8b0948bcc0dea2f1e28d7c8d94602757a0"
+    },
+    {
+      "path": "supabase/functions/alpha-admin/mail.ts",
+      "bytes": 5088,
+      "sha256": "5ecf79af9300a1bb8faa6bc8eab406e830e4c9ddcb2906415a1efe31f88f2b15"
     },
     {
       "path": "supabase/functions/alpha-download/index.ts",
-      "bytes": 4018,
-      "sha256": "91bbb388e23a8654ee1249dbeb64e41527a439be491e0e1966c4ac6be200ecc1"
+      "bytes": 4847,
+      "sha256": "0d66a12dd4e4aba10c8c65bdb401f2bb106d5a21464eb37b42459bedadbe2f55"
+    },
+    {
+      "path": "supabase/functions/alpha-waitlist/index.ts",
+      "bytes": 2160,
+      "sha256": "e69024afef55eee1cb2a508df560330ad8539e9974777a046939291ee3ed01b8"
     },
     {
       "path": "supabase/sql/20261122040048_supabase_close_data_api.sql",
@@ -16315,6 +16365,21 @@
       "path": "supabase/sql/20261122050945_alpha_invite_functions.sql",
       "bytes": 957,
       "sha256": "561ee0432702e6a9cb7cca50e5d04437d6be728f17097a2a05f3523572cdb49a"
+    },
+    {
+      "path": "supabase/sql/20261126102344_alpha_waitlist.sql",
+      "bytes": 2350,
+      "sha256": "2f66dc66988af08ebf81213ff2fc2937942e7f08b344b3f42e23d8b04fd59ee3"
+    },
+    {
+      "path": "supabase/sql/20261126133502_alpha_admin.sql",
+      "bytes": 3413,
+      "sha256": "92ea173f2fd88899f5dc7881f9b627c2ddb43c19f4937bc6602271717bcdebc2"
+    },
+    {
+      "path": "supabase/sql/20261126140813_alpha_invite_mail.sql",
+      "bytes": 6904,
+      "sha256": "9b304088dd6a5a08ae8c65d725305c46fb23317d68f5c5dd057240b954330981"
     },
     {
       "path": "supabase/tools/make-invite-codes.mjs",

@@ -1,0 +1,47 @@
+/* Queue admin page. Builds on register.css tokens. */
+.ad-main { flex: 1; width: min(1040px, 100%); margin: 0 auto; padding: 32px 16px; }
+.ad-signin { max-width: 480px; margin: 24px auto; }
+.ad-signin h1 { margin: 0 0 8px; font-size: 1.5rem; }
+.ad-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.ad-stat { display: flex; flex-direction: column; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink2); font-size: 0.875rem; }
+.ad-stat b { font: 600 1.75rem var(--mono); color: var(--ink); }
+.ad-batch { margin-bottom: 20px; }
+.ad-batch h2 { margin: 0 0 12px; }
+.ad-steps { margin: 0; padding-left: 1.3em; display: grid; gap: 12px; color: var(--ink2); }
+.ad-steps li > * { vertical-align: middle; }
+.ad-steps label { margin-right: 8px; }
+.ad-steps input { width: 84px; min-height: 40px; margin-right: 8px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--paper); color: var(--ink); font: inherit; }
+.ad-btn { min-height: 40px; padding: 0 14px; border: 1px solid var(--ink); border-radius: 6px; background: var(--raised); color: var(--ink); font: 600 0.9375rem var(--font); cursor: pointer; }
+.ad-btn:hover:not(:disabled) { background: var(--line); }
+.ad-btn:disabled { border-style: dashed; border-color: var(--line-strong); color: var(--muted); cursor: not-allowed; }
+.ad-btn:focus-visible, .ad-steps input:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.ad-quiet { border-color: var(--line-strong); font-weight: 400; }
+.ad-small { min-height: 32px; padding: 0 10px; font-size: 0.8125rem; font-weight: 400; }
+.ad-note { min-height: 1.4em; margin: 12px 0 0; font-size: 0.9375rem; color: var(--ink2); }
+.ad-tablehead { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.ad-tablehead h2 { margin: 0; font-size: 1.125rem; }
+.ad-tablewrap { overflow-x: auto; }
+.ad-table { width: 100%; border-collapse: collapse; font-size: 0.9375rem; }
+.ad-table th, .ad-table td { padding: 10px 8px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+.ad-table th { color: var(--muted); font-weight: 400; font-size: 0.8125rem; }
+.ad-table td.num { font-family: var(--mono); color: var(--ink2); }
+.ad-table td.email { font-family: var(--mono); font-size: 0.875rem; }
+.ad-pill { display: inline-block; padding: 2px 8px; border: 1px solid var(--line-strong); border-radius: 999px; font-size: 0.8125rem; color: var(--ink2); }
+.ad-pill.on { border-color: var(--ink); color: var(--ink); }
+.ad-emails { display: block; width: 100%; margin-top: 12px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: var(--ink2); font: 0.8125rem/1.5 var(--mono); resize: vertical; }
+.ad-emails[hidden] { display: none; }
+.ad-warn { margin-bottom: 16px; border-color: var(--warning); }
+.ad-warn h2 { margin: 0 0 12px; color: var(--warning); font-size: 1.0625rem; }
+.ad-warn code, .ad-batch code { font: 0.8125rem var(--mono); color: var(--ink); }
+.ad-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.ad-row input { width: 84px; min-height: 40px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--paper); color: var(--ink); font: inherit; }
+.ad-primary { border-width: 2px; }
+.ad-field { display: block; margin: 14px 0 6px; color: var(--ink2); font-size: 0.875rem; }
+.ad-input { display: block; width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--paper); color: var(--ink); font: inherit; }
+.ad-body { font: 0.9375rem/1.55 var(--font); resize: vertical; }
+.ad-input:focus-visible, .ad-row input:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.ad-acts { display: flex; gap: 6px; }
+@media (max-width: 640px) {
+  .ad-stat b { font-size: 1.375rem; }
+  .ad-table th:nth-child(3), .ad-table td:nth-child(3), .ad-table th:nth-child(4), .ad-table td:nth-child(4) { display: none; }
+}
