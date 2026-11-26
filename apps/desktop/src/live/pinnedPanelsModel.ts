@@ -245,7 +245,8 @@ export function deriveAgentOrbMotion(input: {
 
 export const PANEL_PRIORITY = ["objectives", "damage", "orb", "farm", "kills"] as const;
 export type PanelId = (typeof PANEL_PRIORITY)[number];
-const PANEL_HEIGHT: Record<PanelId, number> = { objectives: 172, damage: 190, orb: 140, farm: 206, kills: 140 };
+/** Smallest legible height of each panel: its content at 12 px text without clipping. Panels grow from here to fill their column. */
+export const PANEL_MIN_HEIGHT: Record<PanelId, number> = { objectives: 172, damage: 150, orb: 130, farm: 150, kills: 110 };
 const PANEL_GAP = 12;
 const TWO_COLUMN_MIN_WIDTH = 1_080;
 
@@ -270,22 +271,42 @@ export interface PinnedPanelLayout {
   scroll: false;
 }
 
-/** Priority-ordered panels are packed into two columns only when both columns remain legible. */
+/**
+ * Priority-ordered panels go into one or two columns. Each panel joins the column that is currently shorter; the first
+ * panel that no longer fits at its minimum height is dropped together with every lower-priority panel, so panels
+ * disappear from lowest to highest priority. Each column's panels then grow in proportion to their minimum heights
+ * until the column fills the box, so no row leaves a ragged gap and no strip at the bottom stays empty.
+ */
 export function pinnedPanelLayout(box: Rect): PinnedPanelLayout {
   const columns = box.w >= TWO_COLUMN_MIN_WIDTH ? 2 : 1;
   const columnWidth = columns === 2 ? (box.w - PANEL_GAP) / 2 : box.w;
-  const kept: PanelPlacement[] = [];
-  const rowHeights: number[] = [];
-  for (const [index, id] of PANEL_PRIORITY.entries()) {
-    const row = Math.floor(index / columns);
-    const column = index % columns;
-    const nextHeight = Math.max(rowHeights[row] ?? 0, PANEL_HEIGHT[id]);
-    const projectedHeight = rowHeights.reduce((sum, height, rowIndex) => sum + height + (rowIndex > 0 ? PANEL_GAP : 0), 0)
-      + (rowHeights[row] === undefined ? nextHeight + (row > 0 ? PANEL_GAP : 0) : nextHeight - rowHeights[row]);
-    if (columnWidth <= 0 || projectedHeight > box.h) break;
-    rowHeights[row] = nextHeight;
-    const y = rowHeights.slice(0, row).reduce((sum, height) => sum + height + PANEL_GAP, 0);
-    kept.push({ id, rect: { x: column * (columnWidth + PANEL_GAP), y, w: columnWidth, h: PANEL_HEIGHT[id] } });
+  const stacks: PanelId[][] = Array.from({ length: columns }, () => []);
+  const used = Array.from({ length: columns }, () => 0);
+  let keptCount = 0;
+  for (const id of PANEL_PRIORITY) {
+    if (columnWidth <= 0) break;
+    let column = 0;
+    for (let candidate = 1; candidate < columns; candidate++) if ((used[candidate] ?? 0) < (used[column] ?? 0)) column = candidate;
+    const stack = stacks[column] ?? [];
+    const needed = (used[column] ?? 0) + (stack.length > 0 ? PANEL_GAP : 0) + PANEL_MIN_HEIGHT[id];
+    if (needed > box.h) break;
+    stack.push(id);
+    used[column] = needed;
+    keptCount++;
   }
-  return { panels: kept, dropped: PANEL_PRIORITY.slice(kept.length), minimumTextPx: 12, scroll: false };
+  const kept: PanelPlacement[] = [];
+  stacks.forEach((stack, column) => {
+    if (stack.length === 0) return;
+    const minTotal = stack.reduce((sum, id) => sum + PANEL_MIN_HEIGHT[id], 0);
+    const free = box.h - PANEL_GAP * (stack.length - 1);
+    let y = 0;
+    stack.forEach((id, index) => {
+      const last = index === stack.length - 1;
+      const h = last ? free + PANEL_GAP * (stack.length - 1) - y : Math.floor((free * PANEL_MIN_HEIGHT[id]) / minTotal);
+      kept.push({ id, rect: { x: column * (columnWidth + PANEL_GAP), y, w: columnWidth, h } });
+      y += h + PANEL_GAP;
+    });
+  });
+  kept.sort((a, b) => PANEL_PRIORITY.indexOf(a.id) - PANEL_PRIORITY.indexOf(b.id));
+  return { panels: kept, dropped: PANEL_PRIORITY.slice(keptCount), minimumTextPx: 12, scroll: false };
 }

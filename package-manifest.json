@@ -13078,8 +13078,8 @@
     },
     {
       "path": "apps/desktop/src/live/pinnedPanelsModel.ts",
-      "bytes": 14932,
-      "sha256": "a7ae32acc3625e41ae7c141985e29e2a6a3f6a50b5f3da3461c541cb66fdf623"
+      "bytes": 15916,
+      "sha256": "f78c8fb7c6279537033c89f6b04b0745e333215e9145ed5a4021d649e794c5d9"
     },
     {
       "path": "apps/desktop/src/live/postGameSummaryModel.ts",
@@ -14433,8 +14433,8 @@
     },
     {
       "path": "apps/desktop/tests/pinned-panel-layout.test.ts",
-      "bytes": 3149,
-      "sha256": "1b7c26deee5ac6aab2c7fb89f2078ac7145df98661e1f5d81a0f6e072270a998"
+      "bytes": 4190,
+      "sha256": "91a4dfa84ef0fcebd450862a7da89f3adaa4fb74161c51d4b0e6e52be3d20c22"
     },
     {
       "path": "apps/desktop/tests/pinned-panels-model.test.ts",
