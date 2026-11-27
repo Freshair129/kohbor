@@ -83,8 +83,8 @@
     },
     {
       "path": "acceptance/scenarios.feature",
-      "bytes": 88657,
-      "sha256": "e3e2cf9d88dd8b8a6a5a5e6474923ab4a099048d2c0471f6fe635d0bb78e1b41"
+      "bytes": 90651,
+      "sha256": "f231e77188478e29821458f3c9390e3fbb47ee6c495cec3268406aea96c449db"
     },
     {
       "path": "acceptance/spec-validation.json",
@@ -14733,8 +14733,8 @@
     },
     {
       "path": "contracts/decisions.json",
-      "bytes": 187834,
-      "sha256": "49ae1f80a70f88c71c85c82ad8e4a3bb18c20f59488990caf601031161625f4e"
+      "bytes": 191054,
+      "sha256": "bbd903ea1944841bb261cebfc912817247fe85183676961ef1d08d9e693a298a"
     },
     {
       "path": "contracts/design-tokens.json",
@@ -14823,8 +14823,8 @@
     },
     {
       "path": "contracts/product-needs.json",
-      "bytes": 10141,
-      "sha256": "9d98d8491bbfcaab745e48d58dfec9742062605ecccd0946820a5cb0f80aaa98"
+      "bytes": 10160,
+      "sha256": "1b58bb684ceeb1724c1760ed7c6fc087d33e1d0c4f89b97245d4bd187646db51"
     },
     {
       "path": "contracts/replay-bundle.schema.json",
@@ -14838,8 +14838,8 @@
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 379158,
-      "sha256": "60df5d1a64ab13bc2dd4690221a708fc178a18d8258be2201ddfccc7d9e1c1a6"
+      "bytes": 384936,
+      "sha256": "aa8046159411e434ca802d1905d5de94394362f7a02a1e5fbada930b510dfc71"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -15843,8 +15843,8 @@
     },
     {
       "path": "docs/design/REPLAY-PIPELINE.md",
-      "bytes": 17277,
-      "sha256": "57047261615afa3672942a52328f93e53935e6f44d170a17eb80b7bda4c0ebf0"
+      "bytes": 17969,
+      "sha256": "a04bff413a9a09a389cc808372d3ac02d936f74f334997cbe560c055b17d3784"
     },
     {
       "path": "docs/design/RISK-ADMISSION-SPEC.md",
@@ -15873,8 +15873,8 @@
     },
     {
       "path": "docs/design/SDD.md",
-      "bytes": 37149,
-      "sha256": "38ccbf1a97fb535d80081c0db624b1f7d1d32589be2ace86cd06c6e9291c7c3b"
+      "bytes": 37160,
+      "sha256": "903f1e6562d9ba3638bafa152b62e62cc81618d43116df7310fac07bae96630f"
     },
     {
       "path": "docs/design/SHARING-MODEL-REVIEW.md",
@@ -15893,8 +15893,8 @@
     },
     {
       "path": "docs/design/UX-SPEC.md",
-      "bytes": 55810,
-      "sha256": "f3ca5d9340a7cdd4e730e12d7f18aea3996710db23b334d57dedb3d83d93fb57"
+      "bytes": 56301,
+      "sha256": "868810c3669eb8e6caaa61ef33afd7cc51f8559d4060d6f7bf4b2b955378f5ca"
     },
     {
       "path": "docs/design/VISUAL-DESIGN-PROPOSAL.md",
@@ -16333,18 +16333,18 @@
     },
     {
       "path": "docs/governance/CHANGELOG.md",
-      "bytes": 40105,
-      "sha256": "59e86fd27a5afad83b5788b2aed2cce46a5af2799e1df9ca8d3003d30d25c9b5"
+      "bytes": 40735,
+      "sha256": "7003ce3376ca46db695792c7fbb79636078f67945b6e4938caab2c8648cdf2cd"
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 131823,
-      "sha256": "4c4d2fad49a50e7a318e25a7b7a21de2a0f11f1bf7b966e7e24e770ccfbbd7eb"
+      "bytes": 133578,
+      "sha256": "1c1226dd923bafa39e14b83f1a7bea8df137f5ddeb387fe6e46cbfd11e2ec134"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
-      "bytes": 11791,
-      "sha256": "43038e3771b211d21cd9459a9ec441c5e10bcd096c5b310309c84019bcb1187f"
+      "bytes": 12333,
+      "sha256": "5b3d96f8d1efb9bbf5d509fa03fbcc31688afc907d6862c98b1095555bcbba9b"
     },
     {
       "path": "docs/governance/GLOSSARY.md",
@@ -16398,8 +16398,8 @@
     },
     {
       "path": "docs/product/PRD.md",
-      "bytes": 16913,
-      "sha256": "c5b06afc9638916675e9b570eb2107ee8b91b500f2fbe80416b7d85df0c2cc53"
+      "bytes": 16922,
+      "sha256": "b6a674eff39bf421980c7478d007bba282af73bf7d62474180fd79d6bd9cf676"
     },
     {
       "path": "docs/product/USE-CASES.md",
@@ -16423,13 +16423,13 @@
     },
     {
       "path": "docs/requirements/RTM.csv",
-      "bytes": 70245,
-      "sha256": "4d2e83e349220b89ab906c057c2953469d515ff07e8d7b1e5f8193245d0f8ffb"
+      "bytes": 70640,
+      "sha256": "8cb077cd75d10ccedab7e1fff5bcbd1f881c8a7e385dc720d672f2afbb83541c"
     },
     {
       "path": "docs/requirements/SRS.md",
-      "bytes": 257544,
-      "sha256": "226767e134c45fd7b4af893c04ce9cd347471f0c673430d43232b3356c4d7e7f"
+      "bytes": 262421,
+      "sha256": "010cea774318c0ad277b8b9f75c9401daf6d99b169c8bda5528f6ff3e9649365"
     },
     {
       "path": "docs/security/SECURITY-PRIVACY.md",

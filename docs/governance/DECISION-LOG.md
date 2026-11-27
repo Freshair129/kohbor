@@ -489,3 +489,14 @@ Decided by the product owner 2026-11-27 in the lead session, recorded by an agen
 
 Also adopted from the CR: after match end the ten hero cards keep their last observed state with a Final mark (own card from host-recorded end values, others unknown), and Stage 2 fills all ten cards from the digest and embeds the UI-023 summary blocks. UI-002 is amended; UX-SPEC and REPLAY-PIPELINE are aligned. No diagram change. UI-002 remains NOT_RUN; nothing is implemented yet.
 
+### Owner decision: opt-in replay fetch via OpenDota (DEC-REPLAY-AUTOFETCH, 2026-11-27)
+
+Decided by the product owner 2026-11-27 in the lead session, recorded by an agent. Owner words: “Approve as recommended”. The owner approved CR-REPLAY-AUTOFETCH (`F:\kohbor-coord\designeplay-autofetch-20261127\CR.md`) after the first real-match test of the post-game summary, where the replay arrived only after a manual download in Dota.
+
+1. **Option B.** An opt-in switch fetches the player's own replay after the match: OpenDota lookup with the session's in-memory match ID, download from Valve's replay host, local decompression and the existing local parse. No OpenDota match statistics are displayed.
+2. **Off by default**, as a consent separate from the OpenDota history and benchmark switches.
+3. **Delete** the download after a successful parse.
+4. **Automatic** at match end, after the barrier clears.
+5. **Measured first** under DEC-REPLAY-INTEGRATION item 12 (`F:\kohbor-coordunseplay-autofetch-measure-20261127\RESULT.md`): replay_url present without a parse request about 1 h after the match; 60 per minute and 3,000 per day rate-limit headers; plain-HTTP replay host; the `.dem.bz2` file is Zstandard; 46.4 MB in 8.6 s; the decompressed `.dem` is byte-identical to Dota's own download. Not yet measured: how soon after match end the URL appears, and Valve retention.
+
+Adds MEM-008 and amends MEM-007 (network exception) and UI-002 (the in-memory match ID may also feed the opt-in fetch). Amends DEC-REPLAY-INTEGRATION item 6 from later/on demand to automatic under the opt-in. REPLAY-PIPELINE and UX-SPEC aligned. OpenDota flows are not drawn in the diagrams (as for MEM-006); no diagram change. MEM-008 is NOT_RUN; nothing is implemented yet.

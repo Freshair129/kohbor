@@ -86,6 +86,10 @@ Schemas provide neutral shapes and closed allowlists, not complete production pr
 
 Where information is incomplete, resolve the named decision into a concrete neutral specification. No original repository or hidden historical document is required to understand an obligation already stated here.
 
+## Change record for DEC-REPLAY-AUTOFETCH (2026-11-27, same baseline version)
+
+The 2026-11-27 owner-approved CR-REPLAY-AUTOFETCH adds DEC-REPLAY-AUTOFETCH and requirement MEM-008 (opt-in replay fetch via OpenDota and Valve's replay host, off by default, automatic at match end, download deleted after parse), and amends MEM-007's no-network rule and UI-002's match ID use to allow that fetch only. REPLAY-PIPELINE and UX-SPEC are aligned. SRS, RTM and Gherkin are regenerated. No diagram changes. Runtime and native evidence remain NOT_RUN.
+
 ## Change record for DEC-POSTGAME-BREAKDOWN (2026-11-27, same baseline version)
 
 The 2026-11-27 owner-approved CR-POSTGAME-BREAKDOWN adds DEC-POSTGAME-BREAKDOWN and amends UI-002's post-game summary: result banner with the match ID, hero header with opt-in benchmark comparison, final inventory, Summary/Timeline/Replay tabs, hero cards that keep their last observed state, and Stage 2 embedding the UI-023 summary blocks. The rule that raw match IDs are never displayed is replaced for the post-game summary only; they are still never logged or persisted from GSI. UX-SPEC and REPLAY-PIPELINE are aligned. SRS, RTM and Gherkin are regenerated. No diagram changes. Runtime and native evidence remain NOT_RUN.
