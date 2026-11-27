@@ -600,6 +600,19 @@ impl ReplayLibrary {
         lock(&self.inner.watcher_state).clone()
     }
 
+    /// Return only watched replay rows for the post-game status lookup. Unlike `list`, this does
+    /// not inspect or hash every bundle because the caller needs only source identity and state.
+    pub fn watched_entries(&self) -> Result<Vec<ReplayLibraryEntry>, &'static str> {
+        let state = lock(&self.inner.state);
+        if let Some(reason) = state.unavailable {
+            return Err(reason);
+        }
+        Ok(state.index.entries.iter()
+            .filter(|entry| entry.source == ReplaySource::DotaReplaysFolder)
+            .cloned()
+            .collect())
+    }
+
     pub fn register_picked_file(&self, path: PathBuf) -> String {
         let token = format!(
             "picked-file-{}-{}",
@@ -668,6 +681,11 @@ impl ReplayLibrary {
         }
 
             let _ = self.queue_available_auto_backlog_locked();
+    }
+
+    /// Read the existing automatic-parse preference without exposing it to the library UI model.
+    pub fn auto_analyse_enabled(&self) -> bool {
+        self.inner.auto_analyse.load(Ordering::Acquire)
     }
 
     pub fn set_limits(&self, limits: ReplayLibraryLimits) -> Result<(), &'static str> {

@@ -16,7 +16,13 @@ import { gameModeName } from "../replay/matchBundle.ts";
 type Locale = "th" | "en";
 type Obj = Record<string, unknown>;
 
-export type ReplayParseState = "not_found" | "available" | "queued" | "parsing" | "ready" | "failed" | "needs_pack" | "unknown";
+export type ReplayParseState = "not_found" | "available" | "queued" | "parsing" | "ready" | "failed" | "needs_pack" | "auto_parse_off" | "unknown";
+export type ReplayStateContext = "match" | "latest" | "unknown";
+
+export interface PostGameReplayStateInput {
+  state: ReplayParseState;
+  context: ReplayStateContext;
+}
 
 export interface LastFinishedMatchView {
   epoch: number;
@@ -54,6 +60,7 @@ export interface PostGameReplayInput {
   sessionMatchId?: string | null;
   ready: boolean;
   parseState?: ReplayParseState;
+  parseContext?: ReplayStateContext;
   failureReason?: string | null;
   headline: { deaths: number | null; netWorth: number | null };
   digest?: unknown;
@@ -125,6 +132,7 @@ export interface PostGameSummaryView {
   recapSkippedCount: number;
   derivedStats: { label: string; value: string; sources?: string[]; basisLabel?: string; basisTitle?: string }[];
   replayParseState: ReplayParseState;
+  replayState: { label: string; hint: string | null; settingsSection: "replay-ai" | null; settingsLinkLabel: string | null };
   replayFailureReason: string | null;
   watcher: ReplayWatcherView;
   lastFinishedMatchAvailable: boolean;
@@ -133,7 +141,7 @@ export interface PostGameSummaryView {
     resultLabel: string;
     duration: string;
     gameMode: string;
-    patch: string;
+    patch: string | null;
     finalScore: string;
     matchId: string | null;
   };
@@ -147,6 +155,7 @@ export interface PostGameSummaryView {
     gpm: string;
     xpm: string;
     netWorth: string;
+    netWorthReason: string | null;
     benchmarkComparisons: { key: string; label: string; value: string; percentile: number }[];
   };
   inventory: { slots: (string | null)[]; backpack: (string | null)[]; neutral: string | null };
@@ -173,7 +182,7 @@ export interface PostGameSummaryView {
 const HASH_RE = /^[0-9a-f]{64}$/;
 const MATCH_ID_RE = /^[0-9]{1,24}$/;
 const ITEM_ID_RE = /^item_[a-z0-9_]{1,64}$/;
-const PARSE_STATES: readonly ReplayParseState[] = ["not_found", "available", "queued", "parsing", "ready", "failed", "needs_pack", "unknown"];
+const PARSE_STATES: readonly ReplayParseState[] = ["not_found", "available", "queued", "parsing", "ready", "failed", "needs_pack", "auto_parse_off", "unknown"];
 
 function isObj(value: unknown): value is Obj {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -269,6 +278,49 @@ function displayGameMode(value: unknown): string {
   const numeric = Number(trimmed);
   if (Number.isSafeInteger(numeric)) return gameModeName(numeric) ?? "";
   return trimmed;
+}
+
+export function postGameReplayStatePresentation(
+  state: ReplayParseState,
+  context: ReplayStateContext,
+  locale: Locale,
+): PostGameSummaryView["replayState"] {
+  const text = postGameCopy(locale);
+  const label = state === "not_found" ? text.stateNotFound
+    : state === "available" ? text.stateAvailable
+      : state === "queued" ? text.stateQueued
+        : state === "parsing" ? text.stateParsing
+          : state === "ready" ? text.stateReady
+            : state === "failed" ? text.stateFailed
+              : state === "needs_pack" ? text.stateNeedsPack
+                : state === "auto_parse_off" ? text.stateAutoParseOff
+                  : text.stateUnknown;
+  const settingsSection = state === "auto_parse_off" ? "replay-ai" as const : null;
+  return {
+    label: context === "latest" ? `${text.latestReplayLabel} · ${label}` : label,
+    hint: state === "not_found" ? text.stateNotFoundHint : null,
+    settingsSection,
+    settingsLinkLabel: settingsSection ? text.replayAutoParseSettings : null,
+  };
+}
+
+/** Keep derivation metadata available to the tooltip while the visible cell label stays plain. */
+export function postGameDerivedStatPresentation(stat: {
+  label: string;
+  value: string | null;
+  sources?: readonly string[];
+  basisLabel?: string;
+  basisTitle?: string;
+}, withoutTemporaryEffects: string): { label: string; value: string; title: string } {
+  const basisLabel = stat.basisLabel?.trim() ?? "";
+  const label = basisLabel && stat.label.endsWith(` ${basisLabel}`)
+    ? stat.label.slice(0, -basisLabel.length - 1).trimEnd()
+    : stat.label;
+  return {
+    label,
+    value: stat.value ?? "—",
+    title: [stat.sources?.join(" · "), withoutTemporaryEffects, stat.basisTitle, basisLabel].filter(Boolean).join("\n"),
+  };
 }
 
 /** Preserve draft identities only for the ended match epoch; the fixed ten slots stay visible when identity is unknown. */
@@ -426,13 +478,21 @@ export function postGameSummaryModel(input: PostGameSummaryInput, locale: Locale
     ? stage2Digest.meta.patch
     : lastMatch?.endValues.patch;
   const safeMode = displayGameMode(mode);
-  const safePatch = typeof patch === "string" && patch.length > 0 ? patch : "—";
+  const safePatch = typeof patch === "string" && patch.trim().length > 0 ? patch : null;
   const matchId = (stage2Ready ? safeMatchId(input.replay?.bundleMatchId) : null)
     ?? safeMatchId(input.sessionMatchId ?? input.replay?.sessionMatchId)
     ?? "";
   const safeMatch = matchId.length > 0 ? matchId : null;
   const level = endNumber(input, "level", "level");
-  const netWorth = endNumber(input, "netWorth", "net_worth", numberField(input.replay?.headline.netWorth));
+  const replayNetWorth = stage2Ready ? numberField(input.replay?.headline.netWorth) : null;
+  const netWorth = lastMatch
+    ? numberField(lastMatch.endValues.netWorth) ?? replayNetWorth
+    : ownNumber(input.snapshot, "net_worth", replayNetWorth);
+  const netWorthReason = netWorth === null
+    ? stage2Ready ? postGameCopy(locale).netWorthReplayUnavailable : postGameCopy(locale).netWorthAfterReplay
+    : null;
+  const replayParseState = input.replay?.parseState && PARSE_STATES.includes(input.replay.parseState) ? input.replay.parseState : "unknown";
+  const replayState = postGameReplayStatePresentation(replayParseState, input.replay?.parseContext ?? "unknown", locale);
   const finalItems = lastMatch?.endValues.items ?? null;
   const backpack = lastMatch?.endValues.backpack ?? null;
 
@@ -454,7 +514,8 @@ export function postGameSummaryModel(input: PostGameSummaryInput, locale: Locale
           ...(typeof stat.basisLabel === "string" ? { basisLabel: stat.basisLabel } : {}),
           ...(typeof stat.basisTitle === "string" ? { basisTitle: stat.basisTitle } : {}) }]
       : []),
-    replayParseState: input.replay?.parseState && PARSE_STATES.includes(input.replay.parseState) ? input.replay.parseState : "unknown",
+    replayParseState,
+    replayState,
     replayFailureReason: input.replay?.failureReason ?? null,
     watcher: input.watcher ?? input.replay?.watcher ?? { state: "unknown", folder: "unknown", lastScanAtMs: null },
     lastFinishedMatchAvailable: lastMatch !== null,
@@ -477,6 +538,7 @@ export function postGameSummaryModel(input: PostGameSummaryInput, locale: Locale
       gpm: fmt(gpm, locale),
       xpm: fmt(xpm, locale),
       netWorth: fmt(netWorth, locale),
+      netWorthReason,
       benchmarkComparisons: benchmarkComparisons({ ...input, benchmarks: input.benchmarks ?? input.replay?.benchmarks }, heroId, { kills, lastHits, gpm, xpm, duration: numberField(duration) }),
     },
     inventory: {

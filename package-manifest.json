@@ -588,8 +588,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 74491,
-      "sha256": "15af334a621da641bed140e096788977d66e823c890224ab6ee6ba3ebbb20734"
+      "bytes": 74591,
+      "sha256": "20d63a04368189394d0eb4464a0a3f72e65f6640d2d7717c43ff8b5a26430169"
     },
     {
       "path": "apps/desktop/src-tauri/src/logging.rs",
@@ -723,8 +723,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/post_game_replay.rs",
-      "bytes": 16376,
-      "sha256": "49ee6dc5ac11a774e792563efa373a40a07dcdd54093b9edba049fb7b7ffd577"
+      "bytes": 25375,
+      "sha256": "5fdbd7e9be6ddc122265cb6fa60b84a8c7ec06afba86d0eaeac92651c1e84a69"
     },
     {
       "path": "apps/desktop/src-tauri/src/replay_library/engine.rs",
@@ -733,8 +733,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/replay_library/mod.rs",
-      "bytes": 160681,
-      "sha256": "06eca9d4b1c586a3173c8621605980bc4e624862a4cad952485c1887b5ed0193"
+      "bytes": 161477,
+      "sha256": "3ca67cb5f1f355b07725c6e5c8e3030a1eb1dc0d99c5cba4e34d360e5eee3d6b"
     },
     {
       "path": "apps/desktop/src-tauri/src/secrets.rs",
@@ -798,8 +798,8 @@
     },
     {
       "path": "apps/desktop/src/App.tsx",
-      "bytes": 29778,
-      "sha256": "254f338beaa19f59d99e67b5de112bfc6acfed3fc08a616a3767f20b83cef84e"
+      "bytes": 30436,
+      "sha256": "11bbf0c74daced680ce64aa3e6f36ca790e16d3cbe13e977f5e0e79bacb87cfb"
     },
     {
       "path": "apps/desktop/src/AudioHistory.tsx",
@@ -12593,8 +12593,8 @@
     },
     {
       "path": "apps/desktop/src/deck/Deck.tsx",
-      "bytes": 21534,
-      "sha256": "70b61f37103efd4bb837db8248b0a5f44bf0b09b30fe6338860b796fd58be94f"
+      "bytes": 22065,
+      "sha256": "62ed8796c2362f720a84e2007537dabb2336603d531a638916fbfb64c1b581ec"
     },
     {
       "path": "apps/desktop/src/deck/DraftBarStrip.tsx",
@@ -12918,8 +12918,8 @@
     },
     {
       "path": "apps/desktop/src/live/PostGameSummary.tsx",
-      "bytes": 14359,
-      "sha256": "b32a2da6c55b68e11b0a14d464356de6ed527fb121204c6413245162430feb54"
+      "bytes": 14730,
+      "sha256": "a8105f3672a0ca6f8f9305db4bf0a55dc75b24567a4e796b4bbbb4fd10c71991"
     },
     {
       "path": "apps/desktop/src/live/PregameDashboard.tsx",
@@ -12983,8 +12983,8 @@
     },
     {
       "path": "apps/desktop/src/live/copy.ts",
-      "bytes": 22686,
-      "sha256": "abdeb517ea3efaa0d27b9e18bdc8f7951f642c294b7e9bf4128cfc2db20782bb"
+      "bytes": 23853,
+      "sha256": "6576c686f11fe7460722563dd1e9c65ce67e49e7250c0e27d871be451c2020d6"
     },
     {
       "path": "apps/desktop/src/live/dotaIconSet.ts",
@@ -13038,8 +13038,8 @@
     },
     {
       "path": "apps/desktop/src/live/live.css",
-      "bytes": 38878,
-      "sha256": "7c39251a766c48b4a51f1f16f9e221eab6ebbb269b59ac2423cf9578b1417f9e"
+      "bytes": 39829,
+      "sha256": "398cd2aa95838077747a0739f2af6185a06f76dd8d974ba1a8a16d1c97f0c999"
     },
     {
       "path": "apps/desktop/src/live/meter.ts",
@@ -13083,8 +13083,8 @@
     },
     {
       "path": "apps/desktop/src/live/postGameSummaryModel.ts",
-      "bytes": 22436,
-      "sha256": "d5e5dd4b218cc36282d0cd32323141cb2f61db326ce177612c38beed8288ae6f"
+      "bytes": 25117,
+      "sha256": "2a504c384278a9dc4707465545306b41e6a0f36e5b74519d854037f910f0a8c3"
     },
     {
       "path": "apps/desktop/src/live/pregameDashboardModel.ts",
@@ -13313,8 +13313,8 @@
     },
     {
       "path": "apps/desktop/src/mock/harness.tsx",
-      "bytes": 45805,
-      "sha256": "13f2869745b554261078b5a65cf5eee4f3e52b46c19dd4d9258b19a31c77fc07"
+      "bytes": 48529,
+      "sha256": "0ccbd413cc8b45dd3256d201bfb841f425e0090f9e2d03e3c8299048bd95bba1"
     },
     {
       "path": "apps/desktop/src/mock/hudState.ts",
@@ -13718,8 +13718,8 @@
     },
     {
       "path": "apps/desktop/src/settings/SettingsPage.tsx",
-      "bytes": 3355,
-      "sha256": "db91526c8dd4f00fe58b34555068dd8494adfac2f00456a65e5278b97727bec7"
+      "bytes": 3516,
+      "sha256": "95bc300bf404cc58f2348de6c5bda0caae31b8f69bf6da2e1761ebb51c2f8b7a"
     },
     {
       "path": "apps/desktop/src/settings/heroCardDisplaySettings.css",
@@ -13728,8 +13728,8 @@
     },
     {
       "path": "apps/desktop/src/settings/settingsModel.ts",
-      "bytes": 4068,
-      "sha256": "5498e64f8b52808acb2e7e03471779014222fbb66d486be07f456a2e18de558c"
+      "bytes": 4218,
+      "sha256": "4361cc50ec3fbab78f60634696def41f1264dc8d84b81528c43639b76f0633c1"
     },
     {
       "path": "apps/desktop/src/shared/Dialog.tsx",
@@ -14278,8 +14278,8 @@
     },
     {
       "path": "apps/desktop/tests/live-postgame-summary.test.ts",
-      "bytes": 33146,
-      "sha256": "aa17ff03934e19e6207dd499d18ecd237bb9323c3474e0be9cd902c1d20a0939"
+      "bytes": 45064,
+      "sha256": "b6b13b06d1bb2f2836458efe30afc828184d4c8899c800b8b416d0ab8fc7b390"
     },
     {
       "path": "apps/desktop/tests/live-pregame-dashboard.test.ts",
@@ -14503,8 +14503,8 @@
     },
     {
       "path": "apps/desktop/tests/settings-layout.test.ts",
-      "bytes": 10578,
-      "sha256": "90168352f3f1052fa8de37c01662a00c3c7ef46db295d535df63cf0434a327f8"
+      "bytes": 10854,
+      "sha256": "dcdf61ea14f5ea689ed0413ca087c91ff2c60913d6f6f13d1227d0af9798350c"
     },
     {
       "path": "apps/desktop/tests/shell-css.test.ts",
@@ -14838,8 +14838,8 @@
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 379047,
-      "sha256": "ea5f582c9c5980ab667b0fbc01646f9afad2128fdc141b93f236edf1979d7057"
+      "bytes": 379158,
+      "sha256": "60df5d1a64ab13bc2dd4690221a708fc178a18d8258be2201ddfccc7d9e1c1a6"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -16423,8 +16423,8 @@
     },
     {
       "path": "docs/requirements/RTM.csv",
-      "bytes": 70162,
-      "sha256": "6113fcd0ffd938adc62606cc08872bac1b603ea7ceda130d92ff481976aba0b8"
+      "bytes": 70245,
+      "sha256": "4d2e83e349220b89ab906c057c2953469d515ff07e8d7b1e5f8193245d0f8ffb"
     },
     {
       "path": "docs/requirements/SRS.md",

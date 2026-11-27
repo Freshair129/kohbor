@@ -102,7 +102,7 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
   const steamName = useShowSteamName();
   const launch = useDotaLauncher(steamStatus);
   const [activePage, setActivePage] = useState<ShellPage>(DEFAULT_SHELL_DESTINATION);
-  const [settingsEntryPoint, setSettingsEntryPoint] = useState<"hero-card" | null>(null);
+  const [settingsEntryPoint, setSettingsEntryPoint] = useState<"hero-card" | "replay-ai" | null>(null);
   const [insightsView, setInsightsView] = useState<InsightsView>("summary");
   const [analyticsDetail, setAnalyticsDetail] = useState<AnalyticsReplayDetailsRoute | null>(null);
   const [analyticsRestore, setAnalyticsRestore] = useState<AnalyticsReturnContext | null>(null);
@@ -244,6 +244,10 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
     setSettingsEntryPoint(null);
     setActivePage(destination);
   };
+  const openReplaySettings = () => {
+    setSettingsEntryPoint("replay-ai");
+    setActivePage("settings");
+  };
   const openHeroCardSettings = () => {
     setSettingsEntryPoint("hero-card");
     setActivePage("settings");
@@ -318,7 +322,7 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
             <div className="shell-screen shell-live-page">
               <Deck locale={displayLocale} status={status} snapshot={snapshot} state={deckState} hostLost={hostLost} steamStatus={steamStatus}
                 inMatch={inMatch} matchEnded={matchEnded} secondMonitor={pinnedSide ? { side: pinnedSide } : undefined}
-                onOpenReplay={openPostGameReplay} />
+                onOpenReplay={openPostGameReplay} onOpenReplaySettings={openReplaySettings} />
             </div>
           )}
 

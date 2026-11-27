@@ -2384,7 +2384,9 @@
           "apps/desktop/src-tauri/src/post_game_replay.rs",
           "apps/desktop/src-tauri/src/status.rs",
           "apps/desktop/src-tauri/src/commands.rs",
+          "apps/desktop/src-tauri/src/lib.rs",
           "apps/desktop/src-tauri/src/hero_stats/benchmarks.rs",
+          "apps/desktop/src-tauri/src/replay_library/mod.rs",
           "apps/desktop/tests/live-postgame-summary.test.ts",
           "apps/desktop/tests/match-summary-model.test.mjs"
         ],

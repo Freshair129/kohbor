@@ -81,7 +81,8 @@ test("every existing settings control and renderer section occurs exactly once",
   assert.match(settingsPage, /SETTINGS_SECTIONS\.map/);
   assert.match(settingsPage, /section\.id === "hero-card" \? sections\[section\.id\] \?\? <HeroCardDisplaySettings/);
   assert.doesNotMatch(settingsPage, /ReplayAutoParseSetting/);
-  assert.match(settingsPage, /initialSection\?: "overlay-layout" \| "hero-card" \| null/);
+  assert.match(settingsPage, /initialSection\?: "overlay-layout" \| "hero-card" \| "replay-ai" \| null/);
+  assert.match(settingsPage, /if \(initialSection === "replay-ai"\) setActiveSection\("replay-ai"\)/);
   assert.match(settingsPage, /hidden=\{activeSection !== section\.id\}/);
   assert.match(appSource, /<div className="shell-screen shell-settings">\s*<ObjectiveSettings/);
 });

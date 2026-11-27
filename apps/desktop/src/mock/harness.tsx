@@ -51,9 +51,9 @@ const MOCK_DEBRIEF_LAST_FINISHED = {
   matchKey: MOCK_DEBRIEF_MATCH_KEY,
   endedAt: 1_800_000_000,
   endValues: {
-    heroId: "npc_dota_hero_axe", result: "win", kills: 12, deaths: 4, assists: 19,
-    lastHits: 210, denies: 13, gpm: 520, xpm: 610, level: 12, netWorth: 28_400,
-    durationSeconds: 2_401, radiantScore: 41, direScore: 39, gameMode: 23, patch: "7.42",
+    heroId: "npc_dota_hero_legion_commander", result: "win", kills: 12, deaths: 4, assists: 19,
+    lastHits: 210, denies: 13, gpm: 520, xpm: 610, level: 12, netWorth: null,
+    durationSeconds: 2_401, radiantScore: 41, direScore: 39, gameMode: 23, patch: null,
     items: ["item_blink", "item_blade_mail", "item_boots", "item_black_king_bar", "item_heart", "item_tpscroll"],
     backpack: ["item_blink", null, null], neutralItem: "item_moon_shard",
   },
@@ -88,7 +88,9 @@ let callbackId = 0;
 let eventId = 0;
 let playbackSequence = 0;
 let mockHeroBenchmarksOn = false;
-let mockStage2ReplayReady = false;
+type MockReplayState = "not_found" | "available" | "queued" | "parsing" | "ready" | "failed" | "needs_pack" | "auto_parse_off";
+let mockStage2ReplayState: MockReplayState = "available";
+let mockDebriefHeroId = "npc_dota_hero_legion_commander";
 const callbacks = new Map<number, MockCallback>();
 const listeners = new Map<number, MockEventBinding>();
 const channel = typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel(MOCK_CHANNEL);
@@ -159,7 +161,9 @@ function currentOwnSnapshot(): OwnSnapshot {
 
 function chooseMockDeckScenario(scenario: MockDeckScenario) {
   mockDeckScenario = scenario;
-  mockStage2ReplayReady = false;
+  mockStage2ReplayState = "available";
+  mockDebriefHeroId = "npc_dota_hero_legion_commander";
+  MOCK_DEBRIEF_ROSTER[0] = mockDebriefHeroId;
   seedSyntheticDraftRosterForHarness(scenario === "debrief" ? MOCK_DEBRIEF_EPOCH : null,
     scenario === "debrief" ? MOCK_DEBRIEF_ROSTER : []);
   mockSnapshotAvailability = scenario === "standby" ? "unknown" : scenario === "stale" ? "stale" : "fresh";
@@ -614,21 +618,33 @@ export function installMockHarness() {
         const linkedDebrief = mockDeckScenario === "debrief" && args.sessionEpoch === MOCK_DEBRIEF_EPOCH;
         if (!linkedDebrief) return {
           ready: false, matchKey: null, bundleMatchId: null, sessionMatchId: null, digest: null,
-          headline: { deaths: null, netWorth: null }, parseState: "not_found", failureReason: null,
+          headline: { deaths: null, netWorth: null }, parseState: "not_found", parseContext: "match", failureReason: null,
           lastFinishedMatch: null, watcher: { state: "unknown", folder: "unknown", lastScanAtMs: null },
         };
+        const ready = mockStage2ReplayState === "ready";
+        const lastFinishedMatch = structuredClone(MOCK_DEBRIEF_LAST_FINISHED);
+        lastFinishedMatch.endValues.heroId = mockDebriefHeroId;
+        const digest = structuredClone(MOCK_DEBRIEF_DIGEST);
+        digest.heroes[0].id = mockDebriefHeroId;
         return {
-          ready: mockStage2ReplayReady,
+          ready,
           matchKey: MOCK_DEBRIEF_MATCH_KEY,
-          bundleMatchId: mockStage2ReplayReady ? MOCK_DEBRIEF_MATCH_ID : null,
+          bundleMatchId: ready ? MOCK_DEBRIEF_MATCH_ID : null,
           sessionMatchId: MOCK_DEBRIEF_MATCH_ID,
-          digest: mockStage2ReplayReady ? structuredClone(MOCK_DEBRIEF_DIGEST) : null,
-          headline: { deaths: 4, netWorth: 28_400 },
-          parseState: mockStage2ReplayReady ? "ready" : "available",
+          digest: ready ? digest : null,
+          headline: { deaths: 4, netWorth: ready ? 28_400 : null },
+          parseState: mockStage2ReplayState,
+          parseContext: "match",
           failureReason: null,
-          lastFinishedMatch: structuredClone(MOCK_DEBRIEF_LAST_FINISHED),
+          lastFinishedMatch,
           watcher: { state: "unknown", folder: "known", lastScanAtMs: null },
         };
+      }
+      if (command === "post_game_replay_state") {
+        const linkedDebrief = mockDeckScenario === "debrief" && args.sessionEpoch === MOCK_DEBRIEF_EPOCH;
+        return linkedDebrief
+          ? { state: mockStage2ReplayState, context: "match" }
+          : { state: "not_found", context: "unknown" };
       }
       if (command === "match_history_get") {
         const entry = {
@@ -868,7 +884,8 @@ export function MockScenarioSwitcher() {
   const [lastScenario, setLastScenario] = useState<ScenarioName | null>(null);
   const [lastProbeReport, setLastProbeReport] = useState<string | null>(null);
   const [deckScenario, setDeckScenario] = useState<MockDeckScenario>("live");
-  const [stage2ReplayReady, setStage2ReplayReady] = useState(false);
+  const [replayState, setReplayState] = useState<MockReplayState>("available");
+  const [debriefHeroId, setDebriefHeroId] = useState("npc_dota_hero_legion_commander");
   const [snapshotAvailability, setSnapshotAvailability] = useState<MockSnapshotAvailability>("fresh");
   const th = copy("th").mockScenarios;
   const en = copy("en").mockScenarios;
@@ -920,8 +937,9 @@ export function MockScenarioSwitcher() {
                 setDeckScenario(next);
                 const defaultAvailability = next === "standby" ? "unknown" : next === "stale" ? "stale" : "fresh";
                 setSnapshotAvailability(defaultAvailability);
+                setReplayState("available");
+                setDebriefHeroId("npc_dota_hero_legion_commander");
                 chooseMockDeckScenario(next);
-                setStage2ReplayReady(false);
               }}
             >
               <option value="standby">รอข้อมูล / Standby</option>
@@ -931,15 +949,42 @@ export function MockScenarioSwitcher() {
               <option value="debrief">หลังเกม / Debrief</option>
             </select>
           </label>
-          {deckScenario === "debrief" && <label>
-            <input type="checkbox" checked={stage2ReplayReady} onChange={(event) => {
-              const ready = event.currentTarget.checked;
-              setStage2ReplayReady(ready);
-              mockStage2ReplayReady = ready;
-              deliver("replay-library://state-changed", {});
-            }} />
-            Stage 2 replay ready / พร้อมสรุป replay · synthetic digest
-          </label>}
+          {deckScenario === "debrief" && <>
+            <label>
+              Hero name / ชื่อฮีโร่
+              <select value={debriefHeroId} onChange={(event) => {
+                const heroId = event.currentTarget.value;
+                setDebriefHeroId(heroId);
+                mockDebriefHeroId = heroId;
+                MOCK_DEBRIEF_ROSTER[0] = mockDebriefHeroId;
+                seedSyntheticDraftRosterForHarness(MOCK_DEBRIEF_EPOCH, MOCK_DEBRIEF_ROSTER);
+                deliver("replay-library://state-changed", {});
+              }}>
+                <option value="npc_dota_hero_legion_commander">Legion Commander</option>
+                <option value="npc_dota_hero_obsidian_destroyer">Outworld Destroyer</option>
+                <option value="npc_dota_hero_keeper_of_the_light">Keeper of the Light</option>
+                <option value="npc_dota_hero_furion">Nature's Prophet</option>
+              </select>
+            </label>
+            <label>
+              Replay state / สถานะรีเพลย์
+              <select value={replayState} onChange={(event) => {
+                const next = event.currentTarget.value as MockReplayState;
+                setReplayState(next);
+                mockStage2ReplayState = next;
+                deliver("replay-library://state-changed", {});
+              }}>
+                <option value="not_found">Not found / ยังไม่พบ</option>
+                <option value="available">Found / พบแล้ว</option>
+                <option value="queued">Queued / รอคิว</option>
+                <option value="parsing">Parsing / กำลังแยก</option>
+                <option value="ready">Ready · Stage 2 / พร้อมดู · Stage 2</option>
+                <option value="failed">Failed / แยกไม่สำเร็จ</option>
+                <option value="needs_pack">Needs pack / ต้องมีชุดข้อมูล</option>
+                <option value="auto_parse_off">Auto-parse off / ปิดแยกอัตโนมัติ</option>
+              </select>
+            </label>
+          </>}
           <label>
             ความสดของ snapshot ตัวคุณ / Own snapshot
             <select

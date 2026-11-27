@@ -5,24 +5,11 @@ import { dotaIcon } from "./dotaIconSet";
 import { HeroPortrait } from "../deck/HeroPortrait";
 import { finalOwnDerivedStats } from "./heroCardModel";
 import { postGameCopy } from "./copy";
-import type { PostGameSummaryLayoutMode, PostGameSummaryView, ReplayParseState } from "./postGameSummaryModel";
-import { fitTimelineRows, postGameSummaryLayoutMode } from "./postGameSummaryModel";
+import type { PostGameSummaryLayoutMode, PostGameSummaryView } from "./postGameSummaryModel";
+import { fitTimelineRows, postGameDerivedStatPresentation, postGameSummaryLayoutMode } from "./postGameSummaryModel";
 import type { StatsData } from "../stats/derivedStats";
 
 const LIVE_STATS_DATA = liveStatsPack as unknown as StatsData;
-
-function parseStateLabel(state: ReplayParseState, text: ReturnType<typeof postGameCopy>): string {
-  switch (state) {
-    case "not_found": return text.stateNotFound;
-    case "available": return text.stateAvailable;
-    case "queued": return text.stateQueued;
-    case "parsing": return text.stateParsing;
-    case "ready": return text.stateReady;
-    case "failed": return text.stateFailed;
-    case "needs_pack": return text.stateNeedsPack;
-    default: return text.watcherUnknown;
-  }
-}
 
 function ItemIcon({ id, label, neutral = false }: { id: string | null; label: string; neutral?: boolean }) {
   if (!id) return <span className={`live-postgame-item is-unknown${neutral ? " is-neutral" : ""}`} title={`${label}: —`} aria-label={`${label}: —`}>—</span>;
@@ -32,11 +19,27 @@ function ItemIcon({ id, label, neutral = false }: { id: string | null; label: st
   </span>;
 }
 
-export function PostGameSummary({ summary, locale, onClose, onOpenReplay, onPickReplay, pickPending, pickFailed }: {
+function ReplayStateMessage({ summary, onOpenReplaySettings }: {
+  summary: PostGameSummaryView;
+  onOpenReplaySettings?: () => void;
+}) {
+  const state = summary.replayState;
+  return <>
+    <strong>{state.label}</strong>
+    {state.hint && <small className="live-postgame-state-hint">{state.hint}</small>}
+    {state.settingsSection && onOpenReplaySettings && <a className="live-postgame-settings-link" href="#settings-section-replay-ai"
+      onClick={event => { event.preventDefault(); onOpenReplaySettings(); }}>
+      {state.settingsLinkLabel}
+    </a>}
+  </>;
+}
+
+export function PostGameSummary({ summary, locale, onClose, onOpenReplay, onOpenReplaySettings, onPickReplay, pickPending, pickFailed }: {
   summary: PostGameSummaryView;
   locale: "th" | "en";
   onClose: () => void;
   onOpenReplay: (matchKey?: string) => void;
+  onOpenReplaySettings?: () => void;
   onPickReplay: () => void;
   pickPending: boolean;
   pickFailed: boolean;
@@ -62,11 +65,11 @@ export function PostGameSummary({ summary, locale, onClose, onOpenReplay, onPick
   );
   const benchmarkFor = (key: string) => summary.heroHeader.benchmarkComparisons.find(metric => metric.key === key) ?? null;
   const heroMetrics = [
-    { key: "kda", label: text.kda, value: summary.heroHeader.kda, comparison: benchmarkFor("kpm") },
-    { key: "lhdn", label: text.lastHitsDenies, value: summary.heroHeader.lastHitsDenies, comparison: benchmarkFor("lhpm") },
-    { key: "gpm", label: "GPM", value: summary.heroHeader.gpm, comparison: benchmarkFor("gpm") },
-    { key: "xpm", label: "XPM", value: summary.heroHeader.xpm, comparison: benchmarkFor("xpm") },
-    { key: "netWorth", label: text.netWorth, value: summary.heroHeader.netWorth, comparison: null },
+    { key: "kda", label: text.kda, value: summary.heroHeader.kda, comparison: benchmarkFor("kpm"), reason: null },
+    { key: "lhdn", label: text.lastHitsDenies, value: summary.heroHeader.lastHitsDenies, comparison: benchmarkFor("lhpm"), reason: null },
+    { key: "gpm", label: "GPM", value: summary.heroHeader.gpm, comparison: benchmarkFor("gpm"), reason: null },
+    { key: "xpm", label: "XPM", value: summary.heroHeader.xpm, comparison: benchmarkFor("xpm"), reason: null },
+    { key: "netWorth", label: text.netWorth, value: summary.heroHeader.netWorth, comparison: null, reason: summary.heroHeader.netWorthReason },
   ];
   const copyMatchId = async () => {
     const matchId = summary.resultBanner.matchId;
@@ -136,7 +139,7 @@ export function PostGameSummary({ summary, locale, onClose, onOpenReplay, onPick
           <div className="live-postgame-banner-meta">
             <span>{text.duration} {summary.resultBanner.duration}</span>
             {summary.resultBanner.gameMode && <span>{text.gameMode} {summary.resultBanner.gameMode}</span>}
-            <span>{text.patch} {summary.resultBanner.patch}</span>
+            {summary.resultBanner.patch && <span>{text.patch} {summary.resultBanner.patch}</span>}
           </div>
           <div className="live-postgame-match-id"><span>{text.matchId}: {summary.resultBanner.matchId ?? "—"}</span>
             <button type="button" onClick={() => void copyMatchId()} disabled={!summary.resultBanner.matchId} aria-label={text.copyMatchId}>
@@ -146,7 +149,6 @@ export function PostGameSummary({ summary, locale, onClose, onOpenReplay, onPick
         </div>
         <div className="live-postgame-banner-score">
           <strong>{summary.resultBanner.finalScore}</strong>
-          <span>Radiant · Dire</span>
         </div>
       </section>
 
@@ -160,6 +162,7 @@ export function PostGameSummary({ summary, locale, onClose, onOpenReplay, onPick
           {heroMetrics.map(metric => <div key={metric.key}>
             <dt>{metric.label}</dt>
             <dd>{metric.value}</dd>
+            {metric.reason && <small className="live-postgame-stat-reason" title={text.netWorthAfterReplay}>{metric.reason}</small>}
             {metric.comparison && <span className="live-postgame-stat-comparison">{metric.comparison.label}: {metric.comparison.value} · P{Math.round(metric.comparison.percentile)}</span>}
           </div>)}
         </dl>
@@ -195,13 +198,16 @@ export function PostGameSummary({ summary, locale, onClose, onOpenReplay, onPick
               <h3>{text.derivedStats}</h3>
               <dl className="live-postgame-derived-stats">
                 {derivedStats.map(stat => <div key={stat.label}>
-                  <dt>{stat.label}{"basisLabel" in stat && stat.basisLabel ? <small title={stat.basisTitle}>{stat.basisLabel}</small> : null}</dt>
-                  <dd title={["sources" in stat ? stat.sources?.join(" · ") : null, text.withoutTemporaryEffects,
-                    "basisTitle" in stat ? stat.basisTitle : null].filter(Boolean).join("\n")}>{stat.value ?? "—"}</dd>
+                  {(() => {
+                    const cell = postGameDerivedStatPresentation(stat, text.withoutTemporaryEffects);
+                    return <><dt>{cell.label}</dt><dd title={cell.title}>{cell.value}</dd></>;
+                  })()}
                 </div>)}
               </dl>
             </section>}
-            <p className="live-postgame-waiting">{summary.lastFinishedMatchAvailable ? text.waitingForReplay : text.noReplayKey}</p>
+            <div className="live-postgame-waiting" role="status" data-state={summary.replayParseState}>
+              <ReplayStateMessage summary={summary} onOpenReplaySettings={onOpenReplaySettings} />
+            </div>
           </>}
         </div>}
 
@@ -225,7 +231,7 @@ export function PostGameSummary({ summary, locale, onClose, onOpenReplay, onPick
               <p className="live-postgame-watcher"><strong>{text.replayFolder}:</strong> {watcherFolder}</p>
               <p className="live-postgame-watcher"><strong>{text.lastScan}:</strong> {lastScan}</p>
               <p className="live-postgame-parse-state" data-state={summary.replayParseState}>
-                {parseStateLabel(summary.replayParseState, text)}
+                <ReplayStateMessage summary={summary} onOpenReplaySettings={onOpenReplaySettings} />
                 {summary.replayFailureReason && summary.replayParseState === "failed" ? ` · ${summary.replayFailureReason}` : ""}
               </p>
               <button type="button" onClick={onPickReplay} disabled={pickPending}>{pickPending ? text.picking : text.manualPick}</button>
@@ -238,7 +244,7 @@ export function PostGameSummary({ summary, locale, onClose, onOpenReplay, onPick
                   <dt>{item.label === "Deaths" || item.label === "จำนวนครั้งที่ตาย" ? text.deaths : text.netWorth}</dt><dd>{item.value}</dd>
                 </div>)}</dl>
                 <button type="button" onClick={() => onOpenReplay(summary.replay?.openMatchKey)}>{text.openAnalysis}</button>
-              </> : <p>{summary.lastFinishedMatchAvailable ? text.waitingForReplay : text.noReplayKey}</p>}
+              </> : <p><ReplayStateMessage summary={summary} onOpenReplaySettings={onOpenReplaySettings} /></p>}
             </li>
           </ol>
         </section>}

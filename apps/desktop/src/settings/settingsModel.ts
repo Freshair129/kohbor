@@ -74,8 +74,9 @@ export function rememberSettingsSection(section: SettingsSectionId, storage: Pic
   }
 }
 
-export function initialSettingsSection(entryPoint: "layout" | "hero-card" | null, lastSection: unknown): SettingsSectionId {
+export function initialSettingsSection(entryPoint: "layout" | "hero-card" | "replay-ai" | null, lastSection: unknown): SettingsSectionId {
   if (entryPoint === "layout") return "overlay-layout";
   if (entryPoint === "hero-card") return "hero-card";
+  if (entryPoint === "replay-ai") return "replay-ai";
   return isSettingsSectionId(lastSection) ? lastSection : DEFAULT_SETTINGS_SECTION;
 }

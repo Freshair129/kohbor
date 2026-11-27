@@ -41,6 +41,22 @@ enum PostGameParseState {
     Ready,
     Failed,
     NeedsPack,
+    AutoParseOff,
+    Unknown,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PostGameReplayStateReply {
+    state: PostGameParseState,
+    context: PostGameReplayStateContext,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum PostGameReplayStateContext {
+    Match,
+    Latest,
     Unknown,
 }
 
@@ -190,6 +206,96 @@ fn parse_state(status: &ReplayStatus) -> PostGameParseState {
     }
 }
 
+fn is_watched_dota_replay(entry: &ReplayLibraryEntry) -> bool {
+    if entry.source != crate::replay_library::ReplaySource::DotaReplaysFolder {
+        return false;
+    }
+    let path = Path::new(&entry.source_path);
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("dem"))
+}
+
+fn is_session_match_id(value: &str) -> bool {
+    if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
+        return false;
+    }
+    value
+        .parse::<u64>()
+        .is_ok_and(|number| number > 0 && number.to_string() == value)
+}
+
+fn entry_state(entry: &ReplayLibraryEntry, auto_parse_enabled: bool) -> PostGameParseState {
+    match &entry.status {
+        ReplayStatus::Available if !auto_parse_enabled => PostGameParseState::AutoParseOff,
+        status => parse_state(status),
+    }
+}
+
+/// Match a watched .dem row to the in-memory session ID inside the host. The renderer receives
+/// only two enums. A ready exact match must also pass the existing install-keyed history link and
+/// bundle validation; otherwise the latest watched row is shown as context only.
+fn lookup_post_game_replay_state(
+    session_match_id: Option<&str>,
+    record: Option<&LastFinishedMatchRecord>,
+    entries: &[ReplayLibraryEntry],
+    auto_parse_enabled: bool,
+    mut match_key_for: impl FnMut(&str) -> Option<String>,
+    mut open_validated_bundle: impl FnMut(&str) -> bool,
+) -> PostGameReplayStateReply {
+    let matching_entry = session_match_id
+        .filter(|match_id| is_session_match_id(match_id))
+        .and_then(|match_id| {
+            entries
+                .iter()
+                .filter(|entry| is_watched_dota_replay(entry))
+                .filter(|entry| Path::new(&entry.source_path).file_stem().and_then(|stem| stem.to_str()) == Some(match_id))
+                .max_by_key(|entry| entry.created_at_unix_ms)
+        });
+
+    if let Some(entry) = matching_entry {
+        let state = match &entry.status {
+            ReplayStatus::Ready => {
+                let history_linked = record.is_some_and(|record| {
+                    match_key_for(&entry.match_id).as_deref() == Some(record.match_key.as_str())
+                });
+                if history_linked && open_validated_bundle(&entry.match_id) {
+                    Some(PostGameParseState::Ready)
+                } else {
+                    None
+                }
+            }
+            _ => Some(entry_state(entry, auto_parse_enabled)),
+        };
+        if let Some(state) = state {
+            return PostGameReplayStateReply {
+                state,
+                context: PostGameReplayStateContext::Match,
+            };
+        }
+    }
+
+    if let Some(entry) = entries
+        .iter()
+        .filter(|entry| is_watched_dota_replay(entry))
+        .max_by_key(|entry| entry.created_at_unix_ms)
+    {
+        return PostGameReplayStateReply {
+            state: entry_state(entry, auto_parse_enabled),
+            context: PostGameReplayStateContext::Latest,
+        };
+    }
+
+    PostGameReplayStateReply {
+        state: PostGameParseState::NotFound,
+        context: if session_match_id.is_some_and(is_session_match_id) {
+            PostGameReplayStateContext::Match
+        } else {
+            PostGameReplayStateContext::Unknown
+        },
+    }
+}
+
 /// Map the replay library's watcher state (W2) to the post-game view. No path is returned: only
 /// whether the Dota replay folder was found and when the last scan ran.
 fn watcher_from_state(state: &crate::replay_library::ReplayWatcherState) -> PostGameWatcherReply {
@@ -294,6 +400,36 @@ pub(crate) fn post_game_replay_summary(
     ))
 }
 
+#[tauri::command(async)]
+pub(crate) fn post_game_replay_state(
+    webview: tauri::Webview,
+    state: State<'_, AppState>,
+    analytics: State<'_, AnalyticsService>,
+    library: State<'_, ReplayLibrary>,
+    session_epoch: Option<u64>,
+) -> Result<PostGameReplayStateReply, String> {
+    if webview.label() != "control" {
+        return Err("window_not_allowed".to_owned());
+    }
+    let record = read_last_finished_match(&state.settings_dir)
+        .filter(|record| session_epoch.is_none_or(|epoch| record.epoch == epoch));
+    let session_match_id = record.as_ref().and_then(|record| {
+        crate::intake::lock(&state.runtime.shared).current_match_id_for_epoch(record.epoch)
+    });
+    let entries = match library.watched_entries() {
+        Ok(entries) => entries,
+        Err(_) => Vec::new(),
+    };
+    Ok(lookup_post_game_replay_state(
+        session_match_id.as_deref(),
+        record.as_ref(),
+        &entries,
+        library.auto_analyse_enabled(),
+        |match_id| analytics.store().match_key(match_id).ok(),
+        |match_id| library.open_bundle(match_id).is_ok(),
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -351,6 +487,16 @@ mod tests {
             patch: None,
             pinned: false,
             auto_queued: false,
+        }
+    }
+
+    fn watched_entry(match_id: &str, path: &str, status: ReplayStatus, created_at_unix_ms: u64) -> ReplayLibraryEntry {
+        ReplayLibraryEntry {
+            source: ReplaySource::DotaReplaysFolder,
+            source_path: path.to_owned(),
+            status,
+            created_at_unix_ms,
+            ..entry(match_id)
         }
     }
 
@@ -463,5 +609,77 @@ mod tests {
         assert!(serialized.contains(raw_match_id));
         assert!(!serialized.contains("private-source-path.dem"));
         assert!(serialized.contains(SESSION_KEY));
+    }
+
+    #[test]
+    fn synthetic_replay_state_lookup_maps_each_watched_state_and_auto_parse_setting() {
+        let statuses = [
+            (ReplayStatus::Available, PostGameParseState::Available),
+            (ReplayStatus::Queued, PostGameParseState::Queued),
+            (ReplayStatus::Parsing, PostGameParseState::Parsing),
+            (ReplayStatus::Ready, PostGameParseState::Ready),
+            (ReplayStatus::Failed { reason: "synthetic".to_owned() }, PostGameParseState::Failed),
+            (ReplayStatus::NeedsPack, PostGameParseState::NeedsPack),
+            (ReplayStatus::Evicted, PostGameParseState::NotFound),
+        ];
+        for (status, expected) in statuses {
+            let row = watched_entry("123456789", "D:/synthetic/123456789.dem", status, 10);
+            let state = lookup_post_game_replay_state(
+                Some("123456789"), Some(&last_match()), &[row], true,
+                |_| Some(SESSION_KEY.to_owned()), |_| true,
+            );
+            assert_eq!(state.state, expected);
+            assert_eq!(state.context, PostGameReplayStateContext::Match);
+        }
+        let row = watched_entry("123456789", "D:/synthetic/123456789.dem", ReplayStatus::Available, 10);
+        assert_eq!(lookup_post_game_replay_state(
+            Some("123456789"), Some(&last_match()), &[row], false, |_| None, |_| false,
+        ).state, PostGameParseState::AutoParseOff);
+    }
+
+    #[test]
+    fn synthetic_replay_state_uses_newest_watched_row_when_the_current_match_cannot_be_matched() {
+        let entries = [
+            watched_entry("1", "D:/synthetic/1.dem", ReplayStatus::Queued, 1),
+            watched_entry("2", "D:/synthetic/2.dem", ReplayStatus::Parsing, 2),
+        ];
+        let state = lookup_post_game_replay_state(None, None, &entries, true, |_| None, |_| false);
+        assert_eq!(state.state, PostGameParseState::Parsing);
+        assert_eq!(state.context, PostGameReplayStateContext::Latest);
+    }
+
+    #[test]
+    fn synthetic_replay_state_reply_never_contains_the_session_id_or_replay_path() {
+        let session_id = "8000000001";
+        let path = "D:/private-user-data/8000000001.dem";
+        let row = watched_entry(session_id, path, ReplayStatus::Parsing, 10);
+        let reply = lookup_post_game_replay_state(Some(session_id), Some(&last_match()), &[row], true, |_| None, |_| false);
+        let serialized = serde_json::to_string(&reply).unwrap();
+        let diagnostic = format!("{reply:?}");
+        assert_eq!(reply.state, PostGameParseState::Parsing);
+        assert_eq!(reply.context, PostGameReplayStateContext::Match);
+        for output in [serialized, diagnostic] {
+            assert!(!output.contains(session_id));
+            assert!(!output.contains(path));
+        }
+        // This pure lookup has no logging dependency or log call; only its enum reply escapes.
+    }
+
+    #[test]
+    fn synthetic_ready_replay_state_requires_the_history_hash_and_validated_bundle_even_when_own_hero_is_null() {
+        let mut ready = watched_entry("123456789", "D:/synthetic/123456789.dem", ReplayStatus::Ready, 10);
+        ready.own_hero = None;
+        let state = lookup_post_game_replay_state(
+            Some("123456789"), Some(&last_match()), &[ready.clone()], true,
+            |_| Some(SESSION_KEY.to_owned()), |_| true,
+        );
+        assert_eq!(state.state, PostGameParseState::Ready);
+        assert_eq!(state.context, PostGameReplayStateContext::Match);
+        let unlinked = lookup_post_game_replay_state(
+            Some("123456789"), Some(&last_match()), &[ready], true,
+            |_| Some("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_owned()), |_| true,
+        );
+        assert_eq!(unlinked.state, PostGameParseState::Ready);
+        assert_eq!(unlinked.context, PostGameReplayStateContext::Latest);
     }
 }
