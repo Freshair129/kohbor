@@ -145,7 +145,24 @@ pub(crate) fn validate_persisted_settings(value: &Value) -> Result<(u64, &str), 
     let Some(object) = value.as_object() else {
         return Err(SOURCE_INVALID);
     };
-    if !has_exact_keys(object, &["schema_version", "revision", "locale", "gsi"]) {
+    let old_keys = has_exact_keys(object, &["schema_version", "revision", "locale", "gsi"]);
+    let new_keys = has_exact_keys(
+        object,
+        &[
+            "schema_version",
+            "revision",
+            "locale",
+            "replay_auto_fetch_enabled",
+            "gsi",
+        ],
+    );
+    if !old_keys && !new_keys {
+        return Err(SOURCE_INVALID);
+    }
+    if object
+        .get("replay_auto_fetch_enabled")
+        .is_some_and(|value| !value.is_boolean())
+    {
         return Err(SOURCE_INVALID);
     }
     if object.get("schema_version").and_then(Value::as_str) != Some("1.0.0") {
@@ -193,7 +210,45 @@ pub(crate) fn settings_for_patch(data_dir: &Path) -> Result<Value, String> {
 
 fn response(value: &Value) -> Result<Value, &'static str> {
     let (revision, locale) = current_settings(value)?;
-    Ok(json!({"revision": revision, "locale": locale}))
+    Ok(json!({
+        "revision": revision,
+        "locale": locale,
+        "replay_auto_fetch_enabled": value
+            .get("replay_auto_fetch_enabled")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+    }))
+}
+
+pub(crate) fn replay_auto_fetch_enabled(data_dir: &Path) -> bool {
+    settings_for_patch(data_dir)
+        .ok()
+        .filter(|settings| validate_persisted_settings(settings).is_ok())
+        .and_then(|settings| {
+            settings
+                .get("replay_auto_fetch_enabled")
+                .and_then(Value::as_bool)
+        })
+        .unwrap_or(false)
+}
+
+/// Enable only after the renderer has shown the replay-fetch disclosure and the user accepted it.
+pub(crate) fn set_replay_auto_fetch_enabled(
+    data_dir: &Path,
+    enabled: bool,
+    consent_accepted: bool,
+) -> Result<bool, String> {
+    if enabled && !consent_accepted {
+        return Err("CONSENT_REQUIRED".to_owned());
+    }
+    let mut settings = settings_for_patch(data_dir)?;
+    validate_persisted_settings(&settings).map_err(|_| SOURCE_INVALID.to_owned())?;
+    let next_revision = checked_next_revision(&settings["revision"]).map_err(str::to_owned)?;
+    settings["revision"] = json!(next_revision);
+    settings["replay_auto_fetch_enabled"] = json!(enabled);
+    let bytes = serde_json::to_vec_pretty(&settings).map_err(|_| WRITE_FAILED.to_owned())?;
+    atomic::write(&intake::settings_path(data_dir), &bytes).map_err(|_| WRITE_FAILED.to_owned())?;
+    Ok(enabled)
 }
 
 /// Returns the persisted settings revision and locale. A missing file uses
@@ -277,7 +332,10 @@ mod tests {
     #[test]
     fn missing_files_keep_defaults_and_corrupt_files_are_rejected() {
         let dir = data_dir();
-        assert_eq!(get(&dir).unwrap(), json!({"revision": 1, "locale": "th"}));
+        assert_eq!(
+            get(&dir).unwrap(),
+            json!({"revision": 1, "locale": "th", "replay_auto_fetch_enabled": false})
+        );
         let path = intake::settings_path(&dir);
         let corrupt = b"{not json";
         fs::write(&path, corrupt).unwrap();
@@ -294,7 +352,7 @@ mod tests {
 
         assert_eq!(
             patch(&dir, &request(json!(7), "en")).unwrap(),
-            json!({"revision": 8, "locale": "en"})
+            json!({"revision": 8, "locale": "en", "replay_auto_fetch_enabled": false})
         );
         let saved: Value =
             serde_json::from_slice(&fs::read(intake::settings_path(&dir)).unwrap()).unwrap();
@@ -310,7 +368,7 @@ mod tests {
         let dir = data_dir();
         assert_eq!(
             patch(&dir, &request(json!(1.0), "en")).unwrap(),
-            json!({"revision": 2, "locale": "en"})
+            json!({"revision": 2, "locale": "en", "replay_auto_fetch_enabled": false})
         );
         let saved: Value =
             serde_json::from_slice(&fs::read(intake::settings_path(&dir)).unwrap()).unwrap();
@@ -452,6 +510,44 @@ mod tests {
             serde_json::from_slice(&fs::read(intake::settings_path(&dir)).unwrap()).unwrap();
         assert_eq!(after["gsi"], original["gsi"]);
         assert_eq!(fs::read(temp_path.join("sentinel")).unwrap(), b"preserve");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn replay_auto_fetch_defaults_off_requires_consent_and_persists_independently() {
+        let dir = data_dir();
+        assert!(!replay_auto_fetch_enabled(&dir));
+        let original = settings_with_gsi();
+        let original_bytes = write_settings(&dir, &original);
+        assert_eq!(
+            set_replay_auto_fetch_enabled(&dir, true, false),
+            Err("CONSENT_REQUIRED".to_owned())
+        );
+        assert_eq!(
+            fs::read(intake::settings_path(&dir)).unwrap(),
+            original_bytes
+        );
+        assert_eq!(set_replay_auto_fetch_enabled(&dir, true, true), Ok(true));
+        assert!(replay_auto_fetch_enabled(&dir));
+        let saved: Value =
+            serde_json::from_slice(&fs::read(intake::settings_path(&dir)).unwrap()).unwrap();
+        assert_eq!(saved["replay_auto_fetch_enabled"], json!(true));
+        assert_eq!(saved["revision"], json!(8));
+        assert_eq!(set_replay_auto_fetch_enabled(&dir, false, false), Ok(false));
+        assert!(!replay_auto_fetch_enabled(&dir));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn unknown_or_corrupt_replay_auto_fetch_value_is_off() {
+        let dir = data_dir();
+        let mut settings = settings_with_gsi();
+        settings["replay_auto_fetch_enabled"] = json!("enabled");
+        write_settings(&dir, &settings);
+        assert!(!replay_auto_fetch_enabled(&dir));
+        let path = intake::settings_path(&dir);
+        fs::write(&path, b"{broken").unwrap();
+        assert!(!replay_auto_fetch_enabled(&dir));
         let _ = fs::remove_dir_all(dir);
     }
 }

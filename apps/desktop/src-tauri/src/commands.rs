@@ -4,11 +4,11 @@
 use crate::audio_prefs::{AudioPrefs, AudioPrefsService};
 use crate::hotkeys::{StartFailure, VolumeStep};
 use crate::intake::lock;
-use crate::{AppState, settings, status};
-use serde_json::{Map, Value, json};
-use std::sync::Arc;
+use crate::{settings, status, AppState};
+use serde_json::{json, Map, Value};
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::{Emitter as TauriEmitter, Manager};
 
@@ -76,16 +76,16 @@ pub(crate) fn replay_library_pick_file(
 #[cfg(windows)]
 mod replay_file_dialog {
     use std::ffi::c_void;
+    use windows::core::w;
     use windows::Win32::System::Com::{
-        CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED, CoCreateInstance, CoInitializeEx,
-        CoTaskMemFree, CoUninitialize,
+        CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_INPROC_SERVER,
+        COINIT_APARTMENTTHREADED,
     };
     use windows::Win32::UI::Shell::Common::COMDLG_FILTERSPEC;
     use windows::Win32::UI::Shell::{
-        FOS_FILEMUSTEXIST, FOS_FORCEFILESYSTEM, FOS_PATHMUSTEXIST, FileOpenDialog, IFileOpenDialog,
+        FileOpenDialog, IFileOpenDialog, FOS_FILEMUSTEXIST, FOS_FORCEFILESYSTEM, FOS_PATHMUSTEXIST,
         SIGDN_FILESYSPATH,
     };
-    use windows::core::w;
 
     struct ComApartment;
 
@@ -995,9 +995,10 @@ pub(crate) fn hero_benchmarks_set(
     state: tauri::State<'_, AppState>,
     enabled: bool,
 ) -> Result<crate::hero_stats::benchmarks::BenchmarksView, String> {
-    let prefs = state
-        .hero_stats
-        .prefs_set(webview.label(), serde_json::json!({"benchmarks_on": enabled}))?;
+    let prefs = state.hero_stats.prefs_set(
+        webview.label(),
+        serde_json::json!({"benchmarks_on": enabled}),
+    )?;
     state.benchmarks.set_enabled(prefs.benchmarks_on)
 }
 
@@ -1305,6 +1306,45 @@ pub(crate) fn settings_patch(
     settings::patch(&state.settings_dir, &request)
 }
 
+/// Persist the independent MEM-008 consent switch. Enabling is rejected until the renderer's
+/// explicit disclosure step has been accepted; disabling is always available and cancels fetches.
+#[tauri::command(async)]
+pub(crate) fn replay_auto_fetch_set(
+    webview: tauri::Webview,
+    state: tauri::State<'_, AppState>,
+    enabled: bool,
+    consent_accepted: bool,
+) -> Result<bool, String> {
+    require_control(&webview)?;
+    if state.host.shutdown_started() {
+        return Err("CANCELLED".to_owned());
+    }
+    let _settings_guard = lock(&state.settings_gate);
+    if state.host.shutdown_started() {
+        return Err("CANCELLED".to_owned());
+    }
+    let enabled = persist_replay_auto_fetch_change(
+        enabled,
+        || state.replay_auto_fetch.set_enabled(false),
+        || settings::set_replay_auto_fetch_enabled(&state.settings_dir, enabled, consent_accepted),
+    )?;
+    if enabled {
+        state.replay_auto_fetch.set_enabled(true);
+    }
+    Ok(enabled)
+}
+
+fn persist_replay_auto_fetch_change(
+    enabled: bool,
+    revoke: impl FnOnce(),
+    persist: impl FnOnce() -> Result<bool, String>,
+) -> Result<bool, String> {
+    if !enabled {
+        revoke();
+    }
+    persist()
+}
+
 #[tauri::command]
 pub(crate) fn objective_prefs_get(state: tauri::State<'_, AppState>) -> Value {
     state.objectives.prefs.current().to_value()
@@ -1458,7 +1498,10 @@ pub(crate) fn media_uninstall(
     let result = state.host.commands.media_uninstall(&install_id);
     log_media_result("uninstall", &result);
     if result.is_ok() {
-        let _ = app.emit("media://library-changed", json!({ "install_id": install_id }));
+        let _ = app.emit(
+            "media://library-changed",
+            json!({ "install_id": install_id }),
+        );
     }
     result
 }
@@ -2439,7 +2482,7 @@ mod audio_volume_tests {
     };
     use crate::audio_prefs::{AudioPrefs, AudioPrefsService, AudioPrefsStore};
     use crate::hotkeys::VolumeStep;
-    use serde_json::{Value, json};
+    use serde_json::{json, Value};
     use std::sync::{Arc, Mutex};
 
     struct FakeStore(Mutex<AudioPrefs>);
@@ -2571,7 +2614,7 @@ mod audio_volume_tests {
 
 #[cfg(test)]
 mod audition_result_tests {
-    use super::{AuditionSignal, wait_for_audition_result};
+    use super::{wait_for_audition_result, AuditionSignal};
     use crate::overlay::{VideoDiagnostic, VideoDiagnosticOutcome};
     use std::sync::mpsc;
 
@@ -2624,5 +2667,26 @@ mod audition_result_tests {
         assert_eq!(none.visual_status, "none");
         assert_eq!(none.visual_reason, None);
         assert_eq!(none.video_error_code, None);
+    }
+}
+
+#[cfg(test)]
+mod replay_auto_fetch_command_tests {
+    use super::persist_replay_auto_fetch_change;
+    use std::cell::Cell;
+
+    #[test]
+    fn disabling_revokes_before_a_failed_settings_persist() {
+        let revoked = Cell::new(false);
+        let result = persist_replay_auto_fetch_change(
+            false,
+            || revoked.set(true),
+            || {
+                assert!(revoked.get());
+                Err("settings_write_failed".to_owned())
+            },
+        );
+        assert_eq!(result, Err("settings_write_failed".to_owned()));
+        assert!(revoked.get());
     }
 }

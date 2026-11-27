@@ -16,7 +16,8 @@ import { gameModeName } from "../replay/matchBundle.ts";
 type Locale = "th" | "en";
 type Obj = Record<string, unknown>;
 
-export type ReplayParseState = "not_found" | "available" | "queued" | "parsing" | "ready" | "failed" | "needs_pack" | "auto_parse_off" | "unknown";
+export type ReplayParseState = "not_found" | "available" | "queued" | "parsing" | "ready" | "failed" | "needs_pack" | "auto_parse_off" | "unknown"
+  | "off" | "waiting_for_match_end" | "looking_up" | "requested" | "downloading" | "not_available_yet" | "expired" | "rate_limited" | "offline";
 export type ReplayStateContext = "match" | "latest" | "unknown";
 
 export interface PostGameReplayStateInput {
@@ -182,7 +183,7 @@ export interface PostGameSummaryView {
 const HASH_RE = /^[0-9a-f]{64}$/;
 const MATCH_ID_RE = /^[0-9]{1,24}$/;
 const ITEM_ID_RE = /^item_[a-z0-9_]{1,64}$/;
-const PARSE_STATES: readonly ReplayParseState[] = ["not_found", "available", "queued", "parsing", "ready", "failed", "needs_pack", "auto_parse_off", "unknown"];
+const PARSE_STATES: readonly ReplayParseState[] = ["not_found", "available", "queued", "parsing", "ready", "failed", "needs_pack", "auto_parse_off", "unknown", "off", "waiting_for_match_end", "looking_up", "requested", "downloading", "not_available_yet", "expired", "rate_limited", "offline"];
 
 function isObj(value: unknown): value is Obj {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -294,11 +295,20 @@ export function postGameReplayStatePresentation(
             : state === "failed" ? text.stateFailed
               : state === "needs_pack" ? text.stateNeedsPack
                 : state === "auto_parse_off" ? text.stateAutoParseOff
-                  : text.stateUnknown;
-  const settingsSection = state === "auto_parse_off" ? "replay-ai" as const : null;
+                  : state === "off" ? text.stateFetchOff
+                    : state === "waiting_for_match_end" ? text.stateWaitingForMatchEnd
+                      : state === "looking_up" ? text.stateLookingUp
+                        : state === "requested" ? text.stateRequested
+                          : state === "downloading" ? text.stateDownloading
+                            : state === "not_available_yet" ? text.stateNotAvailableYet
+                              : state === "expired" ? text.stateExpired
+                                : state === "rate_limited" ? text.stateRateLimited
+                                  : state === "offline" ? text.stateOffline
+                                    : text.stateUnknown;
+  const settingsSection = state === "auto_parse_off" || state === "off" ? "replay-ai" as const : null;
   return {
     label: context === "latest" ? `${text.latestReplayLabel} · ${label}` : label,
-    hint: state === "not_found" ? text.stateNotFoundHint : null,
+    hint: state === "not_found" || state === "off" ? text.stateNotFoundHint : null,
     settingsSection,
     settingsLinkLabel: settingsSection ? text.replayAutoParseSettings : null,
   };

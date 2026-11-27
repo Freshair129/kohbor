@@ -43,6 +43,37 @@ enum PostGameParseState {
     NeedsPack,
     AutoParseOff,
     Unknown,
+    Off,
+    WaitingForMatchEnd,
+    LookingUp,
+    Requested,
+    Downloading,
+    NotAvailableYet,
+    Expired,
+    RateLimited,
+    Offline,
+}
+
+impl From<crate::replay_autofetch::FetchState> for PostGameParseState {
+    fn from(state: crate::replay_autofetch::FetchState) -> Self {
+        use crate::replay_autofetch::FetchState as Fetch;
+        match state {
+            Fetch::Off => Self::Off,
+            Fetch::WaitingForMatchEnd => Self::WaitingForMatchEnd,
+            Fetch::LookingUp => Self::LookingUp,
+            Fetch::Requested => Self::Requested,
+            Fetch::Downloading => Self::Downloading,
+            Fetch::Parsing => Self::Parsing,
+            Fetch::Ready => Self::Ready,
+            Fetch::NotAvailableYet => Self::NotAvailableYet,
+            Fetch::NotFound => Self::NotFound,
+            Fetch::Expired => Self::Expired,
+            Fetch::RateLimited => Self::RateLimited,
+            Fetch::Offline => Self::Offline,
+            Fetch::Failed => Self::Failed,
+            Fetch::SkippedLocal => Self::NotFound,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
@@ -169,9 +200,10 @@ fn headline_for(bundle: &ReplayBundle, own_hero: Option<&str>) -> PostGameHeadli
     let Some(heroes) = bundle.match_data.get("heroes").and_then(Value::as_array) else {
         return PostGameHeadline::default();
     };
-    let Some(hero) = heroes.iter().find(|hero| {
-        hero.get("id").and_then(Value::as_str) == Some(own_hero)
-    }) else {
+    let Some(hero) = heroes
+        .iter()
+        .find(|hero| hero.get("id").and_then(Value::as_str) == Some(own_hero))
+    else {
         return PostGameHeadline::default();
     };
     let deaths = bundle
@@ -232,6 +264,22 @@ fn entry_state(entry: &ReplayLibraryEntry, auto_parse_enabled: bool) -> PostGame
     }
 }
 
+fn fetched_entry_state(
+    status: ReplayStatus,
+    match_id: &str,
+    library: &ReplayLibrary,
+) -> PostGameParseState {
+    match status {
+        ReplayStatus::Available => PostGameParseState::Available,
+        ReplayStatus::Queued => PostGameParseState::Queued,
+        ReplayStatus::Parsing => PostGameParseState::Parsing,
+        ReplayStatus::Ready if library.open_bundle(match_id).is_ok() => PostGameParseState::Ready,
+        ReplayStatus::Ready => PostGameParseState::Unknown,
+        ReplayStatus::Failed { .. } | ReplayStatus::NeedsPack => PostGameParseState::Failed,
+        ReplayStatus::Evicted => PostGameParseState::NotFound,
+    }
+}
+
 /// Match a watched .dem row to the in-memory session ID inside the host. The renderer receives
 /// only two enums. A ready exact match must also pass the existing install-keyed history link and
 /// bundle validation; otherwise the latest watched row is shown as context only.
@@ -249,7 +297,12 @@ fn lookup_post_game_replay_state(
             entries
                 .iter()
                 .filter(|entry| is_watched_dota_replay(entry))
-                .filter(|entry| Path::new(&entry.source_path).file_stem().and_then(|stem| stem.to_str()) == Some(match_id))
+                .filter(|entry| {
+                    Path::new(&entry.source_path)
+                        .file_stem()
+                        .and_then(|stem| stem.to_str())
+                        == Some(match_id)
+                })
                 .max_by_key(|entry| entry.created_at_unix_ms)
         });
 
@@ -331,8 +384,12 @@ fn lookup_replay_summary(
                 .with_session_match_id(session_match_id);
         }
         let Some(bundle) = open_validated_bundle(&entry.match_id) else {
-            return PostGameReplayReply::unavailable(Some(record), PostGameParseState::Unknown, watcher)
-                .with_session_match_id(session_match_id);
+            return PostGameReplayReply::unavailable(
+                Some(record),
+                PostGameParseState::Unknown,
+                watcher,
+            )
+            .with_session_match_id(session_match_id);
         };
         return PostGameReplayReply {
             ready: true,
@@ -372,10 +429,14 @@ pub(crate) fn post_game_replay_summary(
     let Some(record) = read_last_finished_match(&state.settings_dir)
         .filter(|record| session_epoch.is_none_or(|epoch| record.epoch == epoch))
     else {
-        return Ok(PostGameReplayReply::unavailable(None, PostGameParseState::NotFound, PostGameWatcherReply::unknown()));
+        return Ok(PostGameReplayReply::unavailable(
+            None,
+            PostGameParseState::NotFound,
+            PostGameWatcherReply::unknown(),
+        ));
     };
-    let session_match_id = crate::intake::lock(&state.runtime.shared)
-        .current_match_id_for_epoch(record.epoch);
+    let session_match_id =
+        crate::intake::lock(&state.runtime.shared).current_match_id_for_epoch(record.epoch);
     let match_key = record.match_key.as_str();
     let history = state.match_history.entries();
     let own_hero = history
@@ -387,7 +448,8 @@ pub(crate) fn post_game_replay_summary(
             Some(record),
             PostGameParseState::Unknown,
             PostGameWatcherReply::unknown(),
-        ).with_session_match_id(session_match_id));
+        )
+        .with_session_match_id(session_match_id));
     };
     Ok(lookup_replay_summary(
         record,
@@ -420,14 +482,35 @@ pub(crate) fn post_game_replay_state(
         Ok(entries) => entries,
         Err(_) => Vec::new(),
     };
-    Ok(lookup_post_game_replay_state(
+    let mut reply = lookup_post_game_replay_state(
         session_match_id.as_deref(),
         record.as_ref(),
         &entries,
         library.auto_analyse_enabled(),
         |match_id| analytics.store().match_key(match_id).ok(),
         |match_id| library.open_bundle(match_id).is_ok(),
-    ))
+    );
+    if let Some(match_id) = session_match_id.as_deref().filter(|match_id| {
+        !entries.iter().any(|entry| {
+            is_watched_dota_replay(entry)
+                && Path::new(&entry.source_path)
+                    .file_stem()
+                    .and_then(|stem| stem.to_str())
+                    == Some(*match_id)
+        })
+    }) {
+        let fetched = library
+            .fetched_status(match_id)
+            .map(|status| fetched_entry_state(status, match_id, &library))
+            .unwrap_or_else(|| state.replay_auto_fetch.state_for(Some(match_id)).into());
+        // With the fetch off, the manual path (MEM-008 option A) keeps its own reply: a latest
+        // watched row stays as context, and only "nothing found" becomes "fetch off".
+        if fetched != PostGameParseState::Off || reply.state == PostGameParseState::NotFound {
+            reply.state = fetched;
+            reply.context = PostGameReplayStateContext::Match;
+        }
+    }
+    Ok(reply)
 }
 
 #[cfg(test)]
@@ -490,7 +573,12 @@ mod tests {
         }
     }
 
-    fn watched_entry(match_id: &str, path: &str, status: ReplayStatus, created_at_unix_ms: u64) -> ReplayLibraryEntry {
+    fn watched_entry(
+        match_id: &str,
+        path: &str,
+        status: ReplayStatus,
+        created_at_unix_ms: u64,
+    ) -> ReplayLibraryEntry {
         ReplayLibraryEntry {
             source: ReplaySource::DotaReplaysFolder,
             source_path: path.to_owned(),
@@ -549,7 +637,14 @@ mod tests {
         assert_eq!(result.parse_state, PostGameParseState::Ready);
         assert_eq!(result.bundle_match_id.as_deref(), Some("123456789"));
         assert_eq!(result.session_match_id.as_deref(), Some("8000000001"));
-        assert_eq!(result.digest.as_ref().and_then(|value| value["heroes"].as_array()).map(Vec::len), Some(1));
+        assert_eq!(
+            result
+                .digest
+                .as_ref()
+                .and_then(|value| value["heroes"].as_array())
+                .map(Vec::len),
+            Some(1)
+        );
     }
 
     #[test]
@@ -618,23 +713,46 @@ mod tests {
             (ReplayStatus::Queued, PostGameParseState::Queued),
             (ReplayStatus::Parsing, PostGameParseState::Parsing),
             (ReplayStatus::Ready, PostGameParseState::Ready),
-            (ReplayStatus::Failed { reason: "synthetic".to_owned() }, PostGameParseState::Failed),
+            (
+                ReplayStatus::Failed {
+                    reason: "synthetic".to_owned(),
+                },
+                PostGameParseState::Failed,
+            ),
             (ReplayStatus::NeedsPack, PostGameParseState::NeedsPack),
             (ReplayStatus::Evicted, PostGameParseState::NotFound),
         ];
         for (status, expected) in statuses {
             let row = watched_entry("123456789", "D:/synthetic/123456789.dem", status, 10);
             let state = lookup_post_game_replay_state(
-                Some("123456789"), Some(&last_match()), &[row], true,
-                |_| Some(SESSION_KEY.to_owned()), |_| true,
+                Some("123456789"),
+                Some(&last_match()),
+                &[row],
+                true,
+                |_| Some(SESSION_KEY.to_owned()),
+                |_| true,
             );
             assert_eq!(state.state, expected);
             assert_eq!(state.context, PostGameReplayStateContext::Match);
         }
-        let row = watched_entry("123456789", "D:/synthetic/123456789.dem", ReplayStatus::Available, 10);
-        assert_eq!(lookup_post_game_replay_state(
-            Some("123456789"), Some(&last_match()), &[row], false, |_| None, |_| false,
-        ).state, PostGameParseState::AutoParseOff);
+        let row = watched_entry(
+            "123456789",
+            "D:/synthetic/123456789.dem",
+            ReplayStatus::Available,
+            10,
+        );
+        assert_eq!(
+            lookup_post_game_replay_state(
+                Some("123456789"),
+                Some(&last_match()),
+                &[row],
+                false,
+                |_| None,
+                |_| false,
+            )
+            .state,
+            PostGameParseState::AutoParseOff
+        );
     }
 
     #[test]
@@ -653,7 +771,14 @@ mod tests {
         let session_id = "8000000001";
         let path = "D:/private-user-data/8000000001.dem";
         let row = watched_entry(session_id, path, ReplayStatus::Parsing, 10);
-        let reply = lookup_post_game_replay_state(Some(session_id), Some(&last_match()), &[row], true, |_| None, |_| false);
+        let reply = lookup_post_game_replay_state(
+            Some(session_id),
+            Some(&last_match()),
+            &[row],
+            true,
+            |_| None,
+            |_| false,
+        );
         let serialized = serde_json::to_string(&reply).unwrap();
         let diagnostic = format!("{reply:?}");
         assert_eq!(reply.state, PostGameParseState::Parsing);
@@ -666,18 +791,66 @@ mod tests {
     }
 
     #[test]
-    fn synthetic_ready_replay_state_requires_the_history_hash_and_validated_bundle_even_when_own_hero_is_null() {
-        let mut ready = watched_entry("123456789", "D:/synthetic/123456789.dem", ReplayStatus::Ready, 10);
+    fn replay_fetch_state_reply_is_enum_only_for_every_fetch_state() {
+        let states = [
+            (PostGameParseState::Off, "off"),
+            (
+                PostGameParseState::WaitingForMatchEnd,
+                "waiting_for_match_end",
+            ),
+            (PostGameParseState::LookingUp, "looking_up"),
+            (PostGameParseState::Requested, "requested"),
+            (PostGameParseState::Downloading, "downloading"),
+            (PostGameParseState::Parsing, "parsing"),
+            (PostGameParseState::Ready, "ready"),
+            (PostGameParseState::NotAvailableYet, "not_available_yet"),
+            (PostGameParseState::NotFound, "not_found"),
+            (PostGameParseState::Expired, "expired"),
+            (PostGameParseState::RateLimited, "rate_limited"),
+            (PostGameParseState::Offline, "offline"),
+            (PostGameParseState::Failed, "failed"),
+        ];
+        for (state, expected) in states {
+            let reply = PostGameReplayStateReply {
+                state,
+                context: PostGameReplayStateContext::Match,
+            };
+            let serialized = serde_json::to_string(&reply).unwrap();
+            assert!(serialized.contains(&format!("\"state\":\"{expected}\"")));
+            assert!(serialized.contains("\"context\":\"match\""));
+            for private in ["9001", "replay45.valve.net", "777", "C:\\\\private", ".dem"] {
+                assert!(!serialized.contains(private), "{expected}: {private}");
+            }
+        }
+    }
+
+    #[test]
+    fn synthetic_ready_replay_state_requires_the_history_hash_and_validated_bundle_even_when_own_hero_is_null(
+    ) {
+        let mut ready = watched_entry(
+            "123456789",
+            "D:/synthetic/123456789.dem",
+            ReplayStatus::Ready,
+            10,
+        );
         ready.own_hero = None;
         let state = lookup_post_game_replay_state(
-            Some("123456789"), Some(&last_match()), &[ready.clone()], true,
-            |_| Some(SESSION_KEY.to_owned()), |_| true,
+            Some("123456789"),
+            Some(&last_match()),
+            &[ready.clone()],
+            true,
+            |_| Some(SESSION_KEY.to_owned()),
+            |_| true,
         );
         assert_eq!(state.state, PostGameParseState::Ready);
         assert_eq!(state.context, PostGameReplayStateContext::Match);
         let unlinked = lookup_post_game_replay_state(
-            Some("123456789"), Some(&last_match()), &[ready], true,
-            |_| Some("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_owned()), |_| true,
+            Some("123456789"),
+            Some(&last_match()),
+            &[ready],
+            true,
+            |_| Some("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_owned()),
+            |_| true,
         );
         assert_eq!(unlinked.state, PostGameParseState::Ready);
         assert_eq!(unlinked.context, PostGameReplayStateContext::Latest);

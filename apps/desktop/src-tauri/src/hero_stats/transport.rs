@@ -105,6 +105,8 @@ impl Cancellation {
 pub(crate) struct HttpResponse {
     pub(crate) status: u16,
     pub(crate) retry_after: Option<String>,
+    pub(crate) rate_limit_remaining_minute: Option<u32>,
+    pub(crate) rate_limit_remaining_day: Option<u32>,
     pub(crate) body: Vec<u8>,
 }
 
@@ -118,6 +120,8 @@ pub(crate) enum TransportError {
     Cancelled,
     /// Failed during local setup before any network I/O. Does not count toward the budget.
     NotSent,
+    /// A local file operation failed while streaming a body. Does not count as an offline request.
+    LocalFailure,
     /// Cancelled before any connect or send. Does not count toward the budget.
     CancelledBeforeSend,
 }
@@ -125,7 +129,7 @@ pub(crate) enum TransportError {
 impl TransportError {
     /// Whether the host attempted network I/O (connect or send) for this request.
     pub(crate) fn reached_network(self) -> bool {
-        !matches!(self, Self::NotSent | Self::CancelledBeforeSend)
+        !matches!(self, Self::NotSent | Self::LocalFailure | Self::CancelledBeforeSend)
     }
 }
 
@@ -258,6 +262,59 @@ impl Transport for WinHttpTransport {
     }
 }
 
+/// Dedicated WinHTTP instance for the validated Valve replay host. It has a separate active
+/// handle and cancellation lane from the OpenDota history transport.
+#[cfg(windows)]
+#[derive(Default)]
+pub(crate) struct ValveWinHttpTransport {
+    inner: WinHttpTransport,
+}
+
+#[cfg(windows)]
+impl ValveWinHttpTransport {
+    pub(crate) fn download_stream(
+        &self,
+        host: &str,
+        path: &str,
+        cancellation: &Cancellation,
+        max_bytes: usize,
+        sink: &mut dyn FnMut(&[u8]) -> Result<(), TransportError>,
+    ) -> Result<u16, TransportError> {
+        self.inner
+            .stream_http_from(host, path, cancellation, max_bytes, sink)
+    }
+
+    pub(crate) fn cancel_request(&self, cancellation: &Cancellation) {
+        Transport::cancel_request(&self.inner, cancellation);
+    }
+}
+
+#[cfg(not(windows))]
+#[derive(Default)]
+pub(crate) struct ValveWinHttpTransport;
+
+#[cfg(not(windows))]
+impl ValveWinHttpTransport {
+    pub(crate) fn download_stream(
+        &self,
+        _host: &str,
+        _path: &str,
+        cancellation: &Cancellation,
+        _max_bytes: usize,
+        _sink: &mut dyn FnMut(&[u8]) -> Result<(), TransportError>,
+    ) -> Result<u16, TransportError> {
+        if cancellation.is_cancelled() {
+            Err(TransportError::CancelledBeforeSend)
+        } else {
+            Err(TransportError::NotSent)
+        }
+    }
+
+    pub(crate) fn cancel_request(&self, cancellation: &Cancellation) {
+        cancellation.cancel();
+    }
+}
+
 #[cfg(windows)]
 impl WinHttpTransport {
     /// GET `path` from the fixed `endpoint` over HTTPS: no proxy, no redirects, no cookies, a
@@ -267,6 +324,79 @@ impl WinHttpTransport {
         endpoint: Endpoint,
         path: &str,
         cancellation: &Cancellation,
+    ) -> Result<HttpResponse, TransportError> {
+        self.request_from(endpoint, "GET", path, cancellation)
+    }
+
+    pub(crate) fn post_from(
+        &self,
+        endpoint: Endpoint,
+        path: &str,
+        cancellation: &Cancellation,
+    ) -> Result<HttpResponse, TransportError> {
+        self.request_from(endpoint, "POST", path, cancellation)
+    }
+
+    fn request_from(
+        &self,
+        endpoint: Endpoint,
+        method: &str,
+        path: &str,
+        cancellation: &Cancellation,
+    ) -> Result<HttpResponse, TransportError> {
+        self.request_from_host(
+            endpoint,
+            endpoint.host,
+            443,
+            true,
+            method,
+            path,
+            cancellation,
+            None,
+            TOTAL_TIMEOUT_MS,
+        )
+    }
+
+    /// Stream an already validated Valve replay response over plain HTTP. The caller supplies a
+    /// host/path produced by the strict replay URL validator; redirects stay disabled.
+    pub(crate) fn stream_http_from(
+        &self,
+        host: &str,
+        path: &str,
+        cancellation: &Cancellation,
+        max_bytes: usize,
+        sink: &mut dyn FnMut(&[u8]) -> Result<(), TransportError>,
+    ) -> Result<u16, TransportError> {
+        let endpoint = Endpoint {
+            host: "replay.valve.net",
+            body_limit: max_bytes,
+            log_module: "replay_fetch",
+        };
+        self.request_from_host(
+            endpoint,
+            host,
+            80,
+            false,
+            "GET",
+            path,
+            cancellation,
+            Some(sink),
+            180_000,
+        )
+        .map(|response| response.status)
+    }
+
+    fn request_from_host(
+        &self,
+        endpoint: Endpoint,
+        host: &str,
+        port: u16,
+        secure: bool,
+        method: &str,
+        path: &str,
+        cancellation: &Cancellation,
+        mut sink: Option<&mut dyn FnMut(&[u8]) -> Result<(), TransportError>>,
+        total_timeout_ms: u64,
     ) -> Result<HttpResponse, TransportError> {
         use std::ffi::c_void;
         use std::sync::mpsc;
@@ -314,24 +444,30 @@ impl WinHttpTransport {
         // session failed with ERROR_WINHTTP_INCORRECT_HANDLE_TYPE (12018) before any I/O, so every
         // live request reported a network failure (owner build 6195c3c, 2026-11-22). Cookies are
         // disabled on the request handle below.
-        let mut host_wide: Vec<u16> = endpoint.host.encode_utf16().collect();
+        let mut host_wide: Vec<u16> = host.encode_utf16().collect();
         host_wide.push(0);
-        let connection = unsafe { WinHttpConnect(session, PCWSTR(host_wide.as_ptr()), 443, 0) };
+        let connection = unsafe { WinHttpConnect(session, PCWSTR(host_wide.as_ptr()), port, 0) };
         if connection.is_null() {
             return Err(setup_failure(module, "connect_handle", last_win32()));
         }
         let _connection = InternetHandle(connection);
         let mut path_wide: Vec<u16> = path.encode_utf16().collect();
         path_wide.push(0);
+        let mut method_wide: Vec<u16> = method.encode_utf16().collect();
+        method_wide.push(0);
         let request_raw = unsafe {
             WinHttpOpenRequest(
                 connection,
-                w!("GET"),
+                PCWSTR(method_wide.as_ptr()),
                 PCWSTR(path_wide.as_ptr()),
                 PCWSTR::null(),
                 PCWSTR::null(),
                 std::ptr::null(),
-                WINHTTP_FLAG_SECURE,
+                if secure {
+                    WINHTTP_FLAG_SECURE
+                } else {
+                    Default::default()
+                },
             )
         };
         if request_raw.is_null() {
@@ -356,7 +492,8 @@ impl WinHttpTransport {
             return Err(error);
         }
 
-        // WinHTTP's phase timeouts do not impose an overall deadline. Close the active request at ten seconds;
+        // WinHTTP's phase timeouts do not impose an overall deadline. Close the active request at the
+        // operation-specific deadline;
         // cancellation and this watchdog share a close-once handle to avoid a late response racing revocation.
         let timed_out = Arc::new(AtomicBool::new(false));
         let (finished_tx, finished_rx) = mpsc::channel();
@@ -366,7 +503,7 @@ impl WinHttpTransport {
             .name(format!("{module}-http-timeout"))
             .spawn(move || {
                 if finished_rx
-                    .recv_timeout(std::time::Duration::from_millis(TOTAL_TIMEOUT_MS))
+                    .recv_timeout(std::time::Duration::from_millis(total_timeout_ms))
                     .is_err()
                 {
                     watchdog_timed_out.store(true, Ordering::Release);
@@ -404,7 +541,22 @@ impl WinHttpTransport {
             }
             .map_err(|error| network_failure(module, "status", error_win32(&error)))?;
             let retry_after = query_retry_after(request_raw);
+            let rate_limit_remaining_minute =
+                query_header_u32(request_raw, "X-Rate-Limit-Remaining-Minute");
+            let rate_limit_remaining_day =
+                query_header_u32(request_raw, "X-Rate-Limit-Remaining-Day");
             let mut body = Vec::new();
+            let mut received = 0_usize;
+            // Redirects are disabled. Do not consume an unexpected redirect body.
+            if sink.is_some() && status != 200 {
+                return Ok(HttpResponse {
+                    status: u16::try_from(status).unwrap_or(u16::MAX),
+                    retry_after,
+                    rate_limit_remaining_minute,
+                    rate_limit_remaining_day,
+                    body,
+                });
+            }
             loop {
                 if cancellation.is_cancelled() {
                     return Err(TransportError::Cancelled);
@@ -415,29 +567,37 @@ impl WinHttpTransport {
                 if available == 0 {
                     break;
                 }
-                if body.len().saturating_add(available as usize) > endpoint.body_limit {
-                    return Err(TransportError::TooLarge);
-                }
-                let start = body.len();
-                body.resize(start + available as usize, 0);
+                let read_capacity = available.min(64 * 1024);
+                let mut chunk = vec![0_u8; read_capacity as usize];
                 let mut read = 0_u32;
                 unsafe {
                     WinHttpReadData(
                         request_raw,
-                        body[start..].as_mut_ptr().cast::<c_void>(),
-                        available,
+                        chunk.as_mut_ptr().cast::<c_void>(),
+                        read_capacity,
                         &mut read,
                     )
                 }
                 .map_err(|error| network_failure(module, "read", error_win32(&error)))?;
-                body.truncate(start + read as usize);
                 if read == 0 {
                     break;
+                }
+                let chunk = &chunk[..read as usize];
+                received = received.saturating_add(chunk.len());
+                if received > endpoint.body_limit {
+                    return Err(TransportError::TooLarge);
+                }
+                if let Some(sink) = sink.as_deref_mut() {
+                    sink(chunk)?;
+                } else {
+                    body.extend_from_slice(chunk);
                 }
             }
             Ok(HttpResponse {
                 status: u16::try_from(status).unwrap_or(u16::MAX),
                 retry_after,
+                rate_limit_remaining_minute,
+                rate_limit_remaining_day,
                 body,
             })
         })();
@@ -554,6 +714,55 @@ fn query_retry_after(request: *mut std::ffi::c_void) -> Option<String> {
     )
 }
 
+#[cfg(windows)]
+fn query_header_u32(request: *mut std::ffi::c_void, name: &str) -> Option<u32> {
+    use windows::core::PCWSTR;
+    use windows::Win32::Networking::WinHttp::{WinHttpQueryHeaders, WINHTTP_QUERY_CUSTOM};
+    let mut name_wide: Vec<u16> = name.encode_utf16().collect();
+    name_wide.push(0);
+    let query_name = PCWSTR(name_wide.as_ptr());
+    let mut bytes = 0_u32;
+    let mut index = 0_u32;
+    let _ = unsafe {
+        WinHttpQueryHeaders(
+            request,
+            WINHTTP_QUERY_CUSTOM,
+            query_name,
+            None,
+            &mut bytes,
+            &mut index,
+        )
+    };
+    if bytes < 2 || !bytes.is_multiple_of(2) || bytes as usize > 256 {
+        return None;
+    }
+    let mut buffer = vec![0_u16; bytes as usize / 2];
+    if unsafe {
+        WinHttpQueryHeaders(
+            request,
+            WINHTTP_QUERY_CUSTOM,
+            query_name,
+            Some(buffer.as_mut_ptr().cast()),
+            &mut bytes,
+            &mut index,
+        )
+    }
+    .is_err()
+    {
+        return None;
+    }
+    let length = buffer
+        .iter()
+        .position(|unit| *unit == 0)
+        .unwrap_or(buffer.len());
+    let text = String::from_utf16_lossy(&buffer[..length]);
+    let digits = text.trim();
+    if digits.is_empty() || !digits.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    digits.parse().ok()
+}
+
 #[cfg(not(windows))]
 #[derive(Default)]
 pub(crate) struct WinHttpTransport;
@@ -561,6 +770,19 @@ pub(crate) struct WinHttpTransport;
 #[cfg(not(windows))]
 impl WinHttpTransport {
     pub(crate) fn get_from(
+        &self,
+        _endpoint: Endpoint,
+        _path: &str,
+        cancellation: &Cancellation,
+    ) -> Result<HttpResponse, TransportError> {
+        if cancellation.is_cancelled() {
+            Err(TransportError::CancelledBeforeSend)
+        } else {
+            Err(TransportError::NotSent)
+        }
+    }
+
+    pub(crate) fn post_from(
         &self,
         _endpoint: Endpoint,
         _path: &str,

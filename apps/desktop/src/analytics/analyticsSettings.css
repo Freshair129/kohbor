@@ -9,3 +9,8 @@
 .analytics-ledger-wrap table { width: 100%; border-collapse: collapse; font: 12px var(--font-mono); }
 .analytics-ledger-wrap th,.analytics-ledger-wrap td { border-bottom: 1px solid var(--line); padding: 5px 8px; text-align: left; }
 @media(max-width:900px) { .analytics-settings-grid { grid-template-columns: 1fr; } }
+.replay-fetch-consent-backdrop { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 16px; background: rgb(0 0 0 / 62%); }
+.replay-fetch-consent { display: grid; gap: 10px; width: min(520px,100%); max-height: min(90vh,680px); overflow: auto; padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--text); box-shadow: 0 16px 48px rgb(0 0 0 / 35%); }
+.replay-fetch-consent h3, .replay-fetch-consent p { margin: 0; }
+.replay-fetch-consent p { color: var(--text-2); line-height: 1.45; }
+.replay-fetch-consent > div { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }

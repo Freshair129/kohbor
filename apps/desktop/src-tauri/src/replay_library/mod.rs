@@ -57,6 +57,7 @@ pub enum ReplayStatus {
 pub enum ReplaySource {
     DotaReplaysFolder,
     ManualPick,
+    OpenDotaFetched,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -307,6 +308,7 @@ struct Inner {
     worker_available: AtomicBool,
     auto_analyse: AtomicBool,
     watcher_state: Mutex<ReplayWatcherState>,
+    watched_folder: Mutex<Option<PathBuf>>,
     watched_sizes: Mutex<HashMap<String, (u64, u8)>>,
     stable_watched_match_ids: Mutex<HashSet<String>>,
     picked_files: Mutex<HashMap<String, PathBuf>>,
@@ -321,17 +323,26 @@ struct ParseRequest {
     mode: ParseMode,
 }
 
+struct DeleteFetchedDem(PathBuf);
+
+impl Drop for DeleteFetchedDem {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.0);
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum ParseMode {
     Manual,
     Automatic,
+    AutomaticFetched,
     Reparse,
     Retry,
 }
 
 impl ParseMode {
     fn automatic(self) -> bool {
-        self == Self::Automatic
+        matches!(self, Self::Automatic | Self::AutomaticFetched)
     }
 
     fn automatic_retry(self) -> bool {
@@ -481,6 +492,7 @@ impl ReplayLibrary {
                     last_scan_unix_ms: None,
                     last_error_code: None,
                 }),
+                watched_folder: Mutex::new(None),
                 watched_sizes: Mutex::new(HashMap::new()),
                 stable_watched_match_ids: Mutex::new(HashSet::new()),
                 picked_files: Mutex::new(HashMap::new()),
@@ -500,20 +512,21 @@ impl ReplayLibrary {
         let library = self.clone();
         let _ = thread::Builder::new()
             .name("replay-folder-watch".to_owned())
-            .spawn(move || {
-                loop {
-                    match crate::intake::locate_game() {
-                        Ok(game) => {
-                    let replay_dir = game.join("game").join("dota").join("replays");
-                    let _ = library.watch_replay_folder(&replay_dir);
-                }
-                        Err(_) => {
-                            library.record_watcher_state(false, Some("game_install_not_found"));
-                            eprintln!("{}", watcher_summary_log_line(0, 0, 0, Some("game_install_not_found")));
-                        }
+            .spawn(move || loop {
+                match crate::intake::locate_game() {
+                    Ok(game) => {
+                        let replay_dir = game.join("game").join("dota").join("replays");
+                        let _ = library.watch_replay_folder(&replay_dir);
                     }
-                thread::sleep(WATCH_INTERVAL);
+                    Err(_) => {
+                        library.record_watcher_state(false, Some("game_install_not_found"));
+                        eprintln!(
+                            "{}",
+                            watcher_summary_log_line(0, 0, 0, Some("game_install_not_found"))
+                        );
+                    }
                 }
+                thread::sleep(WATCH_INTERVAL);
             });
     }
 
@@ -538,7 +551,11 @@ impl ReplayLibrary {
     }
 
     #[cfg(test)]
-    fn new_for_tests_with_phase(root: PathBuf, limits: ReplayLibraryLimits, match_active: bool) -> Self {
+    fn new_for_tests_with_phase(
+        root: PathBuf,
+        limits: ReplayLibraryLimits,
+        match_active: bool,
+    ) -> Self {
         Self::new(
             root,
             None,
@@ -607,10 +624,49 @@ impl ReplayLibrary {
         if let Some(reason) = state.unavailable {
             return Err(reason);
         }
-        Ok(state.index.entries.iter()
+        Ok(state
+            .index
+            .entries
+            .iter()
             .filter(|entry| entry.source == ReplaySource::DotaReplaysFolder)
             .cloned()
             .collect())
+    }
+
+    pub(crate) fn autofetch_staging_dir(&self) -> Result<PathBuf, &'static str> {
+        let path = self.inner.staging.join("autofetch");
+        fs::create_dir_all(&path).map_err(|_| "storage_unavailable")?;
+        Ok(path)
+    }
+
+    /// Match IDs and watched paths stay in host memory. This is used only to suppress duplicate
+    /// acquisition when a local replay is already present or represented by a library row.
+    pub(crate) fn has_match_replay(&self, match_id: &str) -> bool {
+        if lock(&self.inner.state)
+            .index
+            .entries
+            .iter()
+            .any(|entry| entry.match_id == match_id)
+        {
+            return true;
+        }
+        let folder = lock(&self.inner.watched_folder).clone().or_else(|| {
+            crate::intake::locate_game()
+                .ok()
+                .map(|game| game.join("game").join("dota").join("replays"))
+        });
+        folder.is_some_and(|folder| folder.join(format!("{match_id}.dem")).is_file())
+    }
+
+    pub(crate) fn fetched_status(&self, match_id: &str) -> Option<ReplayStatus> {
+        lock(&self.inner.state)
+            .index
+            .entries
+            .iter()
+            .find(|entry| {
+                entry.match_id == match_id && entry.source == ReplaySource::OpenDotaFetched
+            })
+            .map(|entry| entry.status.clone())
     }
 
     pub fn register_picked_file(&self, path: PathBuf) -> String {
@@ -639,7 +695,12 @@ impl ReplayLibrary {
 
     pub fn bundle_folder(&self, match_id: &str) -> Result<PathBuf, &'static str> {
         validate_match_id(match_id).map_err(|_| "invalid_match_id")?;
-        if !lock(&self.inner.state).index.entries.iter().any(|entry| entry.match_id == match_id) {
+        if !lock(&self.inner.state)
+            .index
+            .entries
+            .iter()
+            .any(|entry| entry.match_id == match_id)
+        {
             return Err("match_not_found");
         }
         Ok(self.inner.root.join(match_id))
@@ -662,7 +723,9 @@ impl ReplayLibrary {
                         entry.status = ReplayStatus::Available;
                         entry.auto_queued = false;
                         entry.storage_bytes = entry.bundle_bytes
-                            + entry_meta_bytes(entry).map(|bytes| bytes.len() as u64).unwrap_or(0);
+                            + entry_meta_bytes(entry)
+                                .map(|bytes| bytes.len() as u64)
+                                .unwrap_or(0);
                         cancelled.push(entry.match_id.clone());
                         let _ = write_meta(&self.inner.root.join(&entry.match_id), entry);
                     }
@@ -680,7 +743,7 @@ impl ReplayLibrary {
             return;
         }
 
-            let _ = self.queue_available_auto_backlog_locked();
+        let _ = self.queue_available_auto_backlog_locked();
     }
 
     /// Read the existing automatic-parse preference without exposing it to the library UI model.
@@ -758,7 +821,11 @@ impl ReplayLibrary {
         let _operation = lock(&self.inner.operation);
         let mut state = lock(&self.inner.state);
         let mut next = state.index.clone();
-        let entry = next.entries.iter_mut().find(|entry| entry.match_id == match_id).ok_or("match_not_found")?;
+        let entry = next
+            .entries
+            .iter_mut()
+            .find(|entry| entry.match_id == match_id)
+            .ok_or("match_not_found")?;
         entry.pinned = pinned;
         let evicted = self.trim_to_limits(&mut next, "")?;
         let staged = stage_bundle_evictions(&self.inner.root, &evicted)?;
@@ -782,7 +849,7 @@ impl ReplayLibrary {
             .find(|entry| entry.match_id == match_id)
             .cloned()
         {
-        if write_meta(&self.inner.root.join(match_id), &updated).is_err() {
+            if write_meta(&self.inner.root.join(match_id), &updated).is_err() {
                 restore_bundle_evictions(&self.inner.root, &staged);
                 if let Some(old) = state
                     .index
@@ -792,8 +859,8 @@ impl ReplayLibrary {
                 {
                     let _ = write_meta(&self.inner.root.join(match_id), old);
                 }
-            return Err("storage_unavailable");
-        }
+                return Err("storage_unavailable");
+            }
         }
         if write_index(&self.inner.root, &next).is_err() {
             restore_bundle_evictions(&self.inner.root, &staged);
@@ -873,6 +940,131 @@ impl ReplayLibrary {
         }
     }
 
+    /// Queue an in-library staged replay as an automatic fetched request. This mode is never
+    /// eligible for restart/backlog retry; a genuine engine rejection remains a manual failure.
+    pub(crate) fn queue_fetched_dem(
+        &self,
+        match_id: &str,
+        path: &Path,
+    ) -> Result<ReplayJob, &'static str> {
+        let match_id = canonical_match_id(match_id).ok_or("invalid_match_id")?;
+        let sender = self.sender.as_ref().ok_or("worker_unavailable")?;
+        if !self.inner.worker_available.load(Ordering::Relaxed) {
+            return Err("worker_unavailable");
+        }
+        let canonical_staging = self
+            .autofetch_staging_dir()?
+            .canonicalize()
+            .map_err(|_| "storage_unavailable")?;
+        let source_path = path.canonicalize().map_err(|_| "invalid_input")?;
+        if !source_path.starts_with(&canonical_staging)
+            || !source_path
+                .extension()
+                .and_then(|extension| extension.to_str())
+                .is_some_and(|extension| extension.eq_ignore_ascii_case("dem"))
+        {
+            return Err("invalid_input");
+        }
+        engine::validate_input_path(&source_path).map_err(|failure| failure.code())?;
+        if !self.add_available(
+            match_id.clone(),
+            &source_path,
+            ReplaySource::OpenDotaFetched,
+        )? {
+            return Err("already_available");
+        }
+        let _operation = lock(&self.inner.operation);
+        match self.queue_existing_match_locked(
+            sender,
+            &match_id,
+            ParseMode::AutomaticFetched,
+            Some(&source_path),
+        ) {
+            Ok(job) => Ok(job),
+            Err(error) => {
+                let mut state = lock(&self.inner.state);
+                if state.unavailable.is_none() {
+                    state.index.entries.retain(|entry| {
+                        entry.match_id != match_id
+                            || entry.source != ReplaySource::OpenDotaFetched
+                            || entry.status != ReplayStatus::Available
+                    });
+                    let _ = write_index(&self.inner.root, &state.index);
+                }
+                Err(error)
+            }
+        }
+    }
+
+    /// Cancel a fetched job only while the worker has not crossed from queued to parsing.
+    /// The operation lock is shared with `process_request`, so the parse either starts first
+    /// and owns its cleanup, or cancellation marks the queued request stale and removes its file.
+    pub(crate) fn cancel_queued_fetched_dem(&self, match_id: &str, path: &Path) -> bool {
+        let Some(match_id) = canonical_match_id(match_id) else {
+            return false;
+        };
+        let _operation = lock(&self.inner.operation);
+        let Some(staging) = self
+            .autofetch_staging_dir()
+            .ok()
+            .and_then(|directory| directory.canonicalize().ok())
+        else {
+            return false;
+        };
+        let Some(source_path) = path.canonicalize().ok() else {
+            return false;
+        };
+        if !source_path.starts_with(&staging) {
+            return false;
+        }
+        let job_id = {
+            let jobs = lock(&self.inner.jobs);
+            jobs.iter()
+                .find(|record| {
+                    record.match_id.as_deref() == Some(match_id.as_str())
+                        && record.mode == ParseMode::AutomaticFetched
+                        && record.public.status == ReplayStatus::Queued
+                })
+                .map(|record| record.public.job_id.clone())
+        };
+        let Some(job_id) = job_id else {
+            return false;
+        };
+        let update_result = {
+            let mut state = lock(&self.inner.state);
+            if state.unavailable.is_some() {
+                return false;
+            }
+            let mut next = state.index.clone();
+            let Some(entry) = next.entries.iter_mut().find(|entry| {
+                entry.match_id == match_id
+                    && entry.source == ReplaySource::OpenDotaFetched
+                    && entry.status == ReplayStatus::Queued
+            }) else {
+                return false;
+            };
+            entry.status = ReplayStatus::Failed {
+                reason: "cancelled".to_owned(),
+            };
+            entry.auto_queued = false;
+            entry.storage_bytes = entry.bundle_bytes + entry_meta_bytes(entry).map_or(0, |b| b.len() as u64);
+            let meta_result = write_meta(&self.inner.root.join(&match_id), entry);
+            let index_result = write_index(&self.inner.root, &next);
+            state.index = next;
+            meta_result.and(index_result)
+        };
+        let _ = update_result;
+        self.set_job_status(
+            &job_id,
+            ReplayStatus::Failed {
+                reason: "cancelled".to_owned(),
+            },
+        );
+        let _ = fs::remove_file(&source_path);
+        self.emit_state_changed();
+        true
+    }
+
     pub fn reparse(&self, match_id: &str) -> Result<ReplayJob, &'static str> {
         let sender = self.sender.as_ref().ok_or("worker_unavailable")?;
         if !self.inner.worker_available.load(Ordering::Relaxed) {
@@ -880,7 +1072,7 @@ impl ReplayLibrary {
         }
         let match_id = canonical_match_id(match_id).ok_or("invalid_match_id")?;
         let _operation = lock(&self.inner.operation);
-        self.queue_existing_match_locked(sender, &match_id, ParseMode::Reparse)
+        self.queue_existing_match_locked(sender, &match_id, ParseMode::Reparse, None)
     }
 
     fn queue_existing_match(
@@ -907,6 +1099,7 @@ impl ReplayLibrary {
             } else {
                 ParseMode::Manual
             },
+            None,
         )
     }
 
@@ -915,6 +1108,7 @@ impl ReplayLibrary {
         sender: &Sender<ParseRequest>,
         match_id: &str,
         mode: ParseMode,
+        source_override: Option<&Path>,
     ) -> Result<ReplayJob, &'static str> {
         let automatic = mode.automatic_retry();
         if automatic && !self.inner.auto_analyse.load(Ordering::Acquire) {
@@ -934,7 +1128,11 @@ impl ReplayLibrary {
             if mode == ParseMode::Automatic
                 && (entry.source != ReplaySource::DotaReplaysFolder
                     || entry.status != ReplayStatus::Available
-                    || state.index.suppressed_watched_match_ids.iter().any(|id| id == match_id))
+                    || state
+                        .index
+                        .suppressed_watched_match_ids
+                        .iter()
+                        .any(|id| id == match_id))
             {
                 return Err("auto_parse_not_eligible");
             }
@@ -953,7 +1151,9 @@ impl ReplayLibrary {
             if mode == ParseMode::Reparse && self.has_active_reparse(match_id) {
                 return Err("already_queued");
             }
-            let path = if mode == ParseMode::Reparse {
+            let path = if mode == ParseMode::AutomaticFetched {
+                source_override.ok_or("invalid_input")?.to_path_buf()
+            } else if mode == ParseMode::Reparse {
                 let path =
                     source_path_from_meta(&self.inner.root, match_id).ok_or("source_missing")?;
                 if !path.is_file() {
@@ -1085,7 +1285,10 @@ impl ReplayLibrary {
             }
             let mut next = state.index.clone();
             if entry.source == ReplaySource::DotaReplaysFolder
-                && !next.suppressed_watched_match_ids.iter().any(|id| id == match_id)
+                && !next
+                    .suppressed_watched_match_ids
+                    .iter()
+                    .any(|id| id == match_id)
             {
                 next.suppressed_watched_match_ids.push(match_id.to_owned());
             }
@@ -1129,15 +1332,13 @@ impl ReplayLibrary {
             }
             let old_entries = state.index.entries.clone();
             let mut next = ReplayIndex::default();
-            next.suppressed_watched_match_ids = state
-                .index
-                .suppressed_watched_match_ids
-                .clone();
+            next.suppressed_watched_match_ids = state.index.suppressed_watched_match_ids.clone();
             for entry in &old_entries {
                 if entry.source == ReplaySource::DotaReplaysFolder
                     && !next.suppressed_watched_match_ids.contains(&entry.match_id)
                 {
-                    next.suppressed_watched_match_ids.push(entry.match_id.clone());
+                    next.suppressed_watched_match_ids
+                        .push(entry.match_id.clone());
                 }
             }
             let mut tombstones = Vec::new();
@@ -1191,6 +1392,7 @@ impl ReplayLibrary {
     }
 
     fn watch_replay_folder(&self, folder: &Path) -> Result<usize, &'static str> {
+        *lock(&self.inner.watched_folder) = Some(folder.to_path_buf());
         let entries = match fs::read_dir(folder) {
             Ok(entries) => entries,
             Err(_) => {
@@ -1276,9 +1478,9 @@ impl ReplayLibrary {
                     if observed.contains(match_id) {
                         *polls = 1;
                     }
-            }
+                }
                 stable.clear();
-        }
+            }
         }
         *lock(&self.inner.stable_watched_match_ids) = stable.clone();
         watched.sort_by(|left, right| right.0.cmp(&left.0).then_with(|| right.1.cmp(&left.1)));
@@ -1290,18 +1492,18 @@ impl ReplayLibrary {
                 Ok(false) => {}
                 Err(error) => {
                     scan_error.get_or_insert(error);
+                }
             }
         }
-    }
 
         let mut queued = 0;
         if self.inner.auto_analyse.load(Ordering::Acquire) && scan_error.is_none() {
-        let _operation = lock(&self.inner.operation);
+            let _operation = lock(&self.inner.operation);
             match self.queue_available_auto_backlog_locked() {
                 Ok(count) => queued = count,
                 Err(error) => {
                     scan_error.get_or_insert(error);
-        }
+                }
             }
         }
         if scan_error.is_some() {
@@ -1310,7 +1512,7 @@ impl ReplayLibrary {
                 if observed.contains(match_id) {
                     *polls = 1;
                 }
-        }
+            }
             lock(&self.inner.stable_watched_match_ids).clear();
         }
         self.record_watcher_state(true, scan_error);
@@ -1372,6 +1574,7 @@ impl ReplayLibrary {
                     } else {
                         ParseMode::Automatic
                     },
+                    None,
                 )
                 .is_ok()
             {
@@ -1402,8 +1605,8 @@ impl ReplayLibrary {
         let job_ids = lock(&self.inner.jobs)
             .iter()
             .filter(|record| {
-            record.match_id.as_deref() == Some(match_id)
-                && record.public.status == ReplayStatus::Queued
+                record.match_id.as_deref() == Some(match_id)
+                    && record.public.status == ReplayStatus::Queued
             })
             .map(|record| record.public.job_id.clone())
             .collect::<Vec<_>>();
@@ -1411,7 +1614,7 @@ impl ReplayLibrary {
             self.set_job_status(
                 &job_id,
                 ReplayStatus::Failed {
-                reason: "cancelled".to_owned(),
+                    reason: "cancelled".to_owned(),
                 },
             );
         }
@@ -1448,7 +1651,11 @@ impl ReplayLibrary {
         let mut entry = ReplayLibraryEntry {
             match_id: match_id.clone(),
             source,
-            source_path: path.to_string_lossy().into_owned(),
+            source_path: if source == ReplaySource::OpenDotaFetched {
+                "open_dota_fetched".to_owned()
+            } else {
+                path.to_string_lossy().into_owned()
+            },
             dem_sha256: None,
             engine_version: None,
             engine_sha256: None,
@@ -1506,8 +1713,8 @@ impl ReplayLibrary {
                     .find(|entry| &entry.match_id == id)
                 {
                     let _ = write_meta(&self.inner.root.join(id), old);
+                }
             }
-        }
             let _ = fs::remove_dir_all(&stage);
             return Err("storage_unavailable");
         }
@@ -1550,6 +1757,8 @@ impl ReplayLibrary {
     }
 
     fn process_request(&self, request: ParseRequest) {
+        let _fetched_dem_cleanup = (request.source == ReplaySource::OpenDotaFetched)
+            .then(|| DeleteFetchedDem(request.source_path.clone()));
         if !self.request_is_queued(&request) {
             return;
         }
@@ -1653,12 +1862,11 @@ impl ReplayLibrary {
             Ok(run) => run,
             Err(failure) => {
                 let _ = fs::remove_dir_all(stage);
-                return Err(if request.mode == ParseMode::Reparse
-                    && !request.source_path.is_file()
-                {
-                    engine::EngineFailure::SourceMissing
-                } else {
-                    failure
+                return Err(
+                    if request.mode == ParseMode::Reparse && !request.source_path.is_file() {
+                        engine::EngineFailure::SourceMissing
+                    } else {
+                        failure
                     },
                 );
             }
@@ -1708,7 +1916,11 @@ impl ReplayLibrary {
         let mut entry = ReplayLibraryEntry {
             match_id: validated.match_id.clone(),
             source: request.source,
-            source_path: request.source_path.to_string_lossy().into_owned(),
+            source_path: if request.source == ReplaySource::OpenDotaFetched {
+                "open_dota_fetched".to_owned()
+            } else {
+                request.source_path.to_string_lossy().into_owned()
+            },
             dem_sha256: Some(dem_sha256),
             engine_version: Some(run.engine_version),
             engine_sha256: Some(run.engine_sha256),
@@ -1805,8 +2017,8 @@ impl ReplayLibrary {
                     .find(|candidate| &candidate.match_id == id)
                 {
                     let _ = write_meta(&self.inner.root.join(id), old);
+                }
             }
-        }
             return Err(engine::EngineFailure::StorageConflict);
         }
         if fs::rename(stage, &target).is_err() {
@@ -1871,11 +2083,16 @@ impl ReplayLibrary {
             });
         let mut evicted = Vec::new();
         loop {
-            let unpinned_ready = index.entries.iter()
-                .filter(|entry| !entry.pinned && entry.status == ReplayStatus::Ready).count();
+            let unpinned_ready = index
+                .entries
+                .iter()
+                .filter(|entry| !entry.pinned && entry.status == ReplayStatus::Ready)
+                .count();
             let over_count = unpinned_ready > limits.max_matches;
             let over_size = index_usage(index) > limits.max_bytes;
-            if !over_count && !over_size { break; }
+            if !over_count && !over_size {
+                break;
+            }
             let Some(oldest) = index
                 .entries
                 .iter()
@@ -1888,11 +2105,13 @@ impl ReplayLibrary {
                 .min_by_key(|entry| replay_recency(entry))
                 .map(|entry| entry.match_id.clone())
             else {
-                    // Pinned bundles are user-retained data. If they alone exceed the cap,
-                    // preserve them and expose actual usage so the UI can show over-cap state.
-                    if pinned_usage > limits.max_bytes { break; }
-                    return Err("output_too_large");
-                };
+                // Pinned bundles are user-retained data. If they alone exceed the cap,
+                // preserve them and expose actual usage so the UI can show over-cap state.
+                if pinned_usage > limits.max_bytes {
+                    break;
+                }
+                return Err("output_too_large");
+            };
             if let Some(entry) = index
                 .entries
                 .iter_mut()
@@ -1977,6 +2196,7 @@ impl ReplayLibrary {
         };
         let reason = match mode {
             ParseMode::Automatic => "automatic_queue",
+            ParseMode::AutomaticFetched => "automatic_fetch_queue",
             ParseMode::Retry => "automatic_retry",
             ParseMode::Reparse => "reparse_queue",
             ParseMode::Manual => "manual_queue",
@@ -2013,8 +2233,8 @@ impl ReplayLibrary {
         let transition = {
             let mut jobs = lock(&self.inner.jobs);
             let Some(record) = jobs
-            .iter_mut()
-            .find(|record| record.public.job_id == job_id)
+                .iter_mut()
+                .find(|record| record.public.job_id == job_id)
             else {
                 return;
             };
@@ -2340,8 +2560,17 @@ fn recover_interrupted_entries(root: &Path, index: &mut ReplayIndex) -> Result<(
     let mut changed = false;
     for entry in &mut index.entries {
         if matches!(entry.status, ReplayStatus::Queued | ReplayStatus::Parsing) {
-            entry.status = ReplayStatus::Available;
-            entry.auto_queued = true;
+            if entry.source == ReplaySource::OpenDotaFetched {
+                // The fetched .dem lives only in autofetch staging and is removed on startup.
+                // Never persist a retry request for a source file that cannot survive restart.
+                entry.status = ReplayStatus::Failed {
+                    reason: "interrupted_fetch".to_owned(),
+                };
+                entry.auto_queued = false;
+            } else {
+                entry.status = ReplayStatus::Available;
+                entry.auto_queued = true;
+            }
             entry.storage_bytes = entry.bundle_bytes + entry_meta_bytes(entry)?.len() as u64;
             write_meta(&root.join(&entry.match_id), entry)?;
             changed = true;
@@ -2522,7 +2751,7 @@ fn index_usage(index: &ReplayIndex) -> u64 {
         .filter(|entry| entry.status == ReplayStatus::Ready)
         .fold(0u64, |total, entry| {
             total.saturating_add(entry.bundle_bytes)
-    })
+        })
 }
 
 struct StagedBundleEviction {
@@ -3052,6 +3281,100 @@ mod tests {
         )
     }
 
+    fn fetched_worker_library(root: PathBuf, runner: Arc<FixtureEngineRunner>) -> ReplayLibrary {
+        let mut library = ReplayLibrary::new_with_engine_runner(
+            root,
+            None,
+            false,
+            Arc::new(|| false),
+            Arc::new(|| {}),
+            ReplayLibraryLimits::default(),
+            runner,
+        );
+        let (sender, receiver) = mpsc::channel();
+        library.start_worker(receiver);
+        library.sender = Some(sender);
+        library
+    }
+
+    #[test]
+    fn fetched_dem_uses_the_existing_queue_hides_source_path_and_deletes_after_parse() {
+        let root = temp_dir("fetched-queue");
+        let runner = Arc::new(FixtureEngineRunner::new(false));
+        let library = fetched_worker_library(root.clone(), runner.clone());
+        let staging = library.autofetch_staging_dir().unwrap();
+        let dem = staging.join("replay-fetch-test.dem");
+        fs::write(&dem, b"PBDEMS2\0synthetic-zstd-dem").unwrap();
+
+        let job = library.queue_fetched_dem("321", &dem).unwrap();
+        assert_eq!(job.status, ReplayStatus::Queued);
+        wait_until(|| library.fetched_status("321") == Some(ReplayStatus::Ready));
+        wait_until(|| !dem.exists());
+        assert!(!dem.exists());
+        assert!(library.open_bundle("321").is_ok());
+        assert_eq!(runner.calls.load(Ordering::Acquire), 1);
+        let metadata = fs::read_to_string(root.join("321").join("meta.json")).unwrap();
+        assert!(metadata.contains("open_dota_fetched"));
+        assert!(!metadata.contains("replay-fetch-test.dem"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn fetched_engine_rejection_is_a_real_failure_without_automatic_retry() {
+        let root = temp_dir("fetched-engine-failure");
+        let runner = Arc::new(FixtureEngineRunner::new(true));
+        let library = fetched_worker_library(root.clone(), runner.clone());
+        let staging = library.autofetch_staging_dir().unwrap();
+        let dem = staging.join("replay-fetch-failed.dem");
+        fs::write(&dem, b"PBDEMS2\0synthetic-zstd-dem").unwrap();
+
+        library.queue_fetched_dem("321", &dem).unwrap();
+        wait_until(|| {
+            matches!(
+                library.fetched_status("321"),
+                Some(ReplayStatus::Failed { .. })
+            )
+        });
+        wait_until(|| !dem.exists());
+        assert!(!dem.exists());
+        assert_eq!(runner.calls.load(Ordering::Acquire), 1);
+        assert!(!lock(&library.inner.state).index.entries[0].auto_queued);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn revoking_a_queued_fetched_job_deletes_its_dem_before_the_engine_runs() {
+        let root = temp_dir("fetched-queued-revoke");
+        let runner = Arc::new(FixtureEngineRunner::new(false));
+        let mut library = ReplayLibrary::new_with_engine_runner(
+            root.clone(),
+            None,
+            false,
+            Arc::new(|| true),
+            Arc::new(|| {}),
+            ReplayLibraryLimits::default(),
+            runner.clone(),
+        );
+        let (sender, receiver) = mpsc::channel();
+        library.start_worker(receiver);
+        library.sender = Some(sender);
+        let staging = library.autofetch_staging_dir().unwrap();
+        let dem = staging.join("replay-fetch-revoked.dem");
+        fs::write(&dem, b"PBDEMS2\0synthetic-zstd-dem").unwrap();
+
+        let job = library.queue_fetched_dem("321", &dem).unwrap();
+        assert_eq!(job.status, ReplayStatus::Queued);
+        assert!(library.cancel_queued_fetched_dem("321", &dem));
+        assert!(!dem.exists());
+        assert!(matches!(
+            library.fetched_status("321"),
+            Some(ReplayStatus::Failed { .. })
+        ));
+        thread::sleep(Duration::from_millis(50));
+        assert_eq!(runner.calls.load(Ordering::Acquire), 0);
+        let _ = fs::remove_dir_all(root);
+    }
+
     #[test]
     fn library_list_metadata_uses_only_explicit_local_bundle_fields() {
         let bundle = serde_json::json!({
@@ -3157,13 +3480,7 @@ mod tests {
         let root = temp_dir("list-bundle-hash");
         let source = write_demo(&root.join("source"), "424243");
         let library = ReplayLibrary::new_for_tests(root.clone(), ReplayLibraryLimits::default());
-        seed_ready_bundle(
-            &library,
-            &source,
-            "424243",
-            ReplaySource::ManualPick,
-            "3.1",
-        );
+        seed_ready_bundle(&library, &source, "424243", ReplaySource::ManualPick, "3.1");
 
         let first_hash = serde_json::to_value(library.list().unwrap()).unwrap()["matches"][0]
             ["bundle_hash"]
@@ -3173,22 +3490,16 @@ mod tests {
         assert_eq!(first_hash.len(), 64);
 
         let directory = root.join("424243");
-        let mut manifest: Value = read_json_limited(
-            &directory.join("manifest.json"),
-            engine::MAX_MANIFEST_BYTES,
-        )
-        .unwrap();
-        let mut world: Value = read_json_limited(
-            &directory.join("world.json"),
-            engine::MAX_WORLD_BYTES,
-        )
-        .unwrap();
+        let mut manifest: Value =
+            read_json_limited(&directory.join("manifest.json"), engine::MAX_MANIFEST_BYTES)
+                .unwrap();
+        let mut world: Value =
+            read_json_limited(&directory.join("world.json"), engine::MAX_WORLD_BYTES).unwrap();
         world["qh"] = json!(9);
         let world_bytes = serde_json::to_vec(&world).unwrap();
         fs::write(directory.join("world.json"), &world_bytes).unwrap();
         manifest["files"]["world.json"]["bytes"] = json!(world_bytes.len());
-        manifest["files"]["world.json"]["sha256"] =
-            json!(engine::sha256_bytes(&world_bytes));
+        manifest["files"]["world.json"]["sha256"] = json!(engine::sha256_bytes(&world_bytes));
         fs::write(
             directory.join("manifest.json"),
             serde_json::to_vec(&manifest).unwrap(),
@@ -3240,13 +3551,21 @@ mod tests {
         let dem_parsing = write_demo(&source, "205");
         let library = ReplayLibrary::new_for_tests(root.clone(), ReplayLibraryLimits::default());
         library
-            .add_available("204".to_owned(), &dem_queued, ReplaySource::DotaReplaysFolder)
+            .add_available(
+                "204".to_owned(),
+                &dem_queued,
+                ReplaySource::DotaReplaysFolder,
+            )
             .unwrap();
         library
             .set_entry_auto_status_locked("204", ReplayStatus::Queued, true)
             .unwrap();
         library
-            .add_available("205".to_owned(), &dem_parsing, ReplaySource::DotaReplaysFolder)
+            .add_available(
+                "205".to_owned(),
+                &dem_parsing,
+                ReplaySource::DotaReplaysFolder,
+            )
             .unwrap();
         library
             .set_entry_auto_status_locked("205", ReplayStatus::Parsing, true)
@@ -3264,16 +3583,61 @@ mod tests {
             assert!(entry.auto_queued);
             let meta: serde_json::Value = serde_json::from_slice(
                 &fs::read(root.join(&entry.match_id).join("meta.json")).unwrap(),
-            ).unwrap();
+            )
+            .unwrap();
             assert_eq!(meta["status"]["state"], "available");
             assert_eq!(meta["auto_queued"], true);
         }
         reopened.watch_replay_folder_for_test(&source).unwrap();
-        assert!(reopened.list().unwrap().matches.iter().all(|entry| entry.status == ReplayStatus::Available));
+        assert!(reopened
+            .list()
+            .unwrap()
+            .matches
+            .iter()
+            .all(|entry| entry.status == ReplayStatus::Available));
         reopened.watch_replay_folder_for_test(&source).unwrap();
-        assert!(reopened.list().unwrap().matches.iter().all(|entry| entry.status == ReplayStatus::Queued));
+        assert!(reopened
+            .list()
+            .unwrap()
+            .matches
+            .iter()
+            .all(|entry| entry.status == ReplayStatus::Queued));
         assert_eq!(reopened.list().unwrap().jobs.len(), 2);
-        assert!(reopened.list().unwrap().jobs.iter().all(|job| job.status == ReplayStatus::Queued));
+        assert!(reopened
+            .list()
+            .unwrap()
+            .jobs
+            .iter()
+            .all(|job| job.status == ReplayStatus::Queued));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn interrupted_fetched_parse_is_failed_and_never_requeued_on_startup() {
+        let root = temp_dir("interrupted-fetched");
+        let staging = root.join(".staging").join("autofetch");
+        fs::create_dir_all(&staging).unwrap();
+        let dem = staging.join("replay-fetch-interrupted.dem");
+        fs::write(&dem, b"synthetic staged replay").unwrap();
+        let library = ReplayLibrary::new_for_tests(root.clone(), ReplayLibraryLimits::default());
+        library
+            .add_available("321".to_owned(), &dem, ReplaySource::OpenDotaFetched)
+            .unwrap();
+        library
+            .set_entry_auto_status_locked("321", ReplayStatus::Parsing, true)
+            .unwrap();
+        drop(library);
+
+        let reopened = ReplayLibrary::new_for_tests(root.clone(), ReplayLibraryLimits::default());
+        let list = reopened.list().unwrap();
+        assert_eq!(
+            list.matches[0].status,
+            ReplayStatus::Failed {
+                reason: "interrupted_fetch".to_owned()
+            }
+        );
+        assert!(!list.matches[0].auto_queued);
+        assert!(list.jobs.is_empty());
         let _ = fs::remove_dir_all(root);
     }
 
@@ -3351,7 +3715,7 @@ mod tests {
         assert_eq!(
             rows.iter()
                 .find(|entry| entry.match_id == "101")
-            .unwrap()
+                .unwrap()
                 .status,
             ReplayStatus::Evicted
         );
@@ -3397,11 +3761,7 @@ mod tests {
             .map(|(id, ended_at, dem_modified, discovered)| {
                 (
                     *id,
-                    replay_recency_key(
-                        Some(ended_at),
-                        Some(*dem_modified),
-                        *discovered,
-                    ),
+                    replay_recency_key(Some(ended_at), Some(*dem_modified), *discovered),
                 )
             })
             .collect::<Vec<_>>();
@@ -3470,12 +3830,23 @@ mod tests {
         let source = root.join("source");
         fs::create_dir_all(&source).unwrap();
         let notes = crate::analytics::AnalyticsStore::open(&data, Some([9; 32]));
-        for (index, id) in ["101", "102", "103", "104", "105", "106", "107"].into_iter().enumerate() {
-            let dem = source.join(format!("{id}.dem")); fs::write(&dem, b"PBDEMS2\0fixture").unwrap();
-            library.add_available(id.to_owned(), &dem, ReplaySource::DotaReplaysFolder).unwrap();
+        for (index, id) in ["101", "102", "103", "104", "105", "106", "107"]
+            .into_iter()
+            .enumerate()
+        {
+            let dem = source.join(format!("{id}.dem"));
+            fs::write(&dem, b"PBDEMS2\0fixture").unwrap();
+            library
+                .add_available(id.to_owned(), &dem, ReplaySource::DotaReplaysFolder)
+                .unwrap();
             library.set_entry_status(id, ReplayStatus::Ready).unwrap();
             let mut state = lock(&library.inner.state);
-            if let Some(entry) = state.index.entries.iter_mut().find(|entry| entry.match_id == id) {
+            if let Some(entry) = state
+                .index
+                .entries
+                .iter_mut()
+                .find(|entry| entry.match_id == id)
+            {
                 entry.created_at_unix_ms = index as u64 + 1;
                 entry.match_date_utc = Some(format!("2026-11-{:02}T00:00:00Z", index + 1));
                 entry.bundle_bytes = 100;
@@ -3484,7 +3855,9 @@ mod tests {
                 write_index(&root, &state.index).unwrap();
             }
         }
-        notes.write_note("102", "Coach note", "kept after replay eviction").unwrap();
+        notes
+            .write_note("102", "Coach note", "kept after replay eviction")
+            .unwrap();
         library.set_pinned("101", true).unwrap();
         library
             .set_limits(ReplayLibraryLimits {
@@ -3532,15 +3905,27 @@ mod tests {
     fn size_cap_evicts_oldest_eligible_bundle_only() {
         let root = temp_dir("retention-size");
         let library = ReplayLibrary::new_for_tests(root.clone(), ReplayLibraryLimits::default());
-        let source = root.join("source"); fs::create_dir_all(&source).unwrap();
+        let source = root.join("source");
+        fs::create_dir_all(&source).unwrap();
         for (index, id) in ["201", "202", "203"].into_iter().enumerate() {
-            let dem = source.join(format!("{id}.dem")); fs::write(&dem, b"PBDEMS2\0fixture").unwrap();
-            library.add_available(id.to_owned(), &dem, ReplaySource::DotaReplaysFolder).unwrap();
+            let dem = source.join(format!("{id}.dem"));
+            fs::write(&dem, b"PBDEMS2\0fixture").unwrap();
+            library
+                .add_available(id.to_owned(), &dem, ReplaySource::DotaReplaysFolder)
+                .unwrap();
             library.set_entry_status(id, ReplayStatus::Ready).unwrap();
             let mut state = lock(&library.inner.state);
-            let entry = state.index.entries.iter_mut().find(|entry| entry.match_id == id).unwrap();
-            entry.created_at_unix_ms = index as u64 + 1; entry.bundle_bytes = 600; entry.storage_bytes = 700;
-            write_meta(&root.join(id), entry).unwrap(); write_index(&root, &state.index).unwrap();
+            let entry = state
+                .index
+                .entries
+                .iter_mut()
+                .find(|entry| entry.match_id == id)
+                .unwrap();
+            entry.created_at_unix_ms = index as u64 + 1;
+            entry.bundle_bytes = 600;
+            entry.storage_bytes = 700;
+            write_meta(&root.join(id), entry).unwrap();
+            write_index(&root, &state.index).unwrap();
         }
         library
             .set_limits(ReplayLibraryLimits {
@@ -3584,16 +3969,29 @@ mod tests {
     fn pinned_bundles_survive_a_size_cap_reduction_and_report_actual_usage() {
         let root = temp_dir("retention-pinned-over-cap");
         let library = ReplayLibrary::new_for_tests(root.clone(), ReplayLibraryLimits::default());
-        let source = root.join("source"); fs::create_dir_all(&source).unwrap();
+        let source = root.join("source");
+        fs::create_dir_all(&source).unwrap();
         for (id, pinned) in [("301", true), ("302", true), ("303", false)] {
-            let dem = source.join(format!("{id}.dem")); fs::write(&dem, b"PBDEMS2\\0fixture").unwrap();
-            library.add_available(id.to_owned(), &dem, ReplaySource::DotaReplaysFolder).unwrap();
+            let dem = source.join(format!("{id}.dem"));
+            fs::write(&dem, b"PBDEMS2\\0fixture").unwrap();
+            library
+                .add_available(id.to_owned(), &dem, ReplaySource::DotaReplaysFolder)
+                .unwrap();
             library.set_entry_status(id, ReplayStatus::Ready).unwrap();
-            if pinned { library.set_pinned(id, true).unwrap(); }
+            if pinned {
+                library.set_pinned(id, true).unwrap();
+            }
             let mut state = lock(&library.inner.state);
-            let entry = state.index.entries.iter_mut().find(|entry| entry.match_id == id).unwrap();
-            entry.storage_bytes = 600; entry.bundle_bytes = 500;
-            write_meta(&root.join(id), entry).unwrap(); write_index(&root, &state.index).unwrap();
+            let entry = state
+                .index
+                .entries
+                .iter_mut()
+                .find(|entry| entry.match_id == id)
+                .unwrap();
+            entry.storage_bytes = 600;
+            entry.bundle_bytes = 500;
+            write_meta(&root.join(id), entry).unwrap();
+            write_index(&root, &state.index).unwrap();
         }
         library
             .set_limits(ReplayLibraryLimits {
@@ -3604,21 +4002,32 @@ mod tests {
         let list = library.list().unwrap();
         assert_eq!(list.matches.len(), 3);
         assert_eq!(
-            list.matches.iter().filter(|entry| entry.status == ReplayStatus::Ready)
-                .map(|entry| entry.match_id.as_str()).collect::<HashSet<_>>(),
+            list.matches
+                .iter()
+                .filter(|entry| entry.status == ReplayStatus::Ready)
+                .map(|entry| entry.match_id.as_str())
+                .collect::<HashSet<_>>(),
             ["301", "302"].into_iter().collect()
         );
         assert_eq!(
-            list.matches.iter().filter(|entry| entry.status == ReplayStatus::Evicted)
-                .map(|entry| entry.match_id.as_str()).collect::<HashSet<_>>(),
+            list.matches
+                .iter()
+                .filter(|entry| entry.status == ReplayStatus::Evicted)
+                .map(|entry| entry.match_id.as_str())
+                .collect::<HashSet<_>>(),
             ["303"].into_iter().collect()
         );
         assert_eq!(
-            list.matches.iter().filter(|entry| entry.status == ReplayStatus::Ready)
-                .map(|entry| entry.storage_bytes).sum::<u64>(),
+            list.matches
+                .iter()
+                .filter(|entry| entry.status == ReplayStatus::Ready)
+                .map(|entry| entry.storage_bytes)
+                .sum::<u64>(),
             1200
         );
-        for id in ["301", "302", "303"] { assert!(source.join(format!("{id}.dem")).exists()); }
+        for id in ["301", "302", "303"] {
+            assert!(source.join(format!("{id}.dem")).exists());
+        }
         assert!(root.join("301").exists() && root.join("302").exists());
         assert!(root.join("303").join("meta.json").is_file());
         assert!(!root.join("303").join("manifest.json").exists());
@@ -3833,11 +4242,27 @@ mod tests {
             .iter()
             .all(|job| job.status != ReplayStatus::Queued));
         assert_eq!(
-            library.list().unwrap().matches.iter().find(|entry| entry.match_id == "9103").unwrap().status,
-            ReplayStatus::Failed { reason: "fixture_failure".to_owned() }
+            library
+                .list()
+                .unwrap()
+                .matches
+                .iter()
+                .find(|entry| entry.match_id == "9103")
+                .unwrap()
+                .status,
+            ReplayStatus::Failed {
+                reason: "fixture_failure".to_owned()
+            }
         );
         assert_eq!(
-            library.list().unwrap().matches.iter().find(|entry| entry.match_id == "9104").unwrap().status,
+            library
+                .list()
+                .unwrap()
+                .matches
+                .iter()
+                .find(|entry| entry.match_id == "9104")
+                .unwrap()
+                .status,
             ReplayStatus::NeedsPack
         );
         let _ = fs::remove_dir_all(root);
@@ -3916,17 +4341,30 @@ mod tests {
             Arc::new(AtomicBool::new(false)),
             sink,
         );
-        running_library.watch_replay_folder_for_test(&running_folder).unwrap();
-        running_library.watch_replay_folder_for_test(&running_folder).unwrap();
+        running_library
+            .watch_replay_folder_for_test(&running_folder)
+            .unwrap();
+        running_library
+            .watch_replay_folder_for_test(&running_folder)
+            .unwrap();
         started_rx.recv_timeout(Duration::from_secs(2)).unwrap();
-        assert_eq!(running_library.list().unwrap().matches[0].status, ReplayStatus::Parsing);
+        assert_eq!(
+            running_library.list().unwrap().matches[0].status,
+            ReplayStatus::Parsing
+        );
 
         running_library.set_auto_analyse(false);
-        assert_eq!(running_library.list().unwrap().matches[0].status, ReplayStatus::Parsing);
+        assert_eq!(
+            running_library.list().unwrap().matches[0].status,
+            ReplayStatus::Parsing
+        );
 
         continue_tx.send(()).unwrap();
         wait_until(|| running_library.list().unwrap().matches[0].status != ReplayStatus::Parsing);
-        assert!(matches!(running_library.list().unwrap().matches[0].status, ReplayStatus::Failed { .. }));
+        assert!(matches!(
+            running_library.list().unwrap().matches[0].status,
+            ReplayStatus::Failed { .. }
+        ));
         let _ = fs::remove_dir_all(running_root);
     }
 
@@ -3974,7 +4412,16 @@ mod tests {
             .filter_map(|record| record.match_id.clone())
             .collect::<Vec<_>>();
         assert_eq!(queued, ["9204", "9203"]);
-        assert_eq!(library.list().unwrap().matches.iter().filter(|entry| entry.status == ReplayStatus::Available).count(), 2);
+        assert_eq!(
+            library
+                .list()
+                .unwrap()
+                .matches
+                .iter()
+                .filter(|entry| entry.status == ReplayStatus::Available)
+                .count(),
+            2
+        );
         let _ = fs::remove_dir_all(root);
     }
 
@@ -4046,7 +4493,8 @@ mod tests {
         let match_id = "9876543210";
         let dem = write_demo(&folder, match_id);
         let logs = crate::logging::collect_test_logs(|| {
-            let library = ReplayLibrary::new_for_tests(root.clone(), ReplayLibraryLimits::default());
+            let library =
+                ReplayLibrary::new_for_tests(root.clone(), ReplayLibraryLimits::default());
             library.set_auto_analyse(false);
             library.watch_replay_folder_for_test(&folder).unwrap();
             library.remove(match_id).unwrap();

@@ -29,11 +29,12 @@ mod media;
 mod mixer;
 mod news;
 mod objectives;
-mod overview_insights;
 mod opendota;
 mod orb;
+mod overview_insights;
 mod portraits;
 mod post_game_replay;
+mod replay_autofetch;
 mod replay_library;
 pub mod secrets;
 pub mod settings;
@@ -123,7 +124,9 @@ pub(crate) struct AppState {
     /// OVERVIEW-002 local own-match history (written by intake, read by the Overview).
     pub(crate) match_history: match_history::MatchHistoryStore,
     /// Opt-in, own-account OpenDota cache; never populated while consent is off.
-    pub(crate) opendota: opendota::OpenDotaService,
+    pub(crate) opendota: Arc<opendota::OpenDotaService>,
+    /// Independent opt-in replay lookup/download state machine (MEM-008).
+    pub(crate) replay_auto_fetch: replay_autofetch::ReplayAutoFetch,
     /// OVERVIEW-003 community news (one fixed GitHub file, on by default, off switch).
     pub(crate) news: news::NewsService,
 }
@@ -244,7 +247,7 @@ fn overlay_hwnd(
 #[cfg(windows)]
 fn overlay_has_no_activate_style(window: &tauri::WebviewWindow<tauri::Wry>) -> bool {
     use windows::Win32::UI::WindowsAndMessaging::{
-        GWL_EXSTYLE, GetWindowLongPtrW, WS_EX_NOACTIVATE,
+        GetWindowLongPtrW, GWL_EXSTYLE, WS_EX_NOACTIVATE,
     };
 
     let Some(hwnd) = overlay_hwnd(window) else {
@@ -268,7 +271,7 @@ fn overlay_is_foreground(window: &tauri::WebviewWindow<tauri::Wry>) -> bool {
 /// (`activation_detected` on start-up). `SW_SHOWNOACTIVATE` shows the window and leaves the foreground alone.
 #[cfg(windows)]
 pub(crate) fn show_without_activation(window: &tauri::WebviewWindow<tauri::Wry>) -> bool {
-    use windows::Win32::UI::WindowsAndMessaging::{IsWindowVisible, SW_SHOWNOACTIVATE, ShowWindow};
+    use windows::Win32::UI::WindowsAndMessaging::{IsWindowVisible, ShowWindow, SW_SHOWNOACTIVATE};
 
     let Some(hwnd) = overlay_hwnd(window) else {
         return false;
@@ -289,7 +292,7 @@ pub(crate) fn show_without_activation(window: &tauri::WebviewWindow<tauri::Wry>)
 #[cfg(windows)]
 fn raise_overlay_without_activation(window: &tauri::WebviewWindow<tauri::Wry>) -> bool {
     use windows::Win32::UI::WindowsAndMessaging::{
-        HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SetWindowPos,
+        SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
     };
 
     let Some(hwnd) = overlay_hwnd(window) else {
@@ -460,7 +463,7 @@ fn reserve_overlay_visibility_diagnostic() -> Option<usize> {
 
 #[cfg(windows)]
 fn window_is_topmost(hwnd: windows::Win32::Foundation::HWND) -> bool {
-    use windows::Win32::UI::WindowsAndMessaging::{GWL_EXSTYLE, GetWindowLongPtrW, WS_EX_TOPMOST};
+    use windows::Win32::UI::WindowsAndMessaging::{GetWindowLongPtrW, GWL_EXSTYLE, WS_EX_TOPMOST};
 
     unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32 & WS_EX_TOPMOST.0 != 0 }
 }
@@ -469,7 +472,7 @@ fn window_is_topmost(hwnd: windows::Win32::Foundation::HWND) -> bool {
 fn overlay_window_above_description(hwnd: windows::Win32::Foundation::HWND) -> String {
     use windows::Win32::Foundation::HWND;
     use windows::Win32::UI::WindowsAndMessaging::{
-        GW_HWNDPREV, GetClassNameW, GetWindow, GetWindowThreadProcessId,
+        GetClassNameW, GetWindow, GetWindowThreadProcessId, GW_HWNDPREV,
     };
 
     let above = match unsafe { GetWindow(hwnd, GW_HWNDPREV) } {
@@ -502,7 +505,7 @@ fn overlay_window_above_description(hwnd: windows::Win32::Foundation::HWND) -> S
 #[cfg(windows)]
 fn overlay_visible_topmost_rank(target: windows::Win32::Foundation::HWND) -> Option<usize> {
     use windows::Win32::UI::WindowsAndMessaging::{
-        GW_HWNDNEXT, GetTopWindow, GetWindow, IsWindowVisible,
+        GetTopWindow, GetWindow, IsWindowVisible, GW_HWNDNEXT,
     };
 
     let mut current = unsafe { GetTopWindow(None).ok() }?;
@@ -529,9 +532,9 @@ fn log_overlay_visibility_snapshot(
     sample: usize,
     at: &'static str,
 ) {
-    use windows::Win32::Graphics::Dwm::{DWMWA_CLOAKED, DwmGetWindowAttribute};
+    use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED};
     use windows::Win32::UI::WindowsAndMessaging::{
-        GWL_EXSTYLE, GetForegroundWindow, GetWindowLongPtrW, IsWindowVisible, WS_EX_NOACTIVATE,
+        GetForegroundWindow, GetWindowLongPtrW, IsWindowVisible, GWL_EXSTYLE, WS_EX_NOACTIVATE,
     };
 
     let Some(hwnd) = overlay_hwnd(window) else {
@@ -559,7 +562,11 @@ fn log_overlay_visibility_snapshot(
     }
     .is_ok()
     {
-        if cloaked_value == 0 { "false" } else { "true" }
+        if cloaked_value == 0 {
+            "false"
+        } else {
+            "true"
+        }
     } else {
         "unknown"
     };
@@ -1077,13 +1084,11 @@ mod window_close_tests {
     fn the_control_window_label_matches_the_tauri_config() {
         let config: serde_json::Value =
             serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
-        assert!(
-            config["app"]["windows"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .any(|window| window["label"] == "control")
-        );
+        assert!(config["app"]["windows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|window| window["label"] == "control"));
     }
 }
 
@@ -1328,7 +1333,9 @@ pub fn run() {
                     max_bytes: preferences.max_bytes,
                 })
                 .unwrap_or_default();
-            {
+            let opendota = Arc::new(opendota::OpenDotaService::open(&settings_dir, install_key));
+            let replay_fetch_enabled = settings::replay_auto_fetch_enabled(&settings_dir);
+            let replay_auto_fetch = {
                 let bundled_engine = {
                     let mut candidates = Vec::new();
                     if let Ok(resources) = app.path().resource_dir() {
@@ -1358,15 +1365,22 @@ pub fn run() {
                     replay_limits,
                     replay_auto_analyse,
                 );
+                let fetcher = replay_autofetch::ReplayAutoFetch::open(
+                    library.clone(),
+                    opendota.clone(),
+                    replay_fetch_enabled,
+                    update_match_active.clone(),
+                );
                 app.manage(library);
-            }
+                fetcher
+            };
             app.manage(analytics);
             app.manage(account_auth.clone());
             account_auth.start_refresh_loop();
             let match_history = intake::lock(&runtime.shared).match_history();
-            let opendota = opendota::OpenDotaService::open(&settings_dir, install_key);
             let news = news::NewsService::open(&settings_dir);
             news.start();
+            let replay_fetch_runtime = runtime.clone();
             app.manage(AppState {
                 runtime,
                 host,
@@ -1402,8 +1416,16 @@ pub fn run() {
                 objectives: objective_host,
                 match_history,
                 opendota,
+                replay_auto_fetch,
                 news,
             });
+            app.state::<AppState>()
+                .replay_auto_fetch
+                .start(Arc::new(move || {
+                    let shared = intake::lock(&replay_fetch_runtime.shared);
+                    let epoch = shared.last_finished_match.as_ref()?.epoch;
+                    shared.current_match_id_for_epoch(epoch)
+                }));
             orb::host::register_critical_listener(app.handle());
             app.state::<AppState>().orb.start_if_enabled(app.handle());
             let hud_controller =
@@ -1450,6 +1472,7 @@ pub fn run() {
         commands::gsi_setup,
         commands::settings_get,
         commands::settings_patch,
+        commands::replay_auto_fetch_set,
         commands::objective_prefs_get,
         commands::objective_prefs_patch,
         commands::layout_get,
@@ -1623,6 +1646,7 @@ pub fn run() {
         commands::gsi_setup,
         commands::settings_get,
         commands::settings_patch,
+        commands::replay_auto_fetch_set,
         commands::objective_prefs_get,
         commands::objective_prefs_patch,
         commands::layout_get,
@@ -1768,6 +1792,7 @@ pub fn run() {
                 state.orb.stop_for_exit();
                 state.hero_stats.stop_for_exit();
                 state.opendota.stop_for_exit();
+                state.replay_auto_fetch.stop_for_exit();
                 state.mixer.shutdown();
                 intake::lock(&state.hud).stop();
                 intake::lock(&state.hotkeys).stop();

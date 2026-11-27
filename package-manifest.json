@@ -443,8 +443,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/commands.rs",
-      "bytes": 84845,
-      "sha256": "82a77d8880a349c0e9ac4d10cd673fab67a15bea6554626ebdc683e27eada83c"
+      "bytes": 86691,
+      "sha256": "d964cdb9630661afe1ac5e73d99d5396e3cfc23cf2a55232eb8a9893309bcd3c"
     },
     {
       "path": "apps/desktop/src-tauri/src/containment.rs",
@@ -453,8 +453,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/demo.rs",
-      "bytes": 8691,
-      "sha256": "85b42d588ea24cdf54da567754efec250ab31a967de685246c79987cdc84b302"
+      "bytes": 8702,
+      "sha256": "684922cdca0e81cb85b0bd16767a25a963db1944b98cc7ebb98de6a30104c093"
     },
     {
       "path": "apps/desktop/src-tauri/src/draft_bar.rs",
@@ -468,8 +468,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/benchmarks.rs",
-      "bytes": 38051,
-      "sha256": "225b640261c5685f1daf1b4bf328efe5c0c44ef05731f91879783fc260e559fe"
+      "bytes": 38697,
+      "sha256": "01ad2091865983e16d94a6ea093c43edf5f50e88004b8f1414fc8d11d7b6679b"
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/budget.rs",
@@ -498,8 +498,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/host.rs",
-      "bytes": 87325,
-      "sha256": "fdcd96791ec9848ad662757453370cc5f911dc75cea13c52ba66f8ddac2be81e"
+      "bytes": 88112,
+      "sha256": "dbb720acec03400425cb6d59cfe91deda110d7c55480fe6153db8842ea1d22f4"
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/layout.rs",
@@ -538,8 +538,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/transport.rs",
-      "bytes": 22179,
-      "sha256": "8a7b752e8ddba23455c7cc0dbf72ca1ca27511cc06b0846eba802a3730d8ad55"
+      "bytes": 28957,
+      "sha256": "2138fe8c613b8569eb4f87be03f196c1010dee4993215e3a0b10646e30ee2364"
     },
     {
       "path": "apps/desktop/src-tauri/src/hero_stats/view.rs",
@@ -568,8 +568,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/intake.rs",
-      "bytes": 146776,
-      "sha256": "a7cd7e23c57e528d9c39f159cc41d6ce0d70306990dfd0258f7fa3851c636c82"
+      "bytes": 147925,
+      "sha256": "4f68a072a00b87a70b2f1bde6e4de756497e70d82e8b494b32e99e62285faaaa"
     },
     {
       "path": "apps/desktop/src-tauri/src/lab.rs",
@@ -588,8 +588,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/lib.rs",
-      "bytes": 74591,
-      "sha256": "20d63a04368189394d0eb4464a0a3f72e65f6640d2d7717c43ff8b5a26430169"
+      "bytes": 75748,
+      "sha256": "28e8c5e34e6697814a38ef3320786f5dc07715eea98f5b8b86e43394f32c52fe"
     },
     {
       "path": "apps/desktop/src-tauri/src/logging.rs",
@@ -668,8 +668,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/news.rs",
-      "bytes": 43430,
-      "sha256": "c58f8f1cc1f194133c3fb15701263b9cf5b31ce170f14df291e0f9c15eadd5f0"
+      "bytes": 43651,
+      "sha256": "2b6dfe74e2060925bdca2b1ded0ef57c78575bfca69b9d42be86004c946992f6"
     },
     {
       "path": "apps/desktop/src-tauri/src/objectives/diagnostics.rs",
@@ -693,8 +693,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/opendota.rs",
-      "bytes": 40211,
-      "sha256": "42b95657aa1f5de9ce30e2fad47d3468404224e500f7890f7e9740abb15d280a"
+      "bytes": 57240,
+      "sha256": "f3d5e95f2655c25c7d14c21b320a42a41a30770110c0cd66499313ce0b05bd71"
     },
     {
       "path": "apps/desktop/src-tauri/src/orb/host.rs",
@@ -723,8 +723,13 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/post_game_replay.rs",
-      "bytes": 25375,
-      "sha256": "5fdbd7e9be6ddc122265cb6fa60b84a8c7ec06afba86d0eaeac92651c1e84a69"
+      "bytes": 30594,
+      "sha256": "ab1fd3bf73345cb0333b9c913b39746a158252fd1486f445cdf285befc564289"
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/replay_autofetch.rs",
+      "bytes": 88310,
+      "sha256": "e3b0ecf333adc36e65e76b3e6cbbb49f3deb1d0bb31fa810c1a1b4137323dbf7"
     },
     {
       "path": "apps/desktop/src-tauri/src/replay_library/engine.rs",
@@ -733,8 +738,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/replay_library/mod.rs",
-      "bytes": 161477,
-      "sha256": "3ca67cb5f1f355b07725c6e5c8e3030a1eb1dc0d99c5cba4e34d360e5eee3d6b"
+      "bytes": 176519,
+      "sha256": "655156a307cb90242428911031c79cc13476972e6f0d9c8308121c8ec1b11d70"
     },
     {
       "path": "apps/desktop/src-tauri/src/secrets.rs",
@@ -743,8 +748,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/settings.rs",
-      "bytes": 16819,
-      "sha256": "0d40b1002ad57adbf49eba06a399893c32a660e9b32e8daa0a8c17d1226dd9d6"
+      "bytes": 20406,
+      "sha256": "20cb3ec6f8b29bf3faee1e6228796d5582ee2a2baf23fa2f0471364492f8a0c6"
     },
     {
       "path": "apps/desktop/src-tauri/src/show_hotkey.rs",
@@ -978,8 +983,8 @@
     },
     {
       "path": "apps/desktop/src/analytics/AnalyticsSettings.tsx",
-      "bytes": 9712,
-      "sha256": "a3ec76f7041822c033272f14e1f31715e2b157278d2ed2e4e970dfc6d6c39305"
+      "bytes": 12181,
+      "sha256": "19fa65d8ac90cb93d71fe7cc55b1b8809e67b6d963b74db558f9620a9f7f2b7e"
     },
     {
       "path": "apps/desktop/src/analytics/LaneReviewPage.tsx",
@@ -1028,8 +1033,8 @@
     },
     {
       "path": "apps/desktop/src/analytics/analyticsSettings.css",
-      "bytes": 965,
-      "sha256": "690b222380a1f411f68469cf681ddaf353c6390681369219c14f8f09433cd641"
+      "bytes": 1636,
+      "sha256": "36e0daac7718ccaa4c70d80d63cff1f711ff9530e7489468c5cefb53505b9fe8"
     },
     {
       "path": "apps/desktop/src/analytics/heroBenchmarksModel.d.mts",
@@ -12573,8 +12578,8 @@
     },
     {
       "path": "apps/desktop/src/copy.ts",
-      "bytes": 97146,
-      "sha256": "625dc6bc37463f67c06b91806c9cae6e12562b2bf9ceb4c520f7bf0104ba149d"
+      "bytes": 99793,
+      "sha256": "4a7da8e55d8efcdadc1be0626416d368ebf1f929e0c9fd5fdbd809baed4c31dd"
     },
     {
       "path": "apps/desktop/src/critical-stack.css",
@@ -12983,8 +12988,8 @@
     },
     {
       "path": "apps/desktop/src/live/copy.ts",
-      "bytes": 23853,
-      "sha256": "6576c686f11fe7460722563dd1e9c65ce67e49e7250c0e27d871be451c2020d6"
+      "bytes": 25288,
+      "sha256": "8ebc862f130b223f0c2a6f659e28f9bb66dfcb33899d2d810be3ff0109817825"
     },
     {
       "path": "apps/desktop/src/live/dotaIconSet.ts",
@@ -13038,8 +13043,8 @@
     },
     {
       "path": "apps/desktop/src/live/live.css",
-      "bytes": 39829,
-      "sha256": "398cd2aa95838077747a0739f2af6185a06f76dd8d974ba1a8a16d1c97f0c999"
+      "bytes": 39968,
+      "sha256": "ccb6608b24e1b52863310aea7a7447ffbb036718ffa36a6b91daa40b20c83e03"
     },
     {
       "path": "apps/desktop/src/live/meter.ts",
@@ -13083,8 +13088,8 @@
     },
     {
       "path": "apps/desktop/src/live/postGameSummaryModel.ts",
-      "bytes": 25117,
-      "sha256": "2a504c384278a9dc4707465545306b41e6a0f36e5b74519d854037f910f0a8c3"
+      "bytes": 26128,
+      "sha256": "be918696caacb8e2875b43071bad364372ba8984aef018b09254b4a7bd8e06ae"
     },
     {
       "path": "apps/desktop/src/live/pregameDashboardModel.ts",
@@ -13313,8 +13318,8 @@
     },
     {
       "path": "apps/desktop/src/mock/harness.tsx",
-      "bytes": 48529,
-      "sha256": "0ccbd413cc8b45dd3256d201bfb841f425e0090f9e2d03e3c8299048bd95bba1"
+      "bytes": 49560,
+      "sha256": "4d617bca320a3182a88dcd7de10ee55e72819e1f94f9d5607c1d02b42e415a49"
     },
     {
       "path": "apps/desktop/src/mock/hudState.ts",
@@ -13728,8 +13733,8 @@
     },
     {
       "path": "apps/desktop/src/settings/settingsModel.ts",
-      "bytes": 4218,
-      "sha256": "4361cc50ec3fbab78f60634696def41f1264dc8d84b81528c43639b76f0633c1"
+      "bytes": 4256,
+      "sha256": "d942f71fca92adbed9a5e9dbc3f9911cd7f7caf91812fffa0a90ca0ef13484ee"
     },
     {
       "path": "apps/desktop/src/shared/Dialog.tsx",
@@ -14278,8 +14283,8 @@
     },
     {
       "path": "apps/desktop/tests/live-postgame-summary.test.ts",
-      "bytes": 45064,
-      "sha256": "b6b13b06d1bb2f2836458efe30afc828184d4c8899c800b8b416d0ab8fc7b390"
+      "bytes": 46796,
+      "sha256": "1be1668874f21084b672b6cd754ea502491fbfbe63e51b37a695a3078b2416b0"
     },
     {
       "path": "apps/desktop/tests/live-pregame-dashboard.test.ts",
@@ -14503,8 +14508,8 @@
     },
     {
       "path": "apps/desktop/tests/settings-layout.test.ts",
-      "bytes": 10854,
-      "sha256": "dcdf61ea14f5ea689ed0413ca087c91ff2c60913d6f6f13d1227d0af9798350c"
+      "bytes": 12359,
+      "sha256": "b272ae0c0f22e3edab5c736b5c7d027328563e8f3af4dfe11cc6de74c8c3eeca"
     },
     {
       "path": "apps/desktop/tests/shell-css.test.ts",
@@ -14838,8 +14843,8 @@
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 385012,
-      "sha256": "cbfcd42d8dc37cd3bcbf5b48796a48037e641a7c9c9a28eed0a3e19c9a8cc3b4"
+      "bytes": 386243,
+      "sha256": "22c6f53b6d9a1b053907ab182fb86689ec26b7ab96f36dc2f10192b5fc8e7365"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -14853,8 +14858,8 @@
     },
     {
       "path": "contracts/user-settings.schema.json",
-      "bytes": 2345,
-      "sha256": "0ae958cbe2a97cc2597e37c4dfe69557acc72726bd82a753ad526b6d5b36bb7b"
+      "bytes": 2552,
+      "sha256": "0a714f72f307c95c011ef19d231712bd3cbdf1033f543dab36232da2ea1a8882"
     },
     {
       "path": "crates/kohbor-account/Cargo.toml",
@@ -16423,8 +16428,8 @@
     },
     {
       "path": "docs/requirements/RTM.csv",
-      "bytes": 70640,
-      "sha256": "8cb077cd75d10ccedab7e1fff5bcbd1f881c8a7e385dc720d672f2afbb83541c"
+      "bytes": 71553,
+      "sha256": "b9e4d50bb4562af8c89df7b7a8851178835661c4fca84a1bcb103f7f0135bc7a"
     },
     {
       "path": "docs/requirements/SRS.md",

@@ -462,13 +462,21 @@ impl BenchmarksHost {
                 benchmarks: None,
             };
         }
-        let hero_id = inner.cache.hero_ids.get(hero_key).copied()
+        let hero_id = inner
+            .cache
+            .hero_ids
+            .get(hero_key)
+            .copied()
             .or_else(|| (self.hero_id_lookup)(hero_key))
             .filter(|id| *id > 0);
         let cached = hero_id.and_then(|id| inner.cache.benchmarks.get(&id));
         BenchmarksView {
             enabled: true,
-            state: if cached.is_some() { BenchmarksState::Ready } else { BenchmarksState::Unknown },
+            state: if cached.is_some() {
+                BenchmarksState::Ready
+            } else {
+                BenchmarksState::Unknown
+            },
             budget_used,
             hero_id,
             fetched_at_ms: cached.map(|entry| entry.fetched_at_ms),
@@ -664,7 +672,7 @@ impl BenchmarksHost {
         }
         match result {
             Ok(response) => Ok(response),
-            Err(TransportError::NotSent | TransportError::CancelledBeforeSend) => {
+            Err(TransportError::NotSent | TransportError::LocalFailure | TransportError::CancelledBeforeSend) => {
                 Err(RequestFailure::Unknown)
             }
             Err(TransportError::Cancelled) if cancellation.is_cancelled() => {
@@ -809,6 +817,8 @@ mod tests {
             Ok(HttpResponse {
                 status: 200,
                 retry_after: None,
+                rate_limit_remaining_minute: None,
+                rate_limit_remaining_day: None,
                 body: PARTIAL_BENCHMARK_FIXTURE.to_vec(),
             })
         }
@@ -832,6 +842,8 @@ mod tests {
         Ok(HttpResponse {
             status: 200,
             retry_after: None,
+            rate_limit_remaining_minute: None,
+            rate_limit_remaining_day: None,
             body: body.to_vec(),
         })
     }
@@ -845,17 +857,26 @@ mod tests {
             hero_ids: Default::default(),
             benchmarks: Default::default(),
         };
-        cache.benchmarks.insert(2, CachedHeroBenchmarks {
-            fetched_at_ms: 123,
-            value: HeroBenchmarks {
-                hero_id: 2,
-                gold_per_min: Some(vec![
-                    PercentilePoint { percentile: 50.0, value: 400.0 },
-                    PercentilePoint { percentile: 75.0, value: 500.0 },
-                ]),
-                ..HeroBenchmarks::default()
+        cache.benchmarks.insert(
+            2,
+            CachedHeroBenchmarks {
+                fetched_at_ms: 123,
+                value: HeroBenchmarks {
+                    hero_id: 2,
+                    gold_per_min: Some(vec![
+                        PercentilePoint {
+                            percentile: 50.0,
+                            value: 400.0,
+                        },
+                        PercentilePoint {
+                            percentile: 75.0,
+                            value: 500.0,
+                        },
+                    ]),
+                    ..HeroBenchmarks::default()
+                },
             },
-        });
+        );
         CacheStore::in_data_dir(&dir).save(&cache).unwrap();
         let transport = Arc::new(FixtureTransport::new([]));
         let service = host(&dir, transport.clone(), true, Some(2));
@@ -865,9 +886,16 @@ mod tests {
         assert_eq!(cached.state, BenchmarksState::Ready);
         assert_eq!(cached.hero_id, Some(2));
         assert_eq!(cached.fetched_at_ms, Some(123));
-        assert_eq!(cached.benchmarks.unwrap().gold_per_min.unwrap()[1].value, 500.0);
+        assert_eq!(
+            cached.benchmarks.unwrap().gold_per_min.unwrap()[1].value,
+            500.0
+        );
         assert_eq!(transport.requests.lock().unwrap().len(), 0);
-        assert_eq!(service.view().hero_id, None, "the peek does not change Analytics selection");
+        assert_eq!(
+            service.view().hero_id,
+            None,
+            "the peek does not change Analytics selection"
+        );
 
         let other = service.cached_for_hero_key("npc_dota_hero_lion");
         assert_eq!(other.state, BenchmarksState::Unknown);

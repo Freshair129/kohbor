@@ -8271,7 +8271,30 @@
           "docs/quality/UAT-PLAN.md"
         ],
         "evidence_refs": [],
-        "implementation_refs": [],
+        "implementation_refs": [
+          "apps/desktop/src-tauri/src/intake.rs",
+          "apps/desktop/src-tauri/src/settings.rs",
+          "apps/desktop/src-tauri/src/commands.rs",
+          "apps/desktop/src-tauri/src/lib.rs",
+          "apps/desktop/src-tauri/src/opendota.rs",
+          "apps/desktop/src-tauri/src/hero_stats/transport.rs",
+          "apps/desktop/src-tauri/src/hero_stats/benchmarks.rs",
+          "apps/desktop/src-tauri/src/hero_stats/host.rs",
+          "apps/desktop/src-tauri/src/news.rs",
+          "apps/desktop/src-tauri/src/replay_autofetch.rs",
+          "apps/desktop/src-tauri/src/replay_library/mod.rs",
+          "apps/desktop/src-tauri/src/post_game_replay.rs",
+          "apps/desktop/src/analytics/AnalyticsSettings.tsx",
+          "apps/desktop/src/analytics/analyticsSettings.css",
+          "apps/desktop/src/copy.ts",
+          "apps/desktop/src/live/postGameSummaryModel.ts",
+          "apps/desktop/src/live/copy.ts",
+          "apps/desktop/src/live/live.css",
+          "apps/desktop/src/mock/harness.tsx",
+          "apps/desktop/src/settings/settingsModel.ts",
+          "apps/desktop/tests/live-postgame-summary.test.ts",
+          "apps/desktop/tests/settings-layout.test.ts"
+        ],
         "procedure_ids": [
           "TP-07",
           "UAT-08"

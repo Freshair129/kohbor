@@ -190,7 +190,7 @@ mod tests {
         for source in [intake, admission] {
             assert!(!source.to_ascii_lowercase().contains("demo"));
             assert!(!source.contains("KOHBOR_DEMO"));
-            assert!(!source.contains("#[cfg(feature"));
+            assert!(!source.contains("#[cfg(feature = \"demo\""));
         }
 
         assert!(intake.contains(

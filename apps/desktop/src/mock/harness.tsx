@@ -88,7 +88,8 @@ let callbackId = 0;
 let eventId = 0;
 let playbackSequence = 0;
 let mockHeroBenchmarksOn = false;
-type MockReplayState = "not_found" | "available" | "queued" | "parsing" | "ready" | "failed" | "needs_pack" | "auto_parse_off";
+type MockReplayState = "not_found" | "available" | "queued" | "parsing" | "ready" | "failed" | "needs_pack" | "auto_parse_off"
+  | "off" | "waiting_for_match_end" | "looking_up" | "requested" | "downloading" | "not_available_yet" | "expired" | "rate_limited" | "offline";
 let mockStage2ReplayState: MockReplayState = "available";
 let mockDebriefHeroId = "npc_dota_hero_legion_commander";
 const callbacks = new Map<number, MockCallback>();
@@ -982,6 +983,15 @@ export function MockScenarioSwitcher() {
                 <option value="failed">Failed / แยกไม่สำเร็จ</option>
                 <option value="needs_pack">Needs pack / ต้องมีชุดข้อมูล</option>
                 <option value="auto_parse_off">Auto-parse off / ปิดแยกอัตโนมัติ</option>
+                <option value="off">Fetch off / ปิดดึงรีเพลย์</option>
+                <option value="waiting_for_match_end">Waiting for match end / รอแมตช์จบ</option>
+                <option value="looking_up">Looking up / กำลังค้นหา</option>
+                <option value="requested">Requested / ส่งคำขอแล้ว</option>
+                <option value="downloading">Downloading / กำลังดาวน์โหลด</option>
+                <option value="not_available_yet">Not available yet / ยังไม่พร้อม</option>
+                <option value="expired">Expired / หมดอายุ</option>
+                <option value="rate_limited">Rate-limited / จำกัดคำขอ</option>
+                <option value="offline">Offline / ออฟไลน์</option>
               </select>
             </label>
           </>}

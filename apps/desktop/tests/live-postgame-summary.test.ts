@@ -4,6 +4,7 @@ import { test } from "node:test";
 
 // All post-game inputs in this file are synthetic fixtures; they are model tests, not match evidence.
 const summary = await import("../src/live/postGameSummaryModel.ts").catch(() => null);
+const liveCopy = await import("../src/live/copy.ts").catch(() => null);
 const heroCardModel = await import("../src/live/heroCardModel.ts").catch(() => null);
 const debriefFixture = await import("../src/mock/debriefFixture.mjs").catch(() => null);
 const heroNames = await import("../src/deck/heroName.ts").catch(() => null);
@@ -215,6 +216,32 @@ test("post-game panel explains Dota download, manual picking, and a reachable la
   assert.match(copy, /stateParsing: "กำลังแยก"/);
   assert.match(copy, /stateReady: "พร้อมดู"/);
   assert.match(copy, /stateFailed: "แยกไม่สำเร็จ"/);
+});
+
+test("replay-fetch states have Thai and English labels at 12px and fit the bounded status box", () => {
+  assert.ok(summary && liveCopy);
+  const states = [
+    "off", "waiting_for_match_end", "looking_up", "requested", "downloading", "parsing", "ready",
+    "not_available_yet", "not_found", "expired", "rate_limited", "offline", "failed",
+  ] as const;
+  for (const state of states) {
+    const thai = summary.postGameReplayStatePresentation(state, "match", "th");
+    const english = summary.postGameReplayStatePresentation(state, "match", "en");
+    assert.ok(thai.label.length > 0, `Thai ${state}`);
+    assert.ok(english.label.length > 0, `English ${state}`);
+  }
+  // With the fetch off, the manual Dota download path keeps its hint and the Settings link.
+  const off = summary.postGameReplayStatePresentation("off", "match", "th");
+  assert.ok(off.hint && off.hint.includes("Dota 2"));
+  assert.equal(off.settingsSection, "replay-ai");
+  assert.equal(summary.postGameReplayStatePresentation("looking_up", "match", "th").hint, null);
+  const css = readFileSync(new URL("../src/live/live.css", import.meta.url), "utf8");
+  assert.match(css, /\.live-postgame-waiting > strong, \.live-postgame-parse-state\s*\{[^}]*font-size:\s*12px/);
+  assert.match(css, /\.live-postgame-waiting > strong, \.live-postgame-parse-state\s*\{[^}]*overflow-wrap:\s*anywhere/);
+  const mock = readFileSync(new URL("../src/mock/harness.tsx", import.meta.url), "utf8");
+  for (const state of states.filter(value => value !== "not_found" && value !== "parsing" && value !== "ready" && value !== "failed")) {
+    assert.match(mock, new RegExp(`option value="${state}"`));
+  }
 });
 
 test("Deck resolves the ended history entry by the host session key and refreshes on library changes", () => {

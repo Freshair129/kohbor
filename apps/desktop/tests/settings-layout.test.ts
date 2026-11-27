@@ -33,11 +33,26 @@ test("automatic replay setting copy is present in Thai and English", () => {
   assert.match(copy("en").shell.replayAutoParseHelp, /after you leave the match/i);
   assert.match(copy("en").shell.replayAutoParseHelp, /one at a time/i);
   assert.match(copy("en").shell.replayAutoParseHelp, /low priority/i);
+  assert.equal(copy("th").shell.replayAutoFetchLabel, "ดึงรีเพลย์อัตโนมัติผ่าน OpenDota");
+  assert.equal(copy("en").shell.replayAutoFetchLabel, "Fetch replays automatically via OpenDota");
+  assert.match(copy("th").shell.replayAutoFetchConsentMatch, /รหัสแมตช์และ IP/u);
+  assert.match(copy("th").shell.replayAutoFetchConsentValve, /HTTP ที่ไม่เข้ารหัส/u);
+  assert.match(copy("th").shell.replayAutoFetchConsentOperators, /ไม่ได้ดำเนินการโดยเกาะเบาะ/u);
+  assert.match(copy("th").shell.replayAutoFetchConsentOff, /ยกเลิก.*ถูกลบ/u);
+  assert.match(copy("en").shell.replayAutoFetchConsentMatch, /match ID and your IP address.*api\.opendota\.com/i);
+  assert.match(copy("en").shell.replayAutoFetchConsentValve, /plain HTTP/i);
+  assert.match(copy("en").shell.replayAutoFetchConsentOperators, /not operated by Kohbor/i);
+  assert.match(copy("en").shell.replayAutoFetchConsentOff, /cancels.*deletes/i);
+  assert.match(analyticsSettings, /replay_auto_fetch_set/);
+  assert.match(analyticsSettings, /saveReplayAutoFetch\(true,\s*true\)/);
+  assert.match(analyticsSettings, /replayAutoFetchLabel/);
   assert.equal((analyticsSettings.match(/checked=\{settings\.auto_analyse\}/g) ?? []).length, 1);
   assert.match(analyticsSettings, /text\.replayAutoParseLabel/);
   assert.match(analyticsSettings, /text\.replayAutoParseHelp/);
   assert.equal(SETTINGS_CONTROL_IDS.filter((id) => id === "replayAutoParse").length, 1);
+  assert.equal(SETTINGS_CONTROL_IDS.filter((id) => id === "replayAutoFetch").length, 1);
   assert.ok(SETTINGS_SECTIONS.find((section) => section.id === "replay-ai")?.controlIds.includes("replayAutoParse"));
+  assert.ok(SETTINGS_SECTIONS.find((section) => section.id === "replay-ai")?.controlIds.includes("replayAutoFetch"));
 });
 
 test("every existing settings control and renderer section occurs exactly once", async () => {
@@ -45,7 +60,7 @@ test("every existing settings control and renderer section occurs exactly once",
   const model = await import("../src/settings/settingsModel.ts");
   const expectedControls = [
     "locale", "steamName", "glassLevel", "developerMode", "objectiveAlerts", "mapKeyDiagnostics",
-    "objectiveCardLayout", "replayStorage", "replayAutoParse", "analyticsAssistant", "showAppHotkey",
+    "objectiveCardLayout", "replayStorage", "replayAutoParse", "replayAutoFetch", "analyticsAssistant", "showAppHotkey",
     "minimapCropPosition", "minimapCropSize", "minimapCropReset", "minimapDetectCrop", "minimapCropProposal",
     "minimapCropConfirm", "captureDisplayRate", "capturePause", "mapFeedback", "captureRetry", "captureResourceDetails",
     "mockCaptureReason",
