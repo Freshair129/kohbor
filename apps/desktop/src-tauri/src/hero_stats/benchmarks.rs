@@ -436,6 +436,46 @@ impl BenchmarksHost {
         view_locked(&lock(&self.inner), unix_millis())
     }
 
+    /// Read a hero's already cached benchmark values without changing the selected Analytics hero,
+    /// request ledger, cache or transport state. Post-game display must never trigger a fetch.
+    pub(crate) fn cached_for_hero_key(&self, hero_key: &str) -> BenchmarksView {
+        let inner = lock(&self.inner);
+        let now_ms = unix_millis();
+        let budget_used = inner.ledger.count_24h(now_ms);
+        if !inner.enabled {
+            return BenchmarksView {
+                enabled: false,
+                state: BenchmarksState::Disabled,
+                budget_used,
+                hero_id: None,
+                fetched_at_ms: None,
+                benchmarks: None,
+            };
+        }
+        if !canonical_hero_key(hero_key) {
+            return BenchmarksView {
+                enabled: true,
+                state: BenchmarksState::Unknown,
+                budget_used,
+                hero_id: None,
+                fetched_at_ms: None,
+                benchmarks: None,
+            };
+        }
+        let hero_id = inner.cache.hero_ids.get(hero_key).copied()
+            .or_else(|| (self.hero_id_lookup)(hero_key))
+            .filter(|id| *id > 0);
+        let cached = hero_id.and_then(|id| inner.cache.benchmarks.get(&id));
+        BenchmarksView {
+            enabled: true,
+            state: if cached.is_some() { BenchmarksState::Ready } else { BenchmarksState::Unknown },
+            budget_used,
+            hero_id,
+            fetched_at_ms: cached.map(|entry| entry.fetched_at_ms),
+            benchmarks: cached.map(|entry| entry.value.clone()),
+        }
+    }
+
     pub(crate) fn set_enabled(&self, enabled: bool) -> Result<BenchmarksView, String> {
         let cancellation = {
             let mut inner = lock(&self.inner);
@@ -686,8 +726,9 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 #[cfg(test)]
 mod tests {
     use super::{
-        parse_benchmarks, parse_hero_ids, BenchmarksHost, BenchmarksState, CacheStore,
-        RequestLedger, CACHE_FILE, LEDGER_FILE,
+        parse_benchmarks, parse_hero_ids, BenchmarksCache, BenchmarksHost, BenchmarksState,
+        CacheStore, CachedHeroBenchmarks, HeroBenchmarks, PercentilePoint, RequestLedger,
+        CACHE_FILE, LEDGER_FILE,
     };
     use crate::hero_stats::request::OutgoingRequest;
     use crate::hero_stats::transport::{Cancellation, HttpResponse, Transport, TransportError};
@@ -793,6 +834,59 @@ mod tests {
             retry_after: None,
             body: body.to_vec(),
         })
+    }
+
+    #[test]
+    fn post_game_cache_peek_is_hero_keyed_and_never_requests() {
+        let dir = temp_dir("post-game-cache-peek");
+        let mut cache = BenchmarksCache {
+            schema_version: 1,
+            heroes_fetched_at_ms: None,
+            hero_ids: Default::default(),
+            benchmarks: Default::default(),
+        };
+        cache.benchmarks.insert(2, CachedHeroBenchmarks {
+            fetched_at_ms: 123,
+            value: HeroBenchmarks {
+                hero_id: 2,
+                gold_per_min: Some(vec![
+                    PercentilePoint { percentile: 50.0, value: 400.0 },
+                    PercentilePoint { percentile: 75.0, value: 500.0 },
+                ]),
+                ..HeroBenchmarks::default()
+            },
+        });
+        CacheStore::in_data_dir(&dir).save(&cache).unwrap();
+        let transport = Arc::new(FixtureTransport::new([]));
+        let service = host(&dir, transport.clone(), true, Some(2));
+
+        let cached = service.cached_for_hero_key("npc_dota_hero_axe");
+        assert!(cached.enabled);
+        assert_eq!(cached.state, BenchmarksState::Ready);
+        assert_eq!(cached.hero_id, Some(2));
+        assert_eq!(cached.fetched_at_ms, Some(123));
+        assert_eq!(cached.benchmarks.unwrap().gold_per_min.unwrap()[1].value, 500.0);
+        assert_eq!(transport.requests.lock().unwrap().len(), 0);
+        assert_eq!(service.view().hero_id, None, "the peek does not change Analytics selection");
+
+        let other = service.cached_for_hero_key("npc_dota_hero_lion");
+        assert_eq!(other.state, BenchmarksState::Unknown);
+        assert_eq!(other.benchmarks, None);
+        assert_eq!(transport.requests.lock().unwrap().len(), 0);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn post_game_cache_peek_is_disabled_without_network_when_opt_in_is_off() {
+        let dir = temp_dir("post-game-cache-peek-off");
+        let transport = Arc::new(FixtureTransport::new([]));
+        let service = host(&dir, transport.clone(), false, Some(2));
+        let view = service.cached_for_hero_key("npc_dota_hero_axe");
+        assert!(!view.enabled);
+        assert_eq!(view.state, BenchmarksState::Disabled);
+        assert_eq!(view.benchmarks, None);
+        assert_eq!(transport.requests.lock().unwrap().len(), 0);
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]

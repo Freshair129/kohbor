@@ -2367,7 +2367,27 @@
           "docs/quality/TEST-PLAN.md",
           "docs/quality/UAT-PLAN.md"
         ],
-        "implementation_refs": [],
+        "implementation_refs": [
+          "apps/desktop/src/live/PostGameSummary.tsx",
+          "apps/desktop/src/live/postGameSummaryModel.ts",
+          "apps/desktop/src/live/HeroCard.tsx",
+          "apps/desktop/src/live/heroCardModel.ts",
+          "apps/desktop/src/live/copy.ts",
+          "apps/desktop/src/live/live.css",
+          "apps/desktop/src/deck/Deck.tsx",
+          "apps/desktop/src/analytics/knowledge/index.tsx",
+          "apps/desktop/src/live/rosterMemory.ts",
+          "apps/desktop/src/mock/harness.tsx",
+          "apps/desktop/src/mock/debriefFixture.mjs",
+          "apps/desktop/src/mock/debriefFixture.d.mts",
+          "apps/desktop/src-tauri/src/intake.rs",
+          "apps/desktop/src-tauri/src/post_game_replay.rs",
+          "apps/desktop/src-tauri/src/status.rs",
+          "apps/desktop/src-tauri/src/commands.rs",
+          "apps/desktop/src-tauri/src/hero_stats/benchmarks.rs",
+          "apps/desktop/tests/live-postgame-summary.test.ts",
+          "apps/desktop/tests/match-summary-model.test.mjs"
+        ],
         "evidence_refs": [],
         "procedure_ids": [
           "TP-05",

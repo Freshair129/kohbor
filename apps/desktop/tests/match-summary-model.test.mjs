@@ -1,64 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildingMapPoint, buildMatchSummaryViewModel } from "../src/analytics/knowledge/matchSummaryModel.mjs";
+import { syntheticMatchSummaryDigest } from "../src/mock/debriefFixture.mjs";
 
 // Synthetic fixture only; it does not represent a live match or acceptance evidence.
-function syntheticHero(side, slot) {
-  const stat = side === "radiant" ? slot + 1 : slot + 6;
-  const name = ["axe", "crystal_maiden", "drow_ranger", "earthshaker", "lich", "lion", "luna", "pudge", "sniper", "zeus"][stat - 1];
-  return {
-    id: `npc_dota_hero_${name}`,
-    hero: name,
-    side,
-    slot,
-    lane: { lane: slot === 0 ? "top" : slot === 1 ? "mid" : "bot" },
-    final: {
-      k: stat,
-      d: stat + 1,
-      a: stat + 2,
-      nw: stat * 1000,
-      lh: stat * 10,
-      dn: stat,
-      xp: stat * 10000,
-    },
-    rates: { gpm: stat * 10, xpm: stat * 20 },
-    gold_earned: stat * 2000,
-    hero_damage: stat * 3000,
-    items: [[900, "item_blink"], [1200, "item_black_king_bar"]],
-    final_items: ["item_blink", "item_black_king_bar", null, null, null, null],
-  };
-}
-
-function syntheticDigest() {
-  return {
-    meta: {
-      result: { winner: "radiant", source: "engine", conflict: false },
-      kills: { radiant: 41, dire: 39 },
-      duration_s: 2401,
-      game_mode: 23,
-      game_mode_reason: null,
-      patch: "7.40",
-      patch_reason: null,
-      draft: [
-        { order: 0, team: "radiant", kind: "pick", hero: "npc_dota_hero_axe" },
-        { order: 1, team: "dire", kind: "ban", hero: "npc_dota_hero_lion" },
-        { order: 2, team: "radiant", kind: "ban", hero: "npc_dota_hero_earthshaker" },
-      ],
-    },
-    heroes: [
-      ...Array.from({ length: 5 }, (_, slot) => syntheticHero("radiant", slot)),
-      ...Array.from({ length: 5 }, (_, slot) => syntheticHero("dire", slot)),
-    ],
-    lanes: [
-      { lane: "top", outcome: "radiant_won" },
-      { lane: "mid", outcome: "even" },
-      { lane: "bot", outcome: null, outcome_reason: "match ended before 10:00" },
-    ],
-  };
-}
 
 test("builds the complete summary header, hero cards, scoreboards, totals, item timings and draft groups", () => {
-  const view = buildMatchSummaryViewModel(syntheticDigest());
+  const view = buildMatchSummaryViewModel(syntheticMatchSummaryDigest());
 
   assert.deepEqual(view.header, {
     winner: "radiant",
@@ -110,7 +58,7 @@ test("builds the complete summary header, hero cards, scoreboards, totals, item 
 });
 
 test("keeps missing assists unknown with their reason and refuses an incomplete team total", () => {
-  const digest = syntheticDigest();
+  const digest = syntheticMatchSummaryDigest();
   digest.heroes[0].final.a = null;
   digest.heroes[0].final.a_reason = "exact assists are not in the bundle";
 
@@ -125,7 +73,7 @@ test("keeps missing assists unknown with their reason and refuses an incomplete 
 });
 
 test("does not invent a zero purchase minute when a final item has no matching timing", () => {
-  const digest = syntheticDigest();
+  const digest = syntheticMatchSummaryDigest();
   digest.heroes[0].items = [];
   digest.heroes[0].final_items = ["item_shadow_blade", null, null, null, null, null];
 
@@ -138,7 +86,7 @@ test("does not invent a zero purchase minute when a final item has no matching t
 });
 
 test("keeps an explicitly empty draft distinct from an unknown draft", () => {
-  const digest = syntheticDigest();
+  const digest = syntheticMatchSummaryDigest();
   digest.meta.draft = [];
 
   const draft = buildMatchSummaryViewModel(digest).draft;
@@ -149,7 +97,7 @@ test("keeps an explicitly empty draft distinct from an unknown draft", () => {
 });
 
 test("shows an unknown winner without turning it into a loss", () => {
-  const digest = syntheticDigest();
+  const digest = syntheticMatchSummaryDigest();
   digest.meta.result = { winner: null, source: null, conflict: false, reason: "winner not in replay" };
 
   const header = buildMatchSummaryViewModel(digest).header;
@@ -160,7 +108,7 @@ test("shows an unknown winner without turning it into a loss", () => {
 });
 
 test("keeps exactly the ten observed heroes in their two five-player card and scoreboard groups", () => {
-  const view = buildMatchSummaryViewModel(syntheticDigest());
+  const view = buildMatchSummaryViewModel(syntheticMatchSummaryDigest());
 
   assert.equal(view.cards.radiant.length, 5);
   assert.equal(view.cards.dire.length, 5);
@@ -171,7 +119,7 @@ test("keeps exactly the ten observed heroes in their two five-player card and sc
 });
 
 test("labels earned gold accurately when net worth is unavailable", () => {
-  const digest = syntheticDigest();
+  const digest = syntheticMatchSummaryDigest();
   digest.heroes[0].final.nw = null;
   digest.heroes[0].final.nw_reason = "net-worth samples are missing";
 

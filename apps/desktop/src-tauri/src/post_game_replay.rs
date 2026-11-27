@@ -19,6 +19,11 @@ const MAX_SAFE_INTEGER: f64 = 9_007_199_254_740_991.0;
 pub(crate) struct PostGameReplayReply {
     ready: bool,
     match_key: Option<String>,
+    /// Raw ID from a hash-linked, validated ready replay bundle only.
+    bundle_match_id: Option<String>,
+    /// Raw ID from the current in-memory GSI session only; never part of persisted state.
+    session_match_id: Option<String>,
+    digest: Option<Value>,
     headline: PostGameHeadline,
     parse_state: PostGameParseState,
     failure_reason: Option<String>,
@@ -88,6 +93,9 @@ impl PostGameReplayReply {
         Self {
             ready: false,
             match_key: record.as_ref().map(|value| value.match_key.clone()),
+            bundle_match_id: None,
+            session_match_id: None,
+            digest: None,
             headline: PostGameHeadline::default(),
             parse_state,
             failure_reason: None,
@@ -201,6 +209,7 @@ fn lookup_replay_summary(
     record: LastFinishedMatchRecord,
     watcher: PostGameWatcherReply,
     own_hero: Option<&str>,
+    session_match_id: Option<String>,
     entries: &[ReplayLibraryEntry],
     mut match_key_for: impl FnMut(&str) -> Option<String>,
     mut open_validated_bundle: impl FnMut(&str) -> Option<ReplayBundle>,
@@ -212,14 +221,19 @@ fn lookup_replay_summary(
         }
         let state = parse_state(&entry.status);
         if state != PostGameParseState::Ready {
-            return PostGameReplayReply::unavailable(Some(record), state, watcher);
+            return PostGameReplayReply::unavailable(Some(record), state, watcher)
+                .with_session_match_id(session_match_id);
         }
         let Some(bundle) = open_validated_bundle(&entry.match_id) else {
-            return PostGameReplayReply::unavailable(Some(record), PostGameParseState::Unknown, watcher);
+            return PostGameReplayReply::unavailable(Some(record), PostGameParseState::Unknown, watcher)
+                .with_session_match_id(session_match_id);
         };
         return PostGameReplayReply {
             ready: true,
             match_key: Some(match_key.to_owned()),
+            bundle_match_id: Some(entry.match_id.clone()),
+            session_match_id,
+            digest: Some(bundle.match_data.clone()),
             headline: headline_for(&bundle, own_hero),
             parse_state: PostGameParseState::Ready,
             failure_reason: None,
@@ -228,6 +242,14 @@ fn lookup_replay_summary(
         };
     }
     PostGameReplayReply::unavailable(Some(record), PostGameParseState::NotFound, watcher)
+        .with_session_match_id(session_match_id)
+}
+
+impl PostGameReplayReply {
+    fn with_session_match_id(mut self, match_id: Option<String>) -> Self {
+        self.session_match_id = match_id;
+        self
+    }
 }
 
 #[tauri::command(async)]
@@ -246,6 +268,8 @@ pub(crate) fn post_game_replay_summary(
     else {
         return Ok(PostGameReplayReply::unavailable(None, PostGameParseState::NotFound, PostGameWatcherReply::unknown()));
     };
+    let session_match_id = crate::intake::lock(&state.runtime.shared)
+        .current_match_id_for_epoch(record.epoch);
     let match_key = record.match_key.as_str();
     let history = state.match_history.entries();
     let own_hero = history
@@ -257,12 +281,13 @@ pub(crate) fn post_game_replay_summary(
             Some(record),
             PostGameParseState::Unknown,
             PostGameWatcherReply::unknown(),
-        ));
+        ).with_session_match_id(session_match_id));
     };
     Ok(lookup_replay_summary(
         record,
         watcher_from_state(&library.watcher_state()),
         own_hero,
+        session_match_id,
         &list.matches,
         |match_id| analytics.store().match_key(match_id).ok(),
         |match_id| library.open_bundle(match_id).ok(),
@@ -295,6 +320,13 @@ mod tests {
                 duration_seconds: None,
                 radiant_score: None,
                 dire_score: None,
+                level: None,
+                net_worth: None,
+                items: None,
+                backpack: None,
+                neutral_item: None,
+                game_mode: None,
+                patch: None,
             },
             ended_at: 1_800_000_000,
         }
@@ -359,6 +391,7 @@ mod tests {
             last_match(),
             PostGameWatcherReply::unknown(),
             Some(OWN_HERO),
+            Some("8000000001".to_owned()),
             &[entry("123456789")],
             |match_id| (match_id == "123456789").then(|| SESSION_KEY.to_owned()),
             |match_id| (match_id == "123456789").then(axe_bundle),
@@ -368,6 +401,9 @@ mod tests {
         assert_eq!(result.headline.deaths, Some(2));
         assert_eq!(result.headline.net_worth, Some(18_400));
         assert_eq!(result.parse_state, PostGameParseState::Ready);
+        assert_eq!(result.bundle_match_id.as_deref(), Some("123456789"));
+        assert_eq!(result.session_match_id.as_deref(), Some("8000000001"));
+        assert_eq!(result.digest.as_ref().and_then(|value| value["heroes"].as_array()).map(Vec::len), Some(1));
     }
 
     #[test]
@@ -376,6 +412,7 @@ mod tests {
             last_match(),
             PostGameWatcherReply::unknown(),
             Some(OWN_HERO),
+            Some("8000000001".to_owned()),
             &[entry("987654321")],
             |_| Some("b".repeat(64)),
             |_| Some(axe_bundle()),
@@ -384,6 +421,7 @@ mod tests {
         assert_eq!(result.match_key.as_deref(), Some(SESSION_KEY));
         assert_eq!(result.headline, PostGameHeadline::default());
         assert_eq!(result.parse_state, PostGameParseState::NotFound);
+        assert_eq!(result.session_match_id.as_deref(), Some("8000000001"));
     }
 
     #[test]
@@ -399,6 +437,7 @@ mod tests {
             last_match(),
             PostGameWatcherReply::unknown(),
             Some(OWN_HERO),
+            None,
             &[entry("123456789")],
             |_| Some(SESSION_KEY.to_owned()),
             |_| Some(other_hero_bundle.clone()),
@@ -408,18 +447,20 @@ mod tests {
     }
 
     #[test]
-    fn reply_never_contains_the_raw_match_id_or_source_path() {
+    fn reply_exposes_raw_match_id_only_from_the_linked_validated_bundle() {
         let raw_match_id = "123456789";
         let result = lookup_replay_summary(
             last_match(),
             PostGameWatcherReply::unknown(),
             Some(OWN_HERO),
+            None,
             &[entry(raw_match_id)],
             |_| Some(SESSION_KEY.to_owned()),
             |_| Some(axe_bundle()),
         );
         let serialized = serde_json::to_string(&result).unwrap();
-        assert!(!serialized.contains(raw_match_id));
+        assert_eq!(result.bundle_match_id.as_deref(), Some(raw_match_id));
+        assert!(serialized.contains(raw_match_id));
         assert!(!serialized.contains("private-source-path.dem"));
         assert!(serialized.contains(SESSION_KEY));
     }
