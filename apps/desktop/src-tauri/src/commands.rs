@@ -978,11 +978,15 @@ pub(crate) fn draft_column_view(
 pub(crate) fn hero_benchmarks_state_get(
     webview: tauri::Webview,
     state: tauri::State<'_, AppState>,
+    hero_key: Option<String>,
 ) -> Result<crate::hero_stats::benchmarks::BenchmarksView, String> {
     if webview.label() != "control" {
         return Err("BENCHMARKS_CONTROL_WINDOW_ONLY".to_owned());
     }
-    Ok(state.benchmarks.view())
+    Ok(match hero_key.as_deref() {
+        Some(hero_key) => state.benchmarks.cached_for_hero_key(hero_key),
+        None => state.benchmarks.view(),
+    })
 }
 
 #[tauri::command]

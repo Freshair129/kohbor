@@ -205,6 +205,24 @@ function liveDerivedCells(output: ReturnType<typeof derivedStats>): DerivedCellM
   };
 }
 
+/** Derive the post-game own-hero values from its host-recorded level and observed inventory. */
+export function finalOwnDerivedStats(
+  heroId: string | null,
+  level: number | null,
+  itemIds: (string | null)[] | null,
+  statsData: StatsData | null,
+  gameBuild: number | null = null,
+): { key: StatKey; label: string; value: string; sources: string[]; basisLabel: string; basisTitle: string }[] {
+  if (!heroId || level === null || !statsData) return [];
+  const selection = selectLiveDerivedRules(gameBuild, statsData);
+  const output = derivedStats(heroId.replace(/^npc_dota_hero_/, ""), level, itemIds, statsData, { rules: selection.rules });
+  const cells = liveDerivedCells(output);
+  return (Object.keys(cells) as StatKey[]).flatMap(key => {
+    const cell = cells[key];
+    return cell ? [{ key, label: STAT_ICON_CATALOG[key].label, ...cell, basisLabel: selection.label, basisTitle: selection.title }] : [];
+  });
+}
+
 export interface FullHeroCardView {
   variant: "full";
   key: string;

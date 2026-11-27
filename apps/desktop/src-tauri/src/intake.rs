@@ -83,6 +83,20 @@ pub(crate) struct LastFinishedMatchValues {
     pub(crate) duration_seconds: Option<u32>,
     pub(crate) radiant_score: Option<u32>,
     pub(crate) dire_score: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) level: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) net_worth: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) items: Option<Vec<Option<String>>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) backpack: Option<Vec<Option<String>>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) neutral_item: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) game_mode: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) patch: Option<String>,
 }
 
 impl LastFinishedMatchRecord {
@@ -101,7 +115,41 @@ impl LastFinishedMatchRecord {
                     && hero.len() <= 64
                     && hero.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
             })
+            && self.end_values.items.as_ref().is_none_or(|items| {
+                items.len() == 6 && items.iter().flatten().all(|item| valid_item_id(item))
+            })
+            && self.end_values.backpack.as_ref().is_none_or(|items| {
+                items.len() == 3 && items.iter().flatten().all(|item| valid_item_id(item))
+            })
+            && self.end_values.neutral_item.as_ref().is_none_or(|item| valid_item_id(item))
     }
+}
+
+fn valid_item_id(item: &str) -> bool {
+    item.strip_prefix("item_").is_some_and(|tail| {
+        !tail.is_empty()
+            && tail.len() <= 64
+            && tail.bytes().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+    })
+}
+
+fn observed_item_names(body: &Value, first_slot: u8, count: u8) -> Option<Vec<Option<String>>> {
+    let items = body.get("items")?.as_object()?;
+    Some((first_slot..first_slot + count).map(|slot| {
+        let key = format!("slot{slot}");
+        items.get(&key)
+            .and_then(|value| value.get("name"))
+            .and_then(Value::as_str)
+            .filter(|name| valid_item_id(name))
+            .map(str::to_owned)
+    }).collect())
+}
+
+fn observed_neutral_item(body: &Value) -> Option<String> {
+    body.pointer("/items/neutral0/name")
+        .and_then(Value::as_str)
+        .filter(|name| valid_item_id(name))
+        .map(str::to_owned)
 }
 
 fn nonnegative_u32(field: &Field<i64>) -> Option<u32> {
@@ -152,6 +200,8 @@ pub struct Shared {
     freshness_state: Mutex<Option<bool>>,
     /// Current verified hero identity is transient and scoped to the process.
     session_hero_id: Option<String>,
+    /// Current raw Dota match ID; memory only and exposed solely through the post-game summary command.
+    session_match_id: Option<String>,
     token: Option<String>,
     engine: Option<EngineTx>,
     objective_scheduler: ObjectiveScheduler,
@@ -448,6 +498,13 @@ impl Shared {
         self.engine = Some(tx);
     }
 
+    pub(crate) fn current_match_id_for_epoch(&self, epoch: u64) -> Option<String> {
+        (self.epoch == Some(epoch)
+            && self.last_finished_match.as_ref().is_some_and(|record| record.epoch == epoch))
+        .then(|| self.session_match_id.clone())
+        .flatten()
+    }
+
     fn set_phase(&mut self, phase: Option<Phase>) {
         if self.phase.is_some() != phase.is_some() {
             if let Some(tx) = &self.engine {
@@ -514,7 +571,7 @@ impl Shared {
         }
     }
 
-    fn record_last_finished_match(&mut self, admitted: &Admitted) {
+    fn record_last_finished_match(&mut self, admitted: &Admitted, body: &Value) {
         if admitted.phase != Phase::PostGame || admitted.ownership != Ownership::Verified {
             return;
         }
@@ -554,6 +611,14 @@ impl Shared {
                     .or_else(|| history.as_ref().and_then(|entry| entry.duration_s)),
                 radiant_score: nonnegative_u32(&admitted.map.radiant_score),
                 dire_score: nonnegative_u32(&admitted.map.dire_score),
+                level: nonnegative_u32(&admitted.hero.level),
+                // GSI has no admitted net-worth field; gold sources are not substituted.
+                net_worth: None,
+                items: observed_item_names(body, 0, 6),
+                backpack: observed_item_names(body, 6, 3),
+                neutral_item: observed_neutral_item(body),
+                game_mode: body.pointer("/map/game_mode").and_then(Value::as_u64).and_then(|value| u32::try_from(value).ok()),
+                patch: body.pointer("/map/game_version").and_then(Value::as_str).filter(|value| !value.is_empty()).map(str::to_owned),
             },
             ended_at,
         };
@@ -663,6 +728,7 @@ impl Shared {
             ownership_reason: None,
             freshness_state: Mutex::new(None),
             session_hero_id: None,
+            session_match_id: None,
             token,
             engine: None,
             objective_scheduler: ObjectiveScheduler::default(),
@@ -1221,15 +1287,18 @@ impl Shared {
                         | SessionChange::OwnerChanged { epoch } => {
                             self.epoch = Some(epoch);
                             self.session_hero_id = a.hero.hero_id.value().cloned();
+                            self.session_match_id = a.match_id.clone();
                             self.persist_runtime();
                         }
                         SessionChange::Resumed { epoch } => {
                             self.epoch = Some(epoch);
                             self.verify_session_hero(a);
+                            self.session_match_id = a.match_id.clone().or(self.session_match_id.take());
                         }
                         SessionChange::Unchanged { epoch } => {
                             self.epoch = Some(epoch);
                             self.verify_session_hero(a);
+                            self.session_match_id = a.match_id.clone().or(self.session_match_id.take());
                         }
                         SessionChange::NoEvidence => self.verify_session_hero(a),
                     }
@@ -1304,7 +1373,7 @@ impl Shared {
             Outcome::Admitted(_) | Outcome::Rejected(_) => {}
         }
         if let Outcome::Admitted(admitted) = &outcome {
-            self.record_last_finished_match(admitted);
+            self.record_last_finished_match(admitted, body);
         }
         if matches!(&outcome, Outcome::Admitted(_)) {
             self.observe_objectives(body, stale_source_gap, new_match);
@@ -2081,12 +2150,21 @@ mod tests {
         assert_eq!(last_match.end_values.result, Some(crate::match_history::MatchResult::Loss));
         assert_eq!((last_match.end_values.radiant_score, last_match.end_values.dire_score), (Some(36), Some(52)));
         assert_eq!(last_match.end_values.duration_seconds, Some(2101));
+        assert_eq!(last_match.end_values.level, Some(22));
+        assert_eq!(last_match.end_values.net_worth, None, "GSI does not supply admitted net worth");
+        assert_eq!(last_match.end_values.items, None, "unobserved item slots stay unknown");
+        assert_eq!(last_match.end_values.backpack, None, "unobserved backpack stays unknown");
         let data_dir = shared.data_dir.clone();
         drop(shared);
         let restarted = Shared::new(data_dir);
         assert_eq!(restarted.last_finished_match.as_ref(), Some(&last_match));
         let stored =
             fs::read_to_string(restarted.data_dir.join(crate::match_history::FILE_NAME)).unwrap();
+        let stored_runtime = fs::read_to_string(runtime_path(&restarted.data_dir)).unwrap();
+        assert!(
+            !stored_runtime.contains("8000000001"),
+            "raw match id is never stored in runtime state"
+        );
         assert!(
             !stored.contains("8000000001"),
             "raw match id is never stored"
@@ -2095,7 +2173,31 @@ mod tests {
             !stored.contains(&owner().to_string()),
             "SteamID64 is never stored"
         );
+        assert_eq!(restarted.current_match_id_for_epoch(last_match.epoch), None);
         assert_eq!(restarted.match_history().view(None)["summary"]["counted"], 1);
+    }
+
+    #[test]
+    fn old_last_finished_match_records_default_new_end_values_to_unknown() {
+        let old_record = json!({
+            "epoch": 8,
+            "matchKey": "a".repeat(64),
+            "endedAt": 1_800_000_000u64,
+            "endValues": {
+                "heroId": "npc_dota_hero_axe", "result": "win", "kills": 8,
+                "deaths": 2, "assists": 10, "lastHits": 210, "denies": 13,
+                "gpm": 520, "xpm": 610, "durationSeconds": 2520,
+                "radiantScore": 36, "direScore": 28
+            }
+        });
+        let record: LastFinishedMatchRecord = serde_json::from_value(old_record).unwrap();
+        assert_eq!(record.end_values.level, None);
+        assert_eq!(record.end_values.net_worth, None);
+        assert_eq!(record.end_values.items, None);
+        assert_eq!(record.end_values.backpack, None);
+        assert_eq!(record.end_values.neutral_item, None);
+        assert_eq!(record.end_values.game_mode, None);
+        assert_eq!(record.end_values.patch, None);
     }
 
     #[test]

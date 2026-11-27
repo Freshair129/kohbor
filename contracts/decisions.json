@@ -1939,6 +1939,36 @@
       "proposal_ref": "docs/governance/DECISION-LOG.md (DEC-STAT-ICONS)",
       "safe_interim": "Dota art rights review remains required before public release under DEC-REPLAY-INTEGRATION item 3.",
       "closure_evidence": "Owner words on 2026-11-24, relayed by the lead and recorded by an agent in DECISION-LOG; this entry mirrors that record and adds no approval."
+    },
+    {
+      "id": "DEC-POSTGAME-BREAKDOWN",
+      "status": "decided",
+      "milestone": "M3",
+      "blocks": "UI-002 post-game summary redesign.",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-27",
+      "channel": "decided by the product owner 2026-11-27 in the lead session, recorded by an agent",
+      "owner_words": "Approve as recommended",
+      "decision": "The product owner approved CR-POSTGAME-BREAKDOWN (F:\\kohbor-coord\\design\\postgame-redesign-20261127\\CR.md, draft page draft.html) as recommended.\n1. Match ID: option A. Show it on the post-game summary with a copy action, from the linked replay bundle or the current session's in-memory GSI value; never in logs, GSI or session history or settings. This replaces UI-002's rule that raw match IDs are never displayed.\n2. Gold sources and hero damage: G1. Not shown from GSI; no intake change.\n3. Hero benchmark comparison in Stage 1: shown only while the existing OpenDota benchmark opt-in is on.\n4. Layout: variant 1, a result banner and hero header above Summary, Timeline and Replay tabs.\nAlso adopted from the CR: the ten cards keep their last observed state after match end with a Final mark, and Stage 2 embeds the UI-023 summary blocks.",
+      "reason": "The owner found the post-game screen plain and incomplete: blank hero cards, no match ID and no breakdown.",
+      "alternatives_considered": [
+        "Match ID only from a linked replay bundle (option B; rejected: no ID right after the game).",
+        "Keep the match ID hidden (option C; rejected: does not meet the request).",
+        "Add GSI gold-source and hero-damage fields to intake (G2; deferred).",
+        "One long panel without tabs (variant 2; rejected)."
+      ],
+      "affected_need_ids": [],
+      "affected_requirement_ids": [
+        "UI-002"
+      ],
+      "related": [
+        "DEC-SESSION-MONITOR",
+        "DEC-MATCH-SUMMARY",
+        "DEC-PICK-STATS"
+      ],
+      "safe_interim": "Until the redesign ships, the current Stage 1 and Stage 2 behaviour stays; UI-002 remains NOT_RUN.",
+      "closure_evidence": "Owner words “Approve as recommended” in the lead session on 2026-11-27, recorded by an agent. No implementation or evidence exists yet."
     }
   ]
 }

@@ -4,6 +4,7 @@ import { buildLineSegments, heroComparisonEngineMetric, laneBadgeLabel, laneExpe
 import { buildingMapPoint, buildMatchSummaryViewModel } from "./matchSummaryModel.mjs";
 import { BUNDLED } from "../../replay/bundledIcons";
 import { gameModeName, iconResolver } from "../../replay/matchBundle";
+import { displayHeroName } from "../../deck/heroName";
 import type { MapCalibration } from "../../replay/replayPack.mjs";
 import { HeroBenchmarksPanel } from "./HeroBenchmarksPanel";
 import "./knowledge.css";
@@ -170,8 +171,22 @@ export function AdvantageChart({ digest, onSeek }: Pick<KnowledgePanelProps, "di
 }
 
 /** The three lane cards display the digest outcome and its provisional basis. */
-export function LaneCards({ digest, onSeek }: Pick<KnowledgePanelProps, "digest" | "onSeek">) {
+export function LaneCards({ digest, onSeek, compact = false, compactLimit = 2 }: Pick<KnowledgePanelProps, "digest" | "onSeek"> & { compact?: boolean; compactLimit?: number }) {
   const lanes = digest?.lanes ?? [];
+  if (compact) return <div className="a2k-postgame-lane-list">
+    {(["top", "mid", "bot"] as const).slice(0, Math.max(1, Math.min(3, compactLimit))).map((lane) => {
+      const row = lanes.find((item) => item.lane === lane);
+      const boundary = typeof row?.boundary_s === "number" ? row.boundary_s : null;
+      const outcome = laneBadgeLabel(row?.outcome ?? null);
+      const reading = boundary !== null ? `ไป ${timeText(boundary)}` : `NW ${valueAt(row?.nw_diff_10)}`;
+      const lineTitle = [LANE_NAMES[lane], outcome, reading, row?.outcome_reason].filter(Boolean).join(" · ");
+      return <div className="a2k-postgame-detail-item" key={lane} title={lineTitle}>
+        <strong title={LANE_NAMES[lane]}>{LANE_NAMES[lane]}</strong><span title={outcome}>{outcome}</span>
+        {boundary !== null ? <button type="button" title={lineTitle} onClick={() => onSeek?.(boundary)}>{reading}</button> : <span title={reading}>{reading}</span>}
+      </div>;
+    })}
+    {3 > Math.max(1, Math.min(3, compactLimit)) && <span className="a2k-postgame-more">+{3 - Math.max(1, Math.min(3, compactLimit))} เลน</span>}
+  </div>;
   return <div className="a2k-lanes">{["top", "mid", "bot"].map((lane) => {
     const row = lanes.find((item) => item.lane === lane);
     const radiantReading = laneExpectationReading(row, "radiant");
@@ -200,7 +215,7 @@ export function LaneCards({ digest, onSeek }: Pick<KnowledgePanelProps, "digest"
   })}</div>;
 }
 
-function BuildingLosses({ digest, mapCalibration, onSeek }: Pick<KnowledgePanelProps, "digest" | "mapCalibration" | "onSeek">) {
+function BuildingLosses({ digest, mapCalibration, onSeek, compact = false, compactLimit = 2 }: Pick<KnowledgePanelProps, "digest" | "mapCalibration" | "onSeek"> & { compact?: boolean; compactLimit?: number }) {
   const buildings = Array.isArray(digest?.objectives?.buildings) ? digest.objectives.buildings : [];
   const buildingsKnown = Array.isArray(digest?.objectives?.buildings);
   const destroyed = buildings.filter((item: any) => item.destroyed === true);
@@ -216,6 +231,22 @@ function BuildingLosses({ digest, mapCalibration, onSeek }: Pick<KnowledgePanelP
     : !mapCalibration
       ? "ไม่มี calibration ของ replay สำหรับแปลงพิกัดโลกเป็นตำแหน่งบนแผนที่"
       : "ไม่มีตำแหน่งอาคารที่แปลงได้ด้วย calibration ของแผนที่";
+  if (compact) return <section className="a2k-building-losses a2k-building-losses--compact" aria-label="อาคารที่ถูกทำลาย">
+    <h3>อาคาร</h3>
+    {destroyed.length > 0 ? <>
+      <ul className="a2k-building-losses__list">{destroyed.slice(0, compactLimit).map((building: any, index: number) => {
+        const team = building.team === "radiant" ? "Radiant" : building.team === "dire" ? "Dire" : "ทีมไม่ทราบ";
+        const name = typeof building.name === "string" ? building.name : "อาคารไม่ทราบชื่อ";
+        const at = timeText(building.destroyed_at_s);
+        const buildingTitle = `${team} · ${name} · ${at}`;
+        return <li key={`${building.name ?? "building"}-${index}`} title={buildingTitle}>
+          <span className={`a2k-side-dot is-${building.team === "radiant" || building.team === "dire" ? building.team : "unknown"}`} aria-hidden="true" />
+          <span>{team} · {name}</span>
+          <button type="button" title={buildingTitle} disabled={typeof building.destroyed_at_s !== "number"} onClick={() => typeof building.destroyed_at_s === "number" && onSeek?.(building.destroyed_at_s)}>{at}</button>
+        </li>;
+      })}{destroyed.length - Math.min(destroyed.length, compactLimit) + unknownCount > 0 && <li className="a2k-postgame-more" title={`รายการเพิ่มเติม ${destroyed.length - Math.min(destroyed.length, compactLimit)} รายการ · สถานะไม่ทราบ ${unknownCount} รายการ`}>+{destroyed.length - Math.min(destroyed.length, compactLimit) + unknownCount} รายการ</li>}</ul>
+    </> : <p className="a2k-building-losses__unknown">{buildingsKnown ? unknownCount > 0 ? `— ไม่ทราบ · อาคาร ${unknownCount} รายการ` : "ไม่พบอาคารที่ถูกทำลาย" : `— ไม่ทราบ · ${digest?.objectives?.buildings_reason ?? mapReason}`}</p>}
+  </section>;
   return <section className="a2k-building-losses" aria-label="อาคารที่ถูกทำลาย">
     <h3>อาคารที่ถูกทำลาย</h3>
     {showMap ? <div className="a2k-building-map" role="group" aria-label="มินิแมปตำแหน่งอาคารที่ถูกทำลาย">
@@ -242,6 +273,23 @@ function BuildingLosses({ digest, mapCalibration, onSeek }: Pick<KnowledgePanelP
       : unknownCount > 0 ? <p className="a2k-building-losses__unknown">— ไม่ทราบ · สถานะอาคาร {unknownCount} รายการไม่ทราบ</p>
         : <p className="a2k-building-losses__unknown">ไม่พบอาคารที่ถูกทำลายใน digest</p>}
     {unknownCount > 0 && destroyed.length > 0 && <small className="a2k-building-losses__unknown">ไม่ทราบสถานะอาคาร {unknownCount} รายการ · {buildings.find((item: any) => item.destroyed == null)?.destroyed_reason ?? "ไม่มีตัวอย่าง health ที่ใช้ยืนยันสถานะ"}</small>}
+  </section>;
+}
+
+function TeamfightSummary({ digest, onSeek, compact = false, compactLimit = 2 }: Pick<KnowledgePanelProps, "digest" | "onSeek"> & { compact?: boolean; compactLimit?: number }) {
+  const fights = digest?.teamfights ?? [];
+  const visible = compact ? fights.slice(0, compactLimit) : fights;
+  return <section className={`a2k-summary__teamfights${compact ? " a2k-summary__teamfights--compact" : ""}`}>
+    <h3>จังหวะสำคัญ</h3><ul className="a2k-event-rows">{visible.map((fight) => {
+      const start = typeof fight.t?.[0] === "number" ? fight.t[0] : null;
+      const end = typeof fight.t?.[1] === "number" ? fight.t[1] : null;
+      const deaths = Array.isArray(fight.deaths) ? fight.deaths.length : null;
+      const timeLabel = start !== null ? `${timeText(start)}–${timeText(end)}` : "— ไม่ทราบ";
+      const eventLabel = `ทีมไฟต์ · ตาย ${deaths ?? "— ไม่ทราบ"}`;
+      const eventTitle = `${timeLabel} · ${eventLabel}`;
+      return <li key={fight.n} title={eventTitle}><span aria-hidden="true">⚔</span>{start !== null ? <button type="button" title={timeLabel} onClick={() => onSeek?.(start)}>{timeLabel}</button> : <span>{timeLabel}</span>}<span title={eventLabel}>{eventLabel}</span></li>;
+    })}{compact && fights.length > visible.length && <li className="a2k-postgame-more" title={`มีจังหวะสำคัญเพิ่มเติม ${fights.length - visible.length} รายการ`}>+{fights.length - visible.length} จังหวะ</li>}</ul>
+    {compact && fights.length === 0 && <p className="a2k-building-losses__unknown">— ไม่ทราบ · ไม่มีทีมไฟต์ใน digest</p>}
   </section>;
 }
 
@@ -382,12 +430,7 @@ export function MatchSummaryTab({ digest, loading, onSeek, mapCalibration }: Pic
           })}</div>}
     </section>
 
-    <section className="a2k-summary__teamfights"><h3>จังหวะสำคัญ</h3><ul className="a2k-event-rows">{(digest.teamfights ?? []).map((fight) => {
-      const start = typeof fight.t?.[0] === "number" ? fight.t[0] : null;
-      const end = typeof fight.t?.[1] === "number" ? fight.t[1] : null;
-      const deaths = Array.isArray(fight.deaths) ? fight.deaths.length : null;
-      return <li key={fight.n}><span aria-hidden="true">⚔</span>{start !== null ? <button type="button" onClick={() => onSeek?.(start)}>{timeText(start)}–{timeText(end)}</button> : <span>— ไม่ทราบ</span>}<span>ทีมไฟต์ · ตาย {deaths ?? "— ไม่ทราบ"}</span></li>;
-    })}</ul></section>
+    <TeamfightSummary digest={digest} onSeek={onSeek} />
 
     <section className="a2k-objectives"><h3>วัตถุประสงค์</h3>
       {unknownBuildingCount > 0 && <small>ไม่ทราบสถานะอาคาร {unknownBuildingCount} รายการ</small>}
@@ -402,6 +445,48 @@ export function MatchSummaryTab({ digest, loading, onSeek, mapCalibration }: Pic
         })}</ul>
       </details>)}
     </section>
+  </div>;
+}
+
+/** Compact post-game arrangement of the same UI-023 digest model and summary blocks. */
+export function PostGameMatchSummaryBlocks({ digest, onSeek, compact = false }: Pick<KnowledgePanelProps, "digest" | "onSeek"> & { compact?: boolean }) {
+  if (!digest) return <div className="a2k-empty">สรุปข้อมูลแมตช์ยังไม่พร้อม</div>;
+  const view = buildMatchSummaryViewModel(digest);
+  const score = (metric: { value: number | null }) => metric.value === null ? "— ไม่ทราบ" : Math.round(metric.value).toLocaleString("th-TH");
+  const heroName = (row: { heroId: string | null; hero: string | null }) => {
+    const key = row.heroId ?? row.hero;
+    if (!key) return "— ไม่ทราบ";
+    const heroId = key.startsWith("npc_dota_hero_") ? key : `npc_dota_hero_${key}`;
+    return displayHeroName(heroId)?.name ?? key;
+  };
+  const compactLimit = compact ? 1 : 2;
+  const rows = (["radiant", "dire"] as const).flatMap((side) => view.scoreboard[side].rows.slice(0, 5).map((row, index) => ({ side, row, key: row.heroId ?? `${side}-${index}` })));
+  return <div className="a2k-postgame-layout" data-testid="post-game-stage-two-layout">
+    <div className="a2k-postgame-main-row">
+      <div className="a2k-postgame-chart"><h3 className="a2k-postgame-chart-title">ความได้เปรียบ</h3><AdvantageChart digest={digest} onSeek={onSeek} /></div>
+      <section className="a2k-postgame-scoreboard" aria-label="ตารางฮีโร่ทั้งสิบพร้อมไอเท็ม">
+        <h3>ตารางฮีโร่ · 10 คน</h3>
+        <table className="a2k-postgame-score-table"><thead><tr><th>ฮีโร่</th><th>K/D/A</th><th>NW</th><th>ไอเท็ม</th></tr></thead>
+          <tbody>{rows.map(({ side, row, key }) => <tr key={key}>
+            <th scope="row"><span className={`a2k-postgame-score-side is-${side}`} title={SIDE_NAMES[side]}>{side === "radiant" ? "R" : "D"}</span>
+              {row.heroIconName ? <img className="a2k-postgame-score-hero-icon" src={localSummaryIcon("hero", row.heroIconName)} alt="" aria-hidden="true" /> : null}
+              <span className="a2k-postgame-score-hero" title={heroName(row)}>{heroName(row)}</span></th>
+            <td title={[row.metrics.k.reason, row.metrics.d.reason, row.metrics.a.reason].filter(Boolean).join(" · ") || undefined}>{score(row.metrics.k)} / {score(row.metrics.d)} / {score(row.metrics.a)}</td>
+            <td title={row.metrics.nw.reason ?? undefined}>{score(row.metrics.nw)}</td>
+            <td>{!row.itemsKnown ? <span title={row.itemsReason ?? undefined}>— ไม่ทราบ</span> : row.items.length === 0 ? "ไม่มีไอเท็ม" : <span className="a2k-postgame-score-items">
+              {row.items.slice(0, 2).map((item, index) => <img key={`${item.id}-${index}`} src={localSummaryIcon("item", item.iconName ?? item.id)} alt="" title={item.id} aria-hidden="true" />)}
+              {row.items.length > 2 && <span>+{row.items.length - 2}</span>}
+            </span>}</td>
+          </tr>)}</tbody>
+        </table>
+        {rows.length < 10 && <small className="a2k-postgame-more">— ไม่ทราบ · digest มีข้อมูล {rows.length} จาก 10 ฮีโร่</small>}
+      </section>
+    </div>
+    <div className="a2k-postgame-details-row">
+      <BuildingLosses digest={digest} mapCalibration={null} onSeek={onSeek} compact compactLimit={compactLimit} />
+      <section className="a2k-postgame-lanes"><h3>ผลเลน</h3><LaneCards digest={digest} onSeek={onSeek} compact compactLimit={compactLimit} /></section>
+      <TeamfightSummary digest={digest} onSeek={onSeek} compact compactLimit={compactLimit} />
+    </div>
   </div>;
 }
 

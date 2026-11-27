@@ -140,6 +140,13 @@ mod tests {
                 duration_seconds: None,
                 radiant_score: None,
                 dire_score: None,
+                level: None,
+                net_worth: None,
+                items: None,
+                backpack: None,
+                neutral_item: None,
+                game_mode: None,
+                patch: None,
             },
             ended_at: 1_800_000_000,
         });

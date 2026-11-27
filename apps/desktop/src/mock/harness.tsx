@@ -15,6 +15,8 @@ import { createMockUpdater, parseMockUpdateScenario } from "./updateHarness";
 import { HUD_DEFAULT_LAYOUT_EVENT } from "../hudModel";
 import { clampObjectiveWidget, defaultLayoutDocument, parseLayoutDocument, type LayoutDocument } from "../layoutEditor/model";
 import { OBJECTIVE_PREF_KEYS, parseObjectivePrefs, type ObjectiveId, type ObjectivePrefs } from "../objectivePrefs";
+import { seedSyntheticDraftRosterForHarness } from "../live/rosterMemory";
+import { syntheticMatchSummaryDigest } from "./debriefFixture.mjs";
 
 type MockCallback = (event: unknown) => void;
 type MockEventBinding = { event: string; callbackId: number };
@@ -36,6 +38,27 @@ const statusFixture = JSON.parse(runtimeStatusFixtureRaw) as RuntimeStatus;
 const snapshotFixture = parseOwnSnapshot(JSON.parse(ownSnapshotFixtureRaw));
 if (!snapshotFixture) throw new Error("Invalid synthetic own snapshot fixture");
 const mockGsiNotConfigured = new URLSearchParams(window.location.search).get("mockGsi") === "not_configured";
+// Synthetic-only Debrief sample: fake values for layout review, never live game data or acceptance evidence.
+const MOCK_DEBRIEF_EPOCH = 3;
+const MOCK_DEBRIEF_MATCH_KEY = "b".repeat(64);
+const MOCK_DEBRIEF_MATCH_ID = "8000000123";
+const MOCK_DEBRIEF_ROSTER = [
+  "npc_dota_hero_axe", "npc_dota_hero_crystal_maiden", "npc_dota_hero_drow_ranger", "npc_dota_hero_earthshaker", "npc_dota_hero_lich",
+  "npc_dota_hero_lion", "npc_dota_hero_luna", "npc_dota_hero_pudge", "npc_dota_hero_sniper", "npc_dota_hero_zeus",
+];
+const MOCK_DEBRIEF_LAST_FINISHED = {
+  epoch: MOCK_DEBRIEF_EPOCH,
+  matchKey: MOCK_DEBRIEF_MATCH_KEY,
+  endedAt: 1_800_000_000,
+  endValues: {
+    heroId: "npc_dota_hero_axe", result: "win", kills: 12, deaths: 4, assists: 19,
+    lastHits: 210, denies: 13, gpm: 520, xpm: 610, level: 12, netWorth: 28_400,
+    durationSeconds: 2_401, radiantScore: 41, direScore: 39, gameMode: 23, patch: "7.42",
+    items: ["item_blink", "item_blade_mail", "item_boots", "item_black_king_bar", "item_heart", "item_tpscroll"],
+    backpack: ["item_blink", null, null], neutralItem: "item_moon_shard",
+  },
+};
+const MOCK_DEBRIEF_DIGEST = syntheticMatchSummaryDigest();
 const settingsFixture = JSON.parse(settingsFixtureRaw) as { revision: number; locale: Locale };
 let settingsView: UserSettingsView = {
   revision: settingsFixture.revision,
@@ -65,6 +88,7 @@ let callbackId = 0;
 let eventId = 0;
 let playbackSequence = 0;
 let mockHeroBenchmarksOn = false;
+let mockStage2ReplayReady = false;
 const callbacks = new Map<number, MockCallback>();
 const listeners = new Map<number, MockEventBinding>();
 const channel = typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel(MOCK_CHANNEL);
@@ -79,6 +103,7 @@ function currentStatus(): RuntimeStatus {
       status.intake.last_admitted_age_ms = null;
     } else if (mockDeckScenario === "debrief") {
       status.session.phase = "post_game";
+      status.session.session_epoch = MOCK_DEBRIEF_EPOCH;
       status.intake.state = "receiving";
     } else {
       status.session.phase = "live";
@@ -116,6 +141,7 @@ function mockHeroBenchmarksView(state: "disabled" | "unknown" = "unknown") {
 function currentOwnSnapshot(): OwnSnapshot {
   const snapshot = addSampleLoadout(snapshotFixture!);
   if (!liveMockRequested()) return snapshot;
+  if (mockDeckScenario === "debrief") snapshot.session_epoch = MOCK_DEBRIEF_EPOCH;
   if (mockSnapshotAvailability === "unknown") {
     snapshot.availability = "unknown";
     snapshot.source.age_ms = null;
@@ -133,6 +159,9 @@ function currentOwnSnapshot(): OwnSnapshot {
 
 function chooseMockDeckScenario(scenario: MockDeckScenario) {
   mockDeckScenario = scenario;
+  mockStage2ReplayReady = false;
+  seedSyntheticDraftRosterForHarness(scenario === "debrief" ? MOCK_DEBRIEF_EPOCH : null,
+    scenario === "debrief" ? MOCK_DEBRIEF_ROSTER : []);
   mockSnapshotAvailability = scenario === "standby" ? "unknown" : scenario === "stale" ? "stale" : "fresh";
   statusRevision += 1;
   const captureReason = {
@@ -581,6 +610,65 @@ export function installMockHarness() {
         return mockUpdate.updateInstall(args);
       }
       if (command === "own_snapshot") return currentOwnSnapshot();
+      if (command === "post_game_replay_summary") {
+        const linkedDebrief = mockDeckScenario === "debrief" && args.sessionEpoch === MOCK_DEBRIEF_EPOCH;
+        if (!linkedDebrief) return {
+          ready: false, matchKey: null, bundleMatchId: null, sessionMatchId: null, digest: null,
+          headline: { deaths: null, netWorth: null }, parseState: "not_found", failureReason: null,
+          lastFinishedMatch: null, watcher: { state: "unknown", folder: "unknown", lastScanAtMs: null },
+        };
+        return {
+          ready: mockStage2ReplayReady,
+          matchKey: MOCK_DEBRIEF_MATCH_KEY,
+          bundleMatchId: mockStage2ReplayReady ? MOCK_DEBRIEF_MATCH_ID : null,
+          sessionMatchId: MOCK_DEBRIEF_MATCH_ID,
+          digest: mockStage2ReplayReady ? structuredClone(MOCK_DEBRIEF_DIGEST) : null,
+          headline: { deaths: 4, netWorth: 28_400 },
+          parseState: mockStage2ReplayReady ? "ready" : "available",
+          failureReason: null,
+          lastFinishedMatch: structuredClone(MOCK_DEBRIEF_LAST_FINISHED),
+          watcher: { state: "unknown", folder: "known", lastScanAtMs: null },
+        };
+      }
+      if (command === "match_history_get") {
+        const entry = {
+          match_key: MOCK_DEBRIEF_MATCH_KEY, hero: "npc_dota_hero_axe", result: "win", end: "completed",
+          kills: 12, deaths: 4, assists: 19, duration_s: 2_401, ended_at: MOCK_DEBRIEF_LAST_FINISHED.endedAt,
+          match_type: "unknown", source: "kohbor",
+        };
+        return {
+          schema_version: "1.0.0",
+          summary: {
+            recorded: 1, counted: 1, counted_unknown_type: 1, excluded_match_type: 0, excluded_no_result: 0,
+            overall: { wins: 1, losses: 0, win_rate: 100 },
+            last: { results: ["win"], wins: 1, losses: 0, win_rate: 100 },
+            trend: { window: 10, points: [] },
+            top_heroes: [{ hero: "npc_dota_hero_axe", games: 1, counted_games: 1, wins: 1, losses: 0, win_rate: null }],
+            best_heroes: { min_games: 3, all_time: [], this_month: [] },
+          },
+          entries: [entry],
+        };
+      }
+      if (command === "match_recap") {
+        if (mockDeckScenario !== "debrief") return { schema_version: "1.0.0", matches: [] };
+        const eventTypes = ["first_blood", "hero_kill", "hero_death", "multi_kill", "hero_kill", "tower_kill", "hero_kill", "hero_death", "multi_kill", "hero_kill", "hero_kill", "tower_kill", "hero_kill", "hero_death"];
+        const events: unknown[] = eventTypes.map((eventType, index) => {
+          const dropped = index === 5 || index === 11;
+          const number = index + 1;
+          return {
+            schema_version: "1.1.0", instance_id: `debrief_event_${String(number).padStart(2, "0")}`,
+            event_type: eventType, session_epoch: MOCK_DEBRIEF_EPOCH, audio_class: "ordinary",
+            outcome: dropped ? "channel_busy" : "admitted",
+            playback_id: dropped ? null : `debrief_pb_${String(number).padStart(8, "0")}`,
+            package_revision: 7, decided_monotonic_ms: 100_000 + number * 1_000,
+            tier: 3, variant_id: "kill_03", clip_id: "synthetic-kill", selection: "shuffle",
+            game_clock_seconds: 90 + number * 135, match_id: `local_match_${MOCK_DEBRIEF_EPOCH}`,
+            playback_end: dropped ? null : "finished",
+          };
+        });
+        events.push({ synthetic_invalid_recap_row: true });
+        return { schema_version: "1.0.0", matches: [{ match_id: `local_match_${MOCK_DEBRIEF_EPOCH}`, events }] };
+      }
       if (command === "hero_benchmarks_state_get") return mockHeroBenchmarksView();
       if (command === "hero_benchmarks_set") {
         requireArgs(command, args, ["enabled"]);
@@ -780,6 +868,7 @@ export function MockScenarioSwitcher() {
   const [lastScenario, setLastScenario] = useState<ScenarioName | null>(null);
   const [lastProbeReport, setLastProbeReport] = useState<string | null>(null);
   const [deckScenario, setDeckScenario] = useState<MockDeckScenario>("live");
+  const [stage2ReplayReady, setStage2ReplayReady] = useState(false);
   const [snapshotAvailability, setSnapshotAvailability] = useState<MockSnapshotAvailability>("fresh");
   const th = copy("th").mockScenarios;
   const en = copy("en").mockScenarios;
@@ -832,6 +921,7 @@ export function MockScenarioSwitcher() {
                 const defaultAvailability = next === "standby" ? "unknown" : next === "stale" ? "stale" : "fresh";
                 setSnapshotAvailability(defaultAvailability);
                 chooseMockDeckScenario(next);
+                setStage2ReplayReady(false);
               }}
             >
               <option value="standby">รอข้อมูล / Standby</option>
@@ -841,6 +931,15 @@ export function MockScenarioSwitcher() {
               <option value="debrief">หลังเกม / Debrief</option>
             </select>
           </label>
+          {deckScenario === "debrief" && <label>
+            <input type="checkbox" checked={stage2ReplayReady} onChange={(event) => {
+              const ready = event.currentTarget.checked;
+              setStage2ReplayReady(ready);
+              mockStage2ReplayReady = ready;
+              deliver("replay-library://state-changed", {});
+            }} />
+            Stage 2 replay ready / พร้อมสรุป replay · synthetic digest
+          </label>}
           <label>
             ความสดของ snapshot ตัวคุณ / Own snapshot
             <select

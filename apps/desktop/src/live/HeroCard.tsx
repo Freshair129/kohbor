@@ -6,11 +6,13 @@
 import { Fragment, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { seconds, type Locale } from "../copy";
 import { HeroPortrait } from "../deck/HeroPortrait";
+import { displayHeroName } from "../deck/heroName";
 import { GsiSetupHint } from "../deck/OwnLoadout";
 import { retainFreshLoadout, type FreshLoadoutCache, type LoadoutViewModel } from "../deck/loadoutModel";
 import { ownHeroLifeLabel, type OwnHeroViewModel } from "../deck/ownHeroModel";
 import { cardCopy, type HeroCard as CardModel } from "./secondMonitorCards";
 import type { OwnFieldCardMode } from "./secondMonitorLayout";
+import type { PostGameSummaryView } from "./postGameSummaryModel";
 import { dotaIcon } from "./dotaIconSet";
 import { compactOwnFieldStats, ownFieldStatsLayout, ownFullCard, teamFullCard, UNKNOWN, type FullHeroCardView, type IconSlotView, type StatCellView } from "./heroCardModel";
 import { statIconUrl } from "./statIcons/assets";
@@ -384,4 +386,43 @@ export function CompactHeroCards({ cards, locale, label, tile = false, fieldCard
         : <CompactHeroCardItem key={card.key} card={card} locale={locale} tile={tile} fieldCard={fieldCard} wideStats={wideStats} roomyField={roomyField} />)}
     </ul>
   );
+}
+
+/** Frozen post-game cards: identities stay from the ended draft roster; values come from the host record or linked digest. */
+export function PostGameFinalCards({ cards, locale, label }: {
+  cards: PostGameSummaryView["frozenCards"]; locale: Locale; label: string;
+}) {
+  const th = locale !== "en";
+  const value = (number: number | null) => number === null ? "—" : number.toLocaleString(th ? "th-TH" : "en-US");
+  const finalLabel = th ? "ค่าสุดท้าย / Final" : "Final / ค่าสุดท้าย";
+  return <ul className="lhc-list lhc-list-field live-postgame-final-card-list" aria-label={label}>
+    {cards.slice().sort((left, right) => left.slot - right.slot).map(card => {
+      const hero = displayHeroName(card.heroId)?.name ?? "—";
+      const items = Array.from({ length: 6 }, (_, index) => card.items?.[index] ?? null);
+      return <li key={`${card.team}-${card.slot}`} className={`lhc live-postgame-final-card is-${card.team}${card.own ? " is-own" : ""}${card.heroId ? "" : " is-unknown"}`}
+        data-testid={`post-game-final-card-${card.team}-${card.slot}`} data-slot={card.slot} aria-label={`${label} · ${hero} · ${finalLabel}`}>
+        <div className="live-postgame-final-card-heading">
+          <HeroPortrait heroId={card.heroId} size="sm" alt={hero} />
+          <strong title={hero}>{hero}</strong>
+          {card.own && <span className="live-postgame-final-card-you">{th ? "คุณ" : "You"}</span>}
+          <span className="live-postgame-final-card-level">{th ? "เลเวล" : "Level"} {value(card.level)}</span>
+          <small>{finalLabel}</small>
+        </div>
+        <dl className="live-postgame-final-card-stats">
+          <div><dt>K/D/A</dt><dd>{value(card.kills)} / {value(card.deaths)} / {value(card.assists)}</dd></div>
+          <div><dt>LH / DN</dt><dd>{value(card.lastHits)} / {value(card.denies)}</dd></div>
+          <div><dt>GPM / XPM</dt><dd>{value(card.gpm)} / {value(card.xpm)}</dd></div>
+          <div><dt>{th ? "มูลค่าสุทธิ" : "Net worth"}</dt><dd>{value(card.netWorth)}</dd></div>
+        </dl>
+        <div className="live-postgame-final-card-items" aria-label={th ? "ไอเท็มสุดท้าย" : "Final items"}>
+          {items.map((item, index) => {
+            const icon = item ? dotaIcon("item", item) : null;
+            return <span key={`${index}-${item ?? "unknown"}`} title={item ?? undefined} aria-label={`${th ? "ไอเท็ม" : "Item"} ${index + 1}: ${item ?? "—"}`}>
+              {icon ? <img src={icon} alt="" /> : item ? item.replace(/^item_/, "").slice(0, 3) : "—"}
+            </span>;
+          })}
+        </div>
+      </li>;
+    })}
+  </ul>;
 }

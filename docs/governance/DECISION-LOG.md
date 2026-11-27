@@ -477,3 +477,15 @@ Decided by the product owner 2026-11-26 in the lead session, recorded by an agen
 3. **Native evidence.** The owner opens the summary tab of a real match they played in a release build bound to a commit and exe hash; a receipt like ALERT-008's records the build, the keyed match hash, which sections showed values or unknown, and whether seeking worked. A screenshot alone is not PASS.
 
 The page follows the owner's 2026-11-26 request for a post-match summary modelled on Dotabuff and STRATZ screenshots (“Combine both”). Those references are layout inspiration only: no names, logos, colours, rank badges or data from those services. The summary files traced under UI-021 in eecb12e move to UI-023. UI-023 has no diagram mapping; no diagram changes. UI-023 remains NOT_RUN: unit fixtures are synthetic evidence only.
+
+### Owner decision: post-game summary breakdown (DEC-POSTGAME-BREAKDOWN, 2026-11-27)
+
+Decided by the product owner 2026-11-27 in the lead session, recorded by an agent. Owner words: “Approve as recommended”. The owner approved CR-POSTGAME-BREAKDOWN (`F:\kohbor-coord\design\postgame-redesign-20261127\CR.md`; draft page `draft.html`).
+
+1. **Match ID (option A).** The post-game summary shows the match ID with a copy action, from the linked replay bundle or the current session's in-memory GSI value. It is never written to logs, GSI or session history or settings. This replaces UI-002's rule that raw match IDs are never displayed; the never-logged rule stays.
+2. **Gold sources and hero damage (G1).** Not shown from GSI; no intake change.
+3. **Benchmark comparison.** Stage 1 compares the own hero's numbers with the hero benchmark only while the existing OpenDota benchmark opt-in is on.
+4. **Layout (variant 1).** A result banner and hero header above Summary, Timeline and Replay tabs, without scrolling at the UI-002 sizes.
+
+Also adopted from the CR: after match end the ten hero cards keep their last observed state with a Final mark (own card from host-recorded end values, others unknown), and Stage 2 fills all ten cards from the digest and embeds the UI-023 summary blocks. UI-002 is amended; UX-SPEC and REPLAY-PIPELINE are aligned. No diagram change. UI-002 remains NOT_RUN; nothing is implemented yet.
+
