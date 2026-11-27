@@ -23,8 +23,8 @@
     },
     {
       "path": "Cargo.lock",
-      "bytes": 135820,
-      "sha256": "9fe412613165e4f6605ec6b39bb12083943cefdafbecb06b8565f38d546fe22b"
+      "bytes": 136021,
+      "sha256": "91e307ea03068956164edfbbcf93b9cede46a95e101c62e8b5e6302b2961d2e2"
     },
     {
       "path": "Cargo.toml",
@@ -83,8 +83,8 @@
     },
     {
       "path": "acceptance/scenarios.feature",
-      "bytes": 90651,
-      "sha256": "f231e77188478e29821458f3c9390e3fbb47ee6c495cec3268406aea96c449db"
+      "bytes": 90702,
+      "sha256": "c642f8b1493d69fae9ad7884e7b4545311d603f845ce67968bcdcf7c81968ba8"
     },
     {
       "path": "acceptance/spec-validation.json",
@@ -113,8 +113,8 @@
     },
     {
       "path": "apps/desktop/src-tauri/Cargo.toml",
-      "bytes": 2863,
-      "sha256": "98dee1bd8ed1a496a1dd4ca921eb6aa7ebe6f7665d4d11b311361ba8b09393c2"
+      "bytes": 3062,
+      "sha256": "b9bd64051226c4f47971efca96d3500717e248e5f5372f3b0ede229a9dbe5b27"
     },
     {
       "path": "apps/desktop/src-tauri/app-icon.png",
@@ -14838,8 +14838,8 @@
     },
     {
       "path": "contracts/requirements.json",
-      "bytes": 384936,
-      "sha256": "aa8046159411e434ca802d1905d5de94394362f7a02a1e5fbada930b510dfc71"
+      "bytes": 385012,
+      "sha256": "cbfcd42d8dc37cd3bcbf5b48796a48037e641a7c9c9a28eed0a3e19c9a8cc3b4"
     },
     {
       "path": "contracts/runtime-status.schema.json",
@@ -15843,8 +15843,8 @@
     },
     {
       "path": "docs/design/REPLAY-PIPELINE.md",
-      "bytes": 17969,
-      "sha256": "a04bff413a9a09a389cc808372d3ac02d936f74f334997cbe560c055b17d3784"
+      "bytes": 17967,
+      "sha256": "5c98193f1f43580b3413548923e69efb7e359a0564162ed4c0c4d76be446bfcc"
     },
     {
       "path": "docs/design/RISK-ADMISSION-SPEC.md",
@@ -16338,8 +16338,8 @@
     },
     {
       "path": "docs/governance/DECISION-LOG.md",
-      "bytes": 133578,
-      "sha256": "1c1226dd923bafa39e14b83f1a7bea8df137f5ddeb387fe6e46cbfd11e2ec134"
+      "bytes": 133899,
+      "sha256": "ee5c040081dd7363ca11cc575e611f96b3743db497e739caeaf98557781f3dd9"
     },
     {
       "path": "docs/governance/DOCUMENT-CONTROL.md",
@@ -16428,8 +16428,8 @@
     },
     {
       "path": "docs/requirements/SRS.md",
-      "bytes": 262421,
-      "sha256": "010cea774318c0ad277b8b9f75c9401daf6d99b169c8bda5528f6ff3e9649365"
+      "bytes": 262497,
+      "sha256": "10d6492486bac09249c7c7cd7411827fd6edd27b3ad1d8b411f4b313ce4cf988"
     },
     {
       "path": "docs/security/SECURITY-PRIVACY.md",
