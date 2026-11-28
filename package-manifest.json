@@ -73,8 +73,8 @@
     },
     {
       "path": "acceptance/diagram-validation.json",
-      "bytes": 7791,
-      "sha256": "662b53f33f68002af05d413abd1dc70b0ec8371b226d6f037369732dbcf22195"
+      "bytes": 7591,
+      "sha256": "82494cda4998bfe4f553f8b7e5ed5757b0e3b9c5d764cdad1fdfd1396f3437e7"
     },
     {
       "path": "acceptance/evidence-template.json",
@@ -808,8 +808,8 @@
     },
     {
       "path": "apps/desktop/src/App.tsx",
-      "bytes": 28948,
-      "sha256": "837e7a28f47cd63b5bf8159b4a01147184b6d938893dbf7e308c1235c7263ec4"
+      "bytes": 28476,
+      "sha256": "f8e56f69facbdb4efbec8183469ffa295dc89dea337aaf35dfbe362f9ab20198"
     },
     {
       "path": "apps/desktop/src/AudioHistory.tsx",
@@ -12593,8 +12593,8 @@
     },
     {
       "path": "apps/desktop/src/assets/replay-packs/7.42/provenance.json",
-      "bytes": 11817,
-      "sha256": "dffb648921d7760949fc519dd8e5589aaaa01e0bb55684f3a9967016eded3744"
+      "bytes": 11514,
+      "sha256": "6ba5f45907cf4bafad4db2c5f1b35e18c491f2185068e09140539f7388e62be4"
     },
     {
       "path": "apps/desktop/src/assets/replay-packs/7.42/replay-data.json",
@@ -13623,8 +13623,8 @@
     },
     {
       "path": "apps/desktop/src/replay/MatchViewPanel.tsx",
-      "bytes": 22237,
-      "sha256": "26dc490fede042299c4da69c3e899c1c2378f362fef67099e92a1fd742357899"
+      "bytes": 21897,
+      "sha256": "1cd5d369fa91707161f5eb0cb150e0c749cbc632b8400a92189523c77485074a"
     },
     {
       "path": "apps/desktop/src/replay/ReplayPanel.tsx",
@@ -13728,8 +13728,8 @@
     },
     {
       "path": "apps/desktop/src/settings/SettingsPage.tsx",
-      "bytes": 3516,
-      "sha256": "95bc300bf404cc58f2348de6c5bda0caae31b8f69bf6da2e1761ebb51c2f8b7a"
+      "bytes": 3440,
+      "sha256": "c95f2dd503dbbfde225cf5f96ad5b7803a1b2d4e1e2565e29248a59865991459"
     },
     {
       "path": "apps/desktop/src/settings/heroCardDisplaySettings.css",
@@ -13738,8 +13738,8 @@
     },
     {
       "path": "apps/desktop/src/settings/settingsModel.ts",
-      "bytes": 4256,
-      "sha256": "d942f71fca92adbed9a5e9dbc3f9911cd7f7caf91812fffa0a90ca0ef13484ee"
+      "bytes": 4174,
+      "sha256": "7b924e1513165db40e8b8e6830b4aba28ba222c4519d6279a17dca54c0653bc9"
     },
     {
       "path": "apps/desktop/src/shared/Dialog.tsx",
@@ -14518,8 +14518,8 @@
     },
     {
       "path": "apps/desktop/tests/settings-layout.test.ts",
-      "bytes": 12359,
-      "sha256": "b272ae0c0f22e3edab5c736b5c7d027328563e8f3af4dfe11cc6de74c8c3eeca"
+      "bytes": 12186,
+      "sha256": "9642320ddd01d9721f434f8e27a874f5584f45e96acd287c69de24441d6f9dc1"
     },
     {
       "path": "apps/desktop/tests/shell-css.test.ts",
@@ -16023,13 +16023,13 @@
     },
     {
       "path": "docs/diagrams/INDEX.html",
-      "bytes": 11584896,
-      "sha256": "8f6fc4cec8232fec2126738d3728c43711fbeb6170c0f2b16f79806c7f469bd0"
+      "bytes": 11584123,
+      "sha256": "7ebc04020d912e77a3dd10759f2026f3683ddecfaf020eaf9f5ccc56be079a01"
     },
     {
       "path": "docs/diagrams/README.md",
-      "bytes": 7437,
-      "sha256": "6f557a2c68b0a11e26e6518a9ec3c36ffccb56ab0c7773193d564183bb1bc460"
+      "bytes": 7372,
+      "sha256": "b3547f4f1af35c786f466e2e4426c98a154fa51b41d23ab3850b98614f5d222f"
     },
     {
       "path": "docs/diagrams/catalog.json",
@@ -16313,8 +16313,8 @@
     },
     {
       "path": "docs/domains/ui-overlay/state.json",
-      "bytes": 6657,
-      "sha256": "f122978e605e493bc23c221c1380b9a3b5af9f886fe9d3e726024a93e3a25202"
+      "bytes": 6858,
+      "sha256": "1853b7c049dd8a9e0f7a2ba71ff3bb3167aeb23da59ab8ec9617dc038027799a"
     },
     {
       "path": "docs/domains/vision-risk/CARD.md",
@@ -17283,13 +17283,13 @@
     },
     {
       "path": "tools/banner-warmup/README.md",
-      "bytes": 1413,
-      "sha256": "102569ab4288b7ca9539f98e0c094ae8b17a2cedd4f6e3db8a4d8a2d64845c8c"
+      "bytes": 1397,
+      "sha256": "b5dcb2c7d13a2f1c9493436ff6a8647fac6d1a108ce94696c19e07431498a6d8"
     },
     {
       "path": "tools/banner-warmup/gen-warmup.mjs",
-      "bytes": 6684,
-      "sha256": "155042e6e7abb8625778487f0e3a7a039dbc73175578602438344fe3673a3718"
+      "bytes": 6602,
+      "sha256": "3b676a3b9b15a6209950b4ccc16186c0abfcb85e27034b6f8509f2ad131de587"
     },
     {
       "path": "tools/build_diagram_atlas.py",
