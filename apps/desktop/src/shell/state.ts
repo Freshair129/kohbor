@@ -20,12 +20,6 @@ export const SHELL_NAV_ITEMS = [
   { id: "settings", group: "secondary" },
 ] as const satisfies readonly ShellNavigationItem[];
 
-export type InsightsView = "summary" | "replay";
-
-export function insightsViews(replayAvailable: boolean): readonly InsightsView[] {
-  return replayAvailable ? ["summary", "replay"] : ["summary"];
-}
-
 export function navigationItemState(destination: ShellDestination, current: ShellDestination | "account") {
   const active = current === destination;
   const tabStop = active || (current === "account" && destination === DEFAULT_SHELL_DESTINATION);

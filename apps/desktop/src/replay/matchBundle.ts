@@ -453,7 +453,7 @@ export function iconKey(path: string, mapNames: readonly string[] = ["map.png"])
 export function placeholderIcon(kind: IconKind, name: string): string {
   const label = name.replace(/^npc_dota_hero_|^item_/, "").replace(/_/g, " ").slice(0, kind === "hero" ? 12 : 18);
   const safe = label.replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
-  // Hero tiles keep the 256 x 144 portrait shape: the map view crops its centre 144 x 144 square.
+  // Hero tiles use the same centered square crop as bundled portraits, at any natural image size.
   const [w, h] = kind === "hero" ? [256, 144] : kind === "item" ? [88, 64] : kind === "map" ? [256, 256] : [64, 64];
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`
     + `<rect width="${w}" height="${h}" fill="#3b3936"/><rect x="1" y="1" width="${w - 2}" height="${h - 2}" fill="none" stroke="#8f897e" stroke-dasharray="4 3"/>`

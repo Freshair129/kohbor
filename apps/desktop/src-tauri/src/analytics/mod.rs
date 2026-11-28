@@ -1,6 +1,7 @@
 mod coach_review;
 mod context;
-mod knowledge;
+pub(crate) mod knowledge;
+mod jungle_zones;
 mod lane_expectation;
 mod lane_history;
 mod protocol;

@@ -18,7 +18,7 @@ type Obj = Record<string, unknown>;
 
 export type ReplayParseState = "not_found" | "available" | "queued" | "parsing" | "ready" | "failed" | "needs_pack" | "auto_parse_off" | "unknown"
   | "off" | "waiting_for_match_end" | "looking_up" | "requested" | "downloading" | "not_available_yet" | "expired" | "rate_limited" | "offline";
-export type ReplayStateContext = "match" | "latest" | "unknown";
+export type ReplayStateContext = "match" | "unknown";
 
 export interface PostGameReplayStateInput {
   state: ReplayParseState;
@@ -307,7 +307,7 @@ export function postGameReplayStatePresentation(
                                     : text.stateUnknown;
   const settingsSection = state === "auto_parse_off" || state === "off" ? "replay-ai" as const : null;
   return {
-    label: context === "latest" ? `${text.latestReplayLabel} · ${label}` : label,
+    label,
     hint: state === "not_found" || state === "off" ? text.stateNotFoundHint : null,
     settingsSection,
     settingsLinkLabel: settingsSection ? text.replayAutoParseSettings : null,

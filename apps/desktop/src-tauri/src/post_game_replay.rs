@@ -87,7 +87,6 @@ pub(crate) struct PostGameReplayStateReply {
 #[serde(rename_all = "snake_case")]
 enum PostGameReplayStateContext {
     Match,
-    Latest,
     Unknown,
 }
 
@@ -282,7 +281,7 @@ fn fetched_entry_state(
 
 /// Match a watched .dem row to the in-memory session ID inside the host. The renderer receives
 /// only two enums. A ready exact match must also pass the existing install-keyed history link and
-/// bundle validation; otherwise the latest watched row is shown as context only.
+/// bundle validation; unrelated watched rows never describe this match.
 fn lookup_post_game_replay_state(
     session_match_id: Option<&str>,
     record: Option<&LastFinishedMatchRecord>,
@@ -313,29 +312,16 @@ fn lookup_post_game_replay_state(
                     match_key_for(&entry.match_id).as_deref() == Some(record.match_key.as_str())
                 });
                 if history_linked && open_validated_bundle(&entry.match_id) {
-                    Some(PostGameParseState::Ready)
+                    PostGameParseState::Ready
                 } else {
-                    None
+                    PostGameParseState::NotFound
                 }
             }
-            _ => Some(entry_state(entry, auto_parse_enabled)),
+            _ => entry_state(entry, auto_parse_enabled),
         };
-        if let Some(state) = state {
-            return PostGameReplayStateReply {
-                state,
-                context: PostGameReplayStateContext::Match,
-            };
-        }
-    }
-
-    if let Some(entry) = entries
-        .iter()
-        .filter(|entry| is_watched_dota_replay(entry))
-        .max_by_key(|entry| entry.created_at_unix_ms)
-    {
         return PostGameReplayStateReply {
-            state: entry_state(entry, auto_parse_enabled),
-            context: PostGameReplayStateContext::Latest,
+            state,
+            context: PostGameReplayStateContext::Match,
         };
     }
 
@@ -391,12 +377,25 @@ fn lookup_replay_summary(
             )
             .with_session_match_id(session_match_id);
         };
+        let Some(digest) = crate::analytics::knowledge::build(&crate::analytics::knowledge::KnowledgeInput {
+            manifest: &bundle.manifest,
+            match_data: &bundle.match_data,
+            world: &bundle.world,
+        })
+        .ok() else {
+            return PostGameReplayReply::unavailable(
+                Some(record),
+                PostGameParseState::Unknown,
+                watcher,
+            )
+            .with_session_match_id(session_match_id);
+        };
         return PostGameReplayReply {
             ready: true,
             match_key: Some(match_key.to_owned()),
             bundle_match_id: Some(entry.match_id.clone()),
             session_match_id,
-            digest: Some(bundle.match_data.clone()),
+            digest: Some(digest),
             headline: headline_for(&bundle, own_hero),
             parse_state: PostGameParseState::Ready,
             failure_reason: None,
@@ -503,8 +502,7 @@ pub(crate) fn post_game_replay_state(
             .fetched_status(match_id)
             .map(|status| fetched_entry_state(status, match_id, &library))
             .unwrap_or_else(|| state.replay_auto_fetch.state_for(Some(match_id)).into());
-        // With the fetch off, the manual path (MEM-008 option A) keeps its own reply: a latest
-        // watched row stays as context, and only "nothing found" becomes "fetch off".
+        // With the fetch off, the current match still shows the existing download-replay hint.
         if fetched != PostGameParseState::Off || reply.state == PostGameParseState::NotFound {
             reply.state = fetched;
             reply.context = PostGameReplayStateContext::Match;
@@ -590,9 +588,21 @@ mod tests {
 
     fn bundle(heroes: Value, deaths: Value) -> ReplayBundle {
         ReplayBundle {
-            manifest: json!({}),
-            match_data: json!({ "heroes": heroes, "deaths": deaths }),
-            world: json!({}),
+            manifest: json!({
+                "schema": "3.1",
+                "files": {
+                    "match.json": {"sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+                    "world.json": {"sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}
+                }
+            }),
+            match_data: json!({
+                "t0": 0,
+                "t1": 1200,
+                "meta": {"schema":"3.1","duration_s":1200,"patch":"7.42","game_mode":2,"winner":"radiant","draft":[]},
+                "heroes": heroes,
+                "deaths": deaths
+            }),
+            world: json!({"heroes":{},"tracks":[],"runes":[]}),
         }
     }
 
@@ -600,12 +610,15 @@ mod tests {
         bundle(
             json!([{
                 "id": OWN_HERO,
+                "name": "Axe",
+                "team": 2,
+                "pid": 0,
                 "eco": [[500, 1200, 10, 1], [900, 18400, 200, 13]]
             }]),
             json!([
-                { "hero": OWN_HERO },
-                { "hero": "npc_dota_hero_lion" },
-                { "hero": OWN_HERO }
+                { "t": 100, "hero": OWN_HERO, "killer": "npc_dota_hero_lion" },
+                { "t": 200, "hero": "npc_dota_hero_lion", "killer": OWN_HERO },
+                { "t": 300, "hero": OWN_HERO, "killer": "npc_dota_hero_lion" }
             ]),
         )
     }
@@ -645,6 +658,11 @@ mod tests {
                 .map(Vec::len),
             Some(1)
         );
+        let digest = result.digest.as_ref().unwrap();
+        assert_eq!(digest["heroes"][0]["side"], "radiant");
+        assert_eq!(digest["heroes"][0]["slot"], 0);
+        assert!(digest["heroes"][0].get("lane").is_some());
+        assert!(digest["lanes"].is_array());
     }
 
     #[test]
@@ -670,9 +688,12 @@ mod tests {
         let other_hero_bundle = bundle(
             json!([{
                 "id": "npc_dota_hero_lion",
+                "name": "Lion",
+                "team": 2,
+                "pid": 0,
                 "eco": [[400, 7000, 80, 5]]
             }]),
-            json!([{ "hero": "npc_dota_hero_lion" }]),
+            json!([{ "t": 10, "hero": "npc_dota_hero_lion", "killer": "npc_dota_neutral_centaur_khan" }]),
         );
         let result = lookup_replay_summary(
             last_match(),
@@ -756,14 +777,14 @@ mod tests {
     }
 
     #[test]
-    fn synthetic_replay_state_uses_newest_watched_row_when_the_current_match_cannot_be_matched() {
+    fn synthetic_replay_state_ignores_other_matches_when_the_current_match_cannot_be_matched() {
         let entries = [
             watched_entry("1", "D:/synthetic/1.dem", ReplayStatus::Queued, 1),
             watched_entry("2", "D:/synthetic/2.dem", ReplayStatus::Parsing, 2),
         ];
         let state = lookup_post_game_replay_state(None, None, &entries, true, |_| None, |_| false);
-        assert_eq!(state.state, PostGameParseState::Parsing);
-        assert_eq!(state.context, PostGameReplayStateContext::Latest);
+        assert_eq!(state.state, PostGameParseState::NotFound);
+        assert_eq!(state.context, PostGameReplayStateContext::Unknown);
     }
 
     #[test]
@@ -852,7 +873,7 @@ mod tests {
             |_| Some("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_owned()),
             |_| true,
         );
-        assert_eq!(unlinked.state, PostGameParseState::Ready);
-        assert_eq!(unlinked.context, PostGameReplayStateContext::Latest);
+        assert_eq!(unlinked.state, PostGameParseState::NotFound);
+        assert_eq!(unlinked.context, PostGameReplayStateContext::Match);
     }
 }

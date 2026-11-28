@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { guestAccountPort } from "../src/account/accountView.ts";
 import { reduceAccountMenu } from "../src/account/menuModel.ts";
@@ -6,7 +7,6 @@ import { accountFlyoutItems } from "../src/shell/accountFlyoutModel.ts";
 import {
   DEFAULT_SHELL_DESTINATION,
   deriveHeaderState,
-  insightsViews,
   nextShellDestination,
   navigationItemState,
   SHELL_NAV_ITEMS,
@@ -33,10 +33,10 @@ test("vertical rail keyboard navigation wraps and supports Home and End", () => 
   assert.equal(nextShellDestination("packs", "Enter"), null);
 });
 
-test("Replay is a subview of Insights, not a main navigation destination", () => {
-  assert.deepEqual(insightsViews(false), ["summary"]);
-  assert.deepEqual(insightsViews(true), ["summary", "replay"]);
+test("Analytics is a single destination without a Replay subview", () => {
   assert.equal(SHELL_NAV_ITEMS.some((item) => item.id === "replay"), false);
+  const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(app, /insightsViews|ReplayPanel locale/);
 });
 
 test("status line maps live GSI, phase, age and capture values and routes setup to Status", () => {

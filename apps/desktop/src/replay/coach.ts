@@ -1,4 +1,46 @@
-import type { CoachDeath, CoachNote, CoachRules, DeathType, LaneName, PostMatchReplay } from "./report";
+export type DeathType = "solo" | "gank" | "teamfight" | "other";
+export interface CoachDeath {
+  tick: number;
+  t: number;
+  type: DeathType;
+  enemiesInvolved: number;
+  alliesNear: number;
+  nearbyDeaths: number;
+  sampleAge: number;
+  enemyVisibleSeconds: number | null;
+  ownWard: boolean;
+  enemyWard: boolean;
+  enemySmoke: number | null;
+}
+export type LaneName = "top" | "mid" | "bot";
+export interface LaneRow {
+  lane: LaneName;
+  heroes: string[];
+  opponents: number;
+  nwDiff: number | null;
+  deathsBefore: number;
+  outcome: "ahead" | "even" | "behind" | null;
+}
+export interface CoachNote { kind: string; evidence: number[]; th: string; en: string }
+export interface MatchCoach {
+  deaths: CoachDeath[];
+  lane10: { lanes: LaneRow[]; roaming: string[] } | null;
+  notes: CoachNote[];
+}
+export interface CoachRules {
+  version: string;
+  provisional: true;
+  enemyPositions: "full-map";
+  deathType: { radius: number; windowSeconds: number; allyRadius: number; teamfightDeaths: number; teamfightSeconds: number; teamfightRadius: number };
+  vision: { observerRadius: number; visibleWindowSeconds: number };
+  smoke: { windowSeconds: number };
+  lane: { minute: number; threshold: number };
+  notes: { max: number; seenSeconds: number };
+}
+export interface PostMatchReplay {
+  rules?: CoachRules;
+  matches: Array<{ id: string; hero: string; patch: string | null; coach?: MatchCoach }>;
+}
 
 /** Sample-size rule (DEC-COACH-REVIEW): below this many matches, patterns are shown as k/n only, never as rates. */
 export const RATE_MIN_MATCHES = 10;

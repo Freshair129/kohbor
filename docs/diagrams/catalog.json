@@ -676,7 +676,7 @@
         "The location of local clip controls still requires DEC-VISUALS; this diagram creates no new clips page.",
         "Fresh/stale/unknown views use admitted data; no production fixtures or automatic hero selection. Premium never broadens data rights or gates local core.",
         "On first run or when GSI setup is needed, the control window offers setup and waits for an explicit player choice; setup does not happen implicitly. The Live page shows the ten-slot draft strip only in supported phases and geometry. Public suggestions appear before the own pick and the pick card after it under its separate consent; the edge orb is a separate mouse-only guarded window with per-app volume controls.",
-        "Analytics is a three-column post-match replay workspace: system and AI Markdown documents on the left, replay map/cards/playback in the centre, optional chat on the right. With no key, consent or AI-on state, local coach templates remain available; prior messages from the same match chat are resent with every question when the user submits."
+    "Analytics combines a bounded Thai day-grouped match list with the three-column post-match replay workspace: system and AI Markdown documents on the left, replay map/cards/playback in the centre, optional chat on the right. The JSON report sub-tab and separate Replay destination are removed. With no key, consent or AI-on state, local coach templates remain available; prior messages from the same match chat are resent with every question when the user submits."
       ],
       "kind": "flowchart",
       "source": "docs/diagrams/source/DGM-017-user-flow.mmd",

@@ -18,7 +18,8 @@
       "DejaVuSans-Oblique.ttf": "e2f09289f4276309a36b9a93e5a0ac64957ef3eb7158151b243d41f667151ee4",
       "DejaVuSans-BoldOblique.ttf": "c35383d5e56add5cc9cdc9f4e4a899f9e540f7c7e49f1901074c2d03af194eff"
     },
-    "core_sha256": "c674cfb9917628c7b9ee6a192380684177396ed4861a894db5c4c82bf2ebe0ae"
+    "core_sha256": "c674cfb9917628c7b9ee6a192380684177396ed4861a894db5c4c82bf2ebe0ae",
+    "execution_note": "The renderer wrapper invocation in this run failed to spawn its child (EPERM). DGM-017 was rendered by the same pinned core and passed parse/hash/SVG structural checks; the other 18 outputs are unchanged and still match their prior full renderer validation."
   },
   "diagrams": [
     {
@@ -168,11 +169,11 @@
     {
       "id": "DGM-017",
       "status": "PASS",
-      "source_sha256": "c1c6d6063ea1a2966b2332b94c14f08896b709aba20a761e5431dd50489a2d97",
-      "svg_sha256": "1ff56df43c03021350caa0ea722fe232a9b60ea6a823166cbf3466afa1c420e4",
-      "width": 2179.4364013671875,
+      "source_sha256": "f6d97dc064af48b27fe055b1901c7dfa5d4ec3703b599412b3962d6b5e82ca00",
+      "svg_sha256": "467fdceaaffed6fa4d1183738eb32efc82e42b83aaff40af52a9868ea9a4df56",
+      "width": 2394.13623046875,
       "height": 2655.6796875,
-      "text_nodes": 49
+      "text_nodes": 80
     },
     {
       "id": "DGM-018",

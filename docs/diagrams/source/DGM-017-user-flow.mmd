@@ -30,7 +30,9 @@ flowchart TB
 
   Read --> Truth["Show fresh, stale or unknown"]
   Overlay --> Truth
-  Tools --> Analytics["Analytics: three-column replay workspace"]
+  Tools --> Analytics["Analytics: match list and replay workspace"]
+  Analytics --> MatchList["Thai day groups, date/result filters, .dem and row actions"]
+  MatchList --> ReplayDetail["Open selected match detail"]
   Analytics --> Documents["Left: read-only system note and AI Markdown tabs"]
   Analytics --> Map["Centre: replay map, hero cards and playback"]
   Analytics --> ChatPanel["Right: optional AI chat"]

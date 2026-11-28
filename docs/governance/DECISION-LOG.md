@@ -502,3 +502,19 @@ Decided by the product owner 2026-11-27 in the lead session, recorded by an agen
 Adds MEM-008 and amends MEM-007 (network exception) and UI-002 (the in-memory match ID may also feed the opt-in fetch). Amends DEC-REPLAY-INTEGRATION item 6 from later/on demand to automatic under the opt-in. REPLAY-PIPELINE and UX-SPEC aligned. OpenDota flows are not drawn in the diagrams (as for MEM-006); no diagram change. MEM-008 is NOT_RUN; nothing is implemented yet.
 
 Amendment (owner 2026-11-27, “Approve ruzstd”): the owner approved adding the ruzstd crate (0.9.1, MIT, default features off, no transitive dependencies) from crates.io as the Zstandard decoder. No bzip2 decoder is added: since the measured container is Zstandard, a bzip2 or unknown container fails and is deleted.
+
+### Owner decision: jungle zones, 7.42 minimap and engine 0.5.0 (DEC-REPLAY-UX-20261128, 2026-11-28)
+
+Decided by the product owner 2026-11-28 in the lead session, recorded by an agent.
+
+1. **Jungle zones.** The owner set the zone map in an interactive picker over the 7.42 camps: R1 to R6 and D1 to D5, with every camp in a zone. Camps are resolved by position, never by bundle camp id, because ids change between patches. Neutral gold that cannot be placed in a camp is excluded and its count is shown.
+2. **Engine re-pin.** Kohbor pins replay-engine-rs 0.5.0 (bundle schema 3.3), which adds per-death gold and neutral camp fields, and keeps admitting schemas 3.0 to 3.2. Replays parsed earlier need a re-parse to show the new values.
+3. **7.42 minimap.** The previous image was the stale 7.37 overview with a guessed calibration. The owner chose the detailed real-game overview: “เอาแบบ 1 ก่อน แบบ 2 ค่อยทำทีหลัง”. Kohbor uses the game's 1024 px detailed overview, registered to the official `resource/overviews/dota.txt` calibration. A 3D top-down render is deferred to the path and ward-vision work.
+
+### Owner decision: banner cold-start warm-up and CSP media-src (DEC-BANNER-WARMUP, 2026-11-28)
+
+Decided by the product owner 2026-11-28 in the lead session, recorded by an agent. Owner words: “เอาทาง 1”.
+
+In-game measurement found that the first banner after each app start drops frames: 8/106, 11/165 and 7/69, with stalls of 287 to 300 ms. Later banners are clean. An invisible one-shot warm-up clip removed the stall in two runs (0/96 and 0/106). Route 1: the overlay plays a bundled, original, transparent 15 KB clip once after the host is ready. The overlay CSP `media-src` gains `'self'` for that bundled asset only; it is otherwise unchanged.
+
+A related finding stays open as separate work: `media_protocol_handler` reads `AppState` before `setup()` manages it. A media request in the first seconds after start therefore aborts the app (observed 2026-11-28 during measurement).

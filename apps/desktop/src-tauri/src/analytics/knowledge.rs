@@ -1,11 +1,12 @@
 use super::lane_expectation;
 use super::lane_history::LaneHistoryRecord;
+use super::jungle_zones::{zone_for_camp, zone_names};
 use crate::match_history::{MatchEntry, MatchResult};
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
-pub(crate) const KNOWLEDGE_VERSION: u32 = 4;
+pub(crate) const KNOWLEDGE_VERSION: u32 = 6;
 pub(super) const ENGINE_REPARSE_REASON: &str = "re-parse with engine 0.3.0 to get this";
 
 pub(crate) struct KnowledgeInput<'a> {
@@ -37,6 +38,7 @@ struct DeathSample {
     time: f64,
     hero_id: String,
     killer_id: Option<String>,
+    killer_kind: &'static str,
     position: Option<Point>,
 }
 
@@ -191,7 +193,8 @@ pub(crate) fn build_with_sources(
         "teamfights_reason": (!fight_data_available).then_some(if death_data_available { "position samples are incomplete; teamfight grouping may be incomplete" } else { "death events are missing from the bundle" }).map(Value::from),
         "objectives": objective_data,
         "deaths": death_index(&deaths, &hero_by_id),
-        "deaths_reason": (!death_data_available).then_some("death events are missing from the bundle").map(Value::from)
+        "deaths_reason": (!death_data_available).then_some("death events are missing from the bundle").map(Value::from),
+        "opponent_stats": opponent_stats(input.manifest, match_data, &hero_by_id)
     });
     Ok(canonicalize(digest))
 }
@@ -508,7 +511,14 @@ fn death_samples(
             if !heroes.contains_key(&victim) {
                 return None;
             }
+            let killer_source = death.get("killer").and_then(Value::as_str);
             let killer = hero_id(death.get("killer")).filter(|id| heroes.contains_key(id));
+            let killer_kind = match killer_source {
+                Some(_) if killer.is_some() => "hero",
+                Some(id) if id.starts_with("npc_dota_hero_") => "unknown",
+                Some(_) => "other",
+                None => "unknown",
+            };
             Some(DeathSample {
                 index,
                 time,
@@ -519,6 +529,7 @@ fn death_samples(
                 }),
                 hero_id: victim,
                 killer_id: killer,
+                killer_kind,
             })
         })
         .collect()
@@ -1541,6 +1552,7 @@ fn death_index(deaths: &[DeathSample], heroes: &BTreeMap<String, HeroInfo<'_>>) 
             "hero": death.hero_id,
             "hero_name": heroes.get(&death.hero_id).map(|hero|hero.name.as_str()),
             "killer": death.killer_id,
+            "killer_kind": death.killer_kind,
             "killer_name": death.killer_id.as_deref().and_then(|id|heroes.get(id)).map(|hero|hero.name.as_str()),
             "position": death.position.map(|point|json!([number_json(point.x),number_json(point.y)])).unwrap_or(Value::Null)
         });
@@ -1548,6 +1560,320 @@ fn death_index(deaths: &[DeathSample], heroes: &BTreeMap<String, HeroInfo<'_>>) 
         if death.killer_id.is_none() { row["killer_reason"] = Value::from("killer is not an identified roster hero") }
         row
     }).collect()
+}
+
+type PlayerGoldMap = BTreeMap<String, BTreeMap<String, u64>>;
+type PlayerCompleteMap = BTreeMap<String, bool>;
+type NeutralGoldByCamp = BTreeMap<String, BTreeMap<u64, u64>>;
+
+fn zero_gold_by_enemy(heroes: &BTreeMap<String, HeroInfo<'_>>) -> PlayerGoldMap {
+    heroes
+        .values()
+        .map(|player| {
+            let enemies = heroes
+                .values()
+                .filter(|enemy| enemy.side != player.side)
+                .map(|enemy| (enemy.id.clone(), 0))
+                .collect();
+            (player.id.clone(), enemies)
+        })
+        .collect()
+}
+
+fn all_players_complete(heroes: &BTreeMap<String, HeroInfo<'_>>) -> PlayerCompleteMap {
+    heroes.keys().map(|id| (id.clone(), true)).collect()
+}
+
+fn opponent_gold_field(
+    values: &PlayerGoldMap,
+    complete_by_player: &PlayerCompleteMap,
+    other_by_player: Option<&BTreeMap<String, u64>>,
+) -> Value {
+    let complete = complete_by_player.values().all(|value| *value);
+    let by_player = values
+        .iter()
+        .map(|(player_id, values)| {
+            let value = if complete_by_player.get(player_id) == Some(&true) {
+                json!(values)
+            } else {
+                Value::Null
+            };
+            (player_id.clone(), value)
+        })
+        .collect::<Map<_, _>>();
+    let mut field = Map::new();
+    field.insert("complete".into(), json!(complete));
+    field.insert("complete_by_player_hero_id".into(), json!(complete_by_player));
+    field.insert("by_player_hero_id".into(), Value::Object(by_player));
+    if let Some(other) = other_by_player {
+        let other = other
+            .iter()
+            .map(|(player_id, gold)| {
+                let value = if complete_by_player.get(player_id) == Some(&true) {
+                    json!(gold)
+                } else {
+                    Value::Null
+                };
+                (player_id.clone(), value)
+            })
+            .collect();
+        field.insert("other_by_player_hero_id".into(), Value::Object(other));
+    }
+    Value::Object(field)
+}
+
+fn add_gold(total: &mut u64, amount: u64) -> bool {
+    let Some(sum) = total.checked_add(amount) else {
+        return false;
+    };
+    *total = sum;
+    true
+}
+
+fn aggregate_kill_gold_by_victim(
+    match_data: &Value,
+    heroes: &BTreeMap<String, HeroInfo<'_>>,
+) -> Value {
+    if match_data.pointer("/meta/gold_unattached").and_then(Value::as_u64) != Some(0) {
+        return Value::Null;
+    }
+    let Some(deaths) = match_data.get("deaths").and_then(Value::as_array) else {
+        return Value::Null;
+    };
+    let mut values = zero_gold_by_enemy(heroes);
+    let mut complete = all_players_complete(heroes);
+    for death in deaths {
+        let Some(victim_id) = hero_id(death.get("hero")) else {
+            return Value::Null;
+        };
+        let Some(victim) = heroes.get(&victim_id) else {
+            return Value::Null;
+        };
+        let Some(bounty) = death.get("bounty").and_then(Value::as_object) else {
+            for player in heroes.values().filter(|player| player.side != victim.side) {
+                complete.insert(player.id.clone(), false);
+            }
+            continue;
+        };
+        for player in heroes.values().filter(|player| player.side != victim.side) {
+            let amount = match bounty.get(&player.id) {
+                None => 0,
+                Some(value) => match value.as_u64() {
+                    Some(value) => value,
+                    None => {
+                        complete.insert(player.id.clone(), false);
+                        continue;
+                    }
+                },
+            };
+            let Some(total) = values
+                .get_mut(&player.id)
+                .and_then(|enemies| enemies.get_mut(&victim.id))
+            else {
+                complete.insert(player.id.clone(), false);
+                continue;
+            };
+            if !add_gold(total, amount) {
+                complete.insert(player.id.clone(), false);
+            }
+        }
+    }
+    opponent_gold_field(&values, &complete, None)
+}
+
+fn aggregate_gold_lost_by_killer(
+    match_data: &Value,
+    heroes: &BTreeMap<String, HeroInfo<'_>>,
+) -> Value {
+    let Some(deaths) = match_data.get("deaths").and_then(Value::as_array) else {
+        return Value::Null;
+    };
+    let mut values = zero_gold_by_enemy(heroes);
+    let mut other = heroes.keys().map(|id| (id.clone(), 0)).collect::<BTreeMap<_, _>>();
+    let mut complete = all_players_complete(heroes);
+    for death in deaths {
+        let Some(victim_id) = hero_id(death.get("hero")) else {
+            return Value::Null;
+        };
+        let Some(victim) = heroes.get(&victim_id) else {
+            return Value::Null;
+        };
+        let Some(gold_lost) = death.get("gold_lost").and_then(Value::as_u64) else {
+            complete.insert(victim_id, false);
+            continue;
+        };
+        let killer_id = death.get("killer").and_then(Value::as_str);
+        if let Some(killer) = killer_id.and_then(|id| heroes.get(id)) {
+            if killer.side != victim.side {
+                let Some(total) = values
+                    .get_mut(&victim.id)
+                    .and_then(|enemies| enemies.get_mut(&killer.id))
+                else {
+                    complete.insert(victim.id.clone(), false);
+                    continue;
+                };
+                if !add_gold(total, gold_lost) {
+                    complete.insert(victim.id.clone(), false);
+                }
+            } else {
+                let Some(total) = other.get_mut(&victim.id) else {
+                    complete.insert(victim.id.clone(), false);
+                    continue;
+                };
+                if !add_gold(total, gold_lost) {
+                    complete.insert(victim.id.clone(), false);
+                }
+            }
+        } else if killer_id.is_none()
+            || killer_id.is_some_and(|id| hero_id(Some(&Value::String(id.to_owned()))).is_none())
+        {
+            if let Some(total) = other.get_mut(&victim.id) {
+                if !add_gold(total, gold_lost) {
+                    complete.insert(victim.id.clone(), false);
+                }
+            }
+        } else {
+            // A hero-shaped killer missing from the roster has unknown side; do not guess.
+            complete.insert(victim.id.clone(), false);
+        }
+    }
+    opponent_gold_field(&values, &complete, Some(&other))
+}
+
+fn neutral_gold_by_camp(match_data: &Value) -> Option<NeutralGoldByCamp> {
+    let raw_heroes = match_data.get("heroes")?.as_array()?;
+    let mut sums = NeutralGoldByCamp::new();
+    for hero in raw_heroes {
+        let id = hero_id(hero.get("id"))?;
+        let entries = match hero.get("neut_gold")? {
+            Value::Null => continue,
+            Value::Array(entries) => entries,
+            _ => return None,
+        };
+        for entry in entries {
+            let row = entry.as_array()?;
+            if row.len() != 3 || number(row.first()).is_none() {
+                return None;
+            }
+            let camp_value = row.get(1)?;
+            let gold = row.get(2)?.as_u64()?;
+            if camp_value.is_null() {
+                continue;
+            }
+            let camp = camp_value.as_u64()?;
+            let total = sums.entry(id.clone()).or_default().entry(camp).or_default();
+            if !add_gold(total, gold) {
+                return None;
+            }
+        }
+    }
+    Some(sums)
+}
+
+fn neutral_gold_complete_by_player(
+    match_data: &Value,
+    heroes: &BTreeMap<String, HeroInfo<'_>>,
+) -> PlayerCompleteMap {
+    let rows = match_data.get("heroes").and_then(Value::as_array);
+    heroes
+        .keys()
+        .map(|id| {
+            let complete = rows.is_some_and(|rows| {
+                rows.iter().any(|hero| {
+                    hero_id(hero.get("id")).as_deref() == Some(id.as_str())
+                        && hero.get("neut_gold").is_some_and(Value::is_array)
+                })
+            });
+            (id.clone(), complete)
+        })
+        .collect()
+}
+
+fn unattached_neutral_gold_by_player(match_data: &Value) -> Option<BTreeMap<String, u64>> {
+    let mut unattached = BTreeMap::new();
+    for hero in match_data.get("heroes")?.as_array()? {
+        let id = hero_id(hero.get("id"))?;
+        unattached.insert(id, hero.get("neut_gold_unattached")?.as_u64()?);
+    }
+    Some(unattached)
+}
+
+fn neutral_gold_by_zone(
+    match_data: &Value,
+    camp_gold: &NeutralGoldByCamp,
+) -> PlayerGoldMap {
+    let bundle_camps = match_data.pointer("/meta/camps");
+    let mut zones: PlayerGoldMap = BTreeMap::new();
+    for (player_id, camps) in camp_gold {
+        for (camp_id, gold) in camps {
+            let Some(bundle_camps) = bundle_camps else {
+                continue;
+            };
+            let Some(zone) = zone_for_camp(*camp_id, bundle_camps) else {
+                continue;
+            };
+            let total = zones
+                .entry(player_id.clone())
+                .or_default()
+                .entry(zone.as_str().to_owned())
+                .or_insert(0);
+            let _ = add_gold(total, *gold);
+        }
+    }
+    zones
+}
+
+fn neutral_gold_zone_field(
+    match_data: &Value,
+    heroes: &BTreeMap<String, HeroInfo<'_>>,
+    camp_gold: &NeutralGoldByCamp,
+) -> Value {
+    let zone_gold = neutral_gold_by_zone(match_data, camp_gold);
+    let complete = neutral_gold_complete_by_player(match_data, heroes);
+    let mut field = opponent_gold_field(&zone_gold, &complete, None)
+        .as_object()
+        .cloned()
+        .unwrap_or_default();
+    field.insert("zone_names".into(), json!(zone_names()));
+    let unattached = unattached_neutral_gold_by_player(match_data).unwrap_or_default();
+    field.insert("unattached_by_player_hero_id".into(), json!(unattached));
+    Value::Object(field)
+}
+
+fn opponent_stats(manifest: &Value, match_data: &Value, heroes: &BTreeMap<String, HeroInfo<'_>>) -> Value {
+    if manifest.pointer("/schema").and_then(Value::as_str) != Some("3.3")
+        || match_data.pointer("/meta/schema").and_then(Value::as_str) != Some("3.3")
+    {
+        return Value::Null;
+    }
+    let Some(meta) = match_data.get("meta").and_then(Value::as_object) else {
+        return Value::Null;
+    };
+    let Some(deaths) = match_data.get("deaths").and_then(Value::as_array) else {
+        return Value::Null;
+    };
+    let Some(raw_heroes) = match_data.get("heroes").and_then(Value::as_array) else {
+        return Value::Null;
+    };
+    let has_v33_fields = meta.get("gold_unattached").and_then(Value::as_u64).is_some()
+        && meta.get("neut_gold_unattached").and_then(Value::as_u64).is_some()
+        && meta.contains_key("camps")
+        && deaths.iter().all(|death| death.get("bounty").is_some() && death.get("gold_lost").is_some())
+        && raw_heroes.iter().all(|hero| {
+            hero.get("neut_gold").is_some()
+                && hero.get("neut_gold_unattached").and_then(Value::as_u64).is_some()
+        });
+    if !has_v33_fields {
+        return Value::Null;
+    }
+    let Some(camp_gold) = neutral_gold_by_camp(match_data) else {
+        return Value::Null;
+    };
+    json!({
+        "kill_gold_by_victim": aggregate_kill_gold_by_victim(match_data, heroes),
+        "gold_lost_by_killer": aggregate_gold_lost_by_killer(match_data, heroes),
+        "neutral_kill_gold_by_camp": neutral_gold_zone_field(match_data, heroes, &camp_gold)
+    })
 }
 
 fn teamfights(heroes: &[HeroInfo<'_>], deaths: &[DeathSample], t0: f64) -> Vec<Value> {
@@ -1786,6 +2112,29 @@ mod tests {
         (manifest, match_data, world)
     }
 
+    fn schema_33_opponents_fixture() -> (Value, Value, Value) {
+        let (mut manifest, mut match_data, world) = fixture();
+        manifest["schema"] = json!("3.3");
+        match_data["meta"]["schema"] = json!("3.3");
+        match_data["meta"]["gold_unattached"] = json!(0);
+        match_data["meta"]["neut_gold_unattached"] = json!(1);
+        match_data["meta"]["camps"] = json!([
+            {"id":1,"x":-8313,"y":-553,"type":"ancient"},
+            {"id":2,"x":-5024,"y":-96,"type":"small"}
+        ]);
+        match_data["heroes"] = json!([
+            {"id":"npc_dota_hero_axe","name":"Axe","team":2,"pid":0,"neut_gold":[[10,1,100],[11,null,25],[13,2,200]],"neut_gold_unattached":1},
+            {"id":"npc_dota_hero_lina","name":"Lina","team":3,"pid":5,"neut_gold":[[12,2,50]],"neut_gold_unattached":0}
+        ]);
+        match_data["deaths"] = json!([
+            {"t":10,"hero":"npc_dota_hero_lina","killer":"npc_dota_hero_axe","bounty":{"npc_dota_hero_axe":250},"gold_lost":300},
+            {"t":20,"hero":"npc_dota_hero_axe","killer":"npc_dota_hero_lina","bounty":{"npc_dota_hero_lina":220},"gold_lost":410},
+            {"t":30,"hero":"npc_dota_hero_axe","killer":"npc_dota_goodguys_tower1_top","bounty":{},"gold_lost":160},
+            {"t":40,"hero":"npc_dota_hero_axe","killer":"npc_dota_hero_axe","bounty":{},"gold_lost":70}
+        ]);
+        (manifest, match_data, world)
+    }
+
     fn synthetic_digest() -> Value {
         let (manifest, match_data, world) = fixture();
         build(&KnowledgeInput {
@@ -1835,6 +2184,94 @@ mod tests {
         assert_eq!(digest["meta"]["result"]["reason"], ENGINE_REPARSE_REASON);
         assert!(digest["meta"]["draft"].is_null());
         assert!(digest["meta"]["draft_reason"].as_str().is_some());
+    }
+
+    #[test]
+    fn schema_33_opponents_aggregates_are_computed_from_event_fields() {
+        let (manifest, match_data, world) = schema_33_opponents_fixture();
+        let digest = build(&KnowledgeInput {
+            manifest: &manifest,
+            match_data: &match_data,
+            world: &world,
+        })
+        .unwrap();
+
+        let stats = &digest["opponent_stats"];
+        assert_eq!(stats["kill_gold_by_victim"]["complete_by_player_hero_id"]["npc_dota_hero_axe"], true);
+        assert_eq!(stats["kill_gold_by_victim"]["by_player_hero_id"]["npc_dota_hero_axe"]["npc_dota_hero_lina"], 250);
+        assert_eq!(stats["gold_lost_by_killer"]["complete_by_player_hero_id"]["npc_dota_hero_axe"], true);
+        assert_eq!(stats["gold_lost_by_killer"]["by_player_hero_id"]["npc_dota_hero_axe"]["npc_dota_hero_lina"], 410);
+        assert_eq!(stats["gold_lost_by_killer"]["other_by_player_hero_id"]["npc_dota_hero_axe"], 230);
+        assert_eq!(stats["neutral_kill_gold_by_camp"]["complete_by_player_hero_id"]["npc_dota_hero_axe"], true);
+        assert_eq!(stats["neutral_kill_gold_by_camp"]["by_player_hero_id"]["npc_dota_hero_axe"]["R1"], 200);
+        assert_eq!(stats["neutral_kill_gold_by_camp"]["by_player_hero_id"]["npc_dota_hero_axe"]["R2"], 100);
+        assert_eq!(stats["neutral_kill_gold_by_camp"]["zone_names"]["R1"], "ป่า Radiant 1 (R1)");
+        assert_eq!(stats["neutral_kill_gold_by_camp"]["unattached_by_player_hero_id"]["npc_dota_hero_axe"], 1);
+        let camp_sums = neutral_gold_by_camp(&match_data).unwrap();
+        assert_eq!(camp_sums["npc_dota_hero_axe"][&1], 100);
+        assert_eq!(camp_sums["npc_dota_hero_axe"][&2], 200);
+        assert_eq!(camp_sums["npc_dota_hero_lina"][&2], 50);
+        assert_eq!(digest["deaths"][0]["killer_kind"], "hero");
+        assert_eq!(digest["deaths"][2]["killer_kind"], "other");
+    }
+
+    #[test]
+    fn null_bounty_makes_the_affected_player_kill_gold_unknown() {
+        let (manifest, mut match_data, world) = schema_33_opponents_fixture();
+        match_data["deaths"][0]["bounty"] = Value::Null;
+        let digest = build(&KnowledgeInput {
+            manifest: &manifest,
+            match_data: &match_data,
+            world: &world,
+        })
+        .unwrap();
+
+        let kill_gold = &digest["opponent_stats"]["kill_gold_by_victim"];
+        assert_eq!(kill_gold["complete_by_player_hero_id"]["npc_dota_hero_axe"], false);
+        assert!(kill_gold["by_player_hero_id"]["npc_dota_hero_axe"].is_null());
+        assert_eq!(digest["opponent_stats"]["gold_lost_by_killer"]["complete_by_player_hero_id"]["npc_dota_hero_axe"], true);
+    }
+
+    #[test]
+    fn schema_32_bundles_keep_opponent_stats_null() {
+        let (mut manifest, mut match_data, world) = fixture();
+        manifest["schema"] = json!("3.2");
+        match_data["meta"]["schema"] = json!("3.2");
+        let digest = build(&KnowledgeInput {
+            manifest: &manifest,
+            match_data: &match_data,
+            world: &world,
+        })
+        .unwrap();
+        assert!(digest["opponent_stats"].is_null());
+    }
+
+    #[test]
+    fn jungle_gold_selects_the_max_zone_and_does_not_count_unmapped_rows() {
+        let (manifest, match_data, world) = schema_33_opponents_fixture();
+        let digest = build(&KnowledgeInput { manifest: &manifest, match_data: &match_data, world: &world }).unwrap();
+        let field = &digest["opponent_stats"]["neutral_kill_gold_by_camp"];
+        let own = &field["by_player_hero_id"]["npc_dota_hero_axe"];
+        let (zone, gold) = own.as_object().unwrap().iter().max_by_key(|(_, gold)| gold.as_u64().unwrap()).unwrap();
+        assert_eq!(zone, "R1");
+        assert_eq!(gold, &json!(200));
+        assert_eq!(own.as_object().unwrap().len(), 2, "camp:null must not become a zone");
+        assert_eq!(field["unattached_by_player_hero_id"]["npc_dota_hero_axe"], 1);
+    }
+
+    #[test]
+    fn null_neutral_rows_are_unknown_and_attached_null_camp_rows_are_excluded() {
+        let (manifest, mut match_data, world) = schema_33_opponents_fixture();
+        match_data["heroes"][0]["neut_gold"] = Value::Null;
+        match_data["heroes"][0]["neut_gold_reason"] = json!("neutral gold unavailable");
+        let digest = build(&KnowledgeInput { manifest: &manifest, match_data: &match_data, world: &world }).unwrap();
+        let field = &digest["opponent_stats"]["neutral_kill_gold_by_camp"];
+        assert_eq!(field["complete_by_player_hero_id"]["npc_dota_hero_axe"], false);
+        assert!(field["by_player_hero_id"]["npc_dota_hero_axe"].is_null());
+        assert_eq!(field["unattached_by_player_hero_id"]["npc_dota_hero_axe"], 1);
+
+        let camp_sums = neutral_gold_by_camp(&schema_33_opponents_fixture().1).unwrap();
+        assert_eq!(camp_sums["npc_dota_hero_axe"], BTreeMap::from([(1, 100), (2, 200)]));
     }
 
     #[test]
@@ -2157,7 +2594,7 @@ mod tests {
         let hash = format!("{:x}", Sha256::digest(&bytes));
         assert_eq!(
             hash,
-            "93ab7cdf9e1759f8a8edfbc1ece9c50774eec74d007b4ba385cab2f3eb2bc644"
+            "7ddb5828faa56cbbd0485cd550ad0e987c634b9fe422f24c35203175b70368a8"
         );
     }
 
@@ -2170,7 +2607,7 @@ mod tests {
             world: &world,
         })
         .unwrap();
-        assert_eq!(digest["knowledge_version"], 4);
+        assert_eq!(digest["knowledge_version"], 6);
         assert_eq!(digest["meta"]["result"]["winner"], "radiant");
         assert_eq!(digest["meta"]["result"]["source"], "engine");
         assert_eq!(digest["meta"]["draft"], match_data["meta"]["draft"]);
@@ -2187,7 +2624,7 @@ mod tests {
         );
         assert_eq!(
             format!("{:x}", Sha256::digest(canonical_bytes(&digest).unwrap())),
-            "f0f69bbe40a9c7416d2ed633c6671391828ac2544b1dedea6e96d82bb860eb8d"
+            "3551301ff28943ccfb7417ca085a7740c7e12e99a9421644ac6c90dfff24d01d"
         );
     }
 
@@ -2219,7 +2656,7 @@ mod tests {
         assert_eq!(digest["heroes"][0]["damage_out_reason"], reparse);
         assert_eq!(
             format!("{:x}", Sha256::digest(canonical_bytes(&digest).unwrap())),
-            "69b6b9b4952ebbaed6bdb4f7d6689a4df4a9cbbe32b8b54ecd05c2efbc900243"
+            "cbdc6918d1c2507a526f655cce5a425fe80efc6ad423736e3398e183f08500e5"
         );
     }
 

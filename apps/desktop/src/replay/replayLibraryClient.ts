@@ -17,6 +17,11 @@ export interface ReplayLocalHistory {
   ended_at_unix_s: number;
 }
 
+export interface ReplayBundleIdentity {
+  own_hero: string | null;
+  result: "win" | "loss" | null;
+}
+
 export interface ReplayLibraryEntry {
   /** Local replay-library key. The renderer uses it internally and never displays it. */
   match_key: string | null;
@@ -37,6 +42,8 @@ export interface ReplayLibraryEntry {
   bundle_schema?: "3.0" | "3.1" | null;
   bundle_hash: string | null;
   local_history?: ReplayLocalHistory | null;
+  /** Derived locally from a ready bundle and a fresh verified local GSI account ID. */
+  bundle_identity?: ReplayBundleIdentity | null;
 }
 
 export interface ReplayJob {

@@ -527,20 +527,26 @@ test("synthetic: derived stat labels stay plain and provenance moves to the cell
   assert.doesNotMatch(panel, /<dt>\{stat\.label\}[^\n]*basisLabel/);
 });
 
-test("synthetic: every replay-library state has a current or latest label, hint, or settings action", () => {
+test("replay state describes only the current match and keeps the download/settings path when fetch is off", () => {
   assert.ok(summary, "post-game summary model is implemented");
   const states = ["not_found", "available", "queued", "parsing", "ready", "failed", "needs_pack", "auto_parse_off"] as const;
   for (const state of states) {
     const view = summary.postGameSummaryModel({ entry, snapshot: null,
       scoreboard: { radiant: null, dire: null, clockSeconds: null }, recap: null, derivedStats: [],
-      replay: { matchKey: entry.matchKey, ready: false, parseState: state, parseContext: "latest",
+      replay: { matchKey: entry.matchKey, ready: false, parseState: state, parseContext: "match",
         headline: { deaths: null, netWorth: null } } }, "th");
     assert.equal(view.replayParseState, state);
-    assert.match(view.replayState.label, /รีเพลย์ล่าสุด/);
+    assert.doesNotMatch(view.replayState.label, /รีเพลย์ล่าสุด/);
     assert.ok(view.replayState.label.length > 0);
     if (state === "not_found") assert.match(view.replayState.hint ?? "", /กดดาวน์โหลด.*Dota/);
     if (state === "auto_parse_off") assert.equal(view.replayState.settingsSection, "replay-ai");
   }
+  const fetchOff = summary.postGameSummaryModel({ entry, snapshot: null,
+    scoreboard: { radiant: null, dire: null, clockSeconds: null }, recap: null, derivedStats: [],
+    replay: { matchKey: entry.matchKey, ready: false, parseState: "off", parseContext: "match",
+      headline: { deaths: null, netWorth: null } } }, "th");
+  assert.match(fetchOff.replayState.hint ?? "", /กดดาวน์โหลด.*Dota/);
+  assert.equal(fetchOff.replayState.settingsSection, "replay-ai");
   const panel = readFileSync(new URL("../src/live/PostGameSummary.tsx", import.meta.url), "utf8");
   assert.match(panel, /state\.hint/);
   assert.match(panel, /state\.settingsSection/);
@@ -548,7 +554,7 @@ test("synthetic: every replay-library state has a current or latest label, hint,
   const copy = readFileSync(new URL("../src/live/copy.ts", import.meta.url), "utf8");
   assert.match(copy, /stateAutoParseOff:/);
   assert.match(copy, /stateNotFoundHint:/);
-  assert.match(copy, /latestReplayLabel:/);
+  assert.doesNotMatch(copy, /latestReplayLabel:/);
 });
 
 test("synthetic: Stage 2 replaces Stage 1 while the open summary receives a ready replay update", () => {

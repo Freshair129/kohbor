@@ -3,6 +3,19 @@
 .a2k-tabs button.is-active { color: var(--text); border-bottom-color: var(--accent); }
 .a2k-summary, .a2k-comparison, .a2k-report { display: grid; gap: 1rem; min-width: 0; max-width: 100%; color: var(--text); }
 .a2k-summary { container-type: inline-size; overflow-x: clip; }
+.a2k-opponents { display: grid; gap: 8px; min-width: 0; padding: 10px; border: 1px solid var(--line); border-radius: var(--r-card, 12px); background: var(--ground); }
+.a2k-opponents > h3 { margin: 0; font-size: 14px; }
+.a2k-opponents__unknown { margin: 0; color: var(--text-2); font-size: 12px; }
+.a2k-opponents__headlines { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; min-width: 0; }
+.a2k-opponents__tile { display: grid; align-content: start; gap: 4px; min-width: 0; min-height: 76px; padding: 8px; border: 1px solid var(--line); border-radius: var(--r-control, 8px); background: var(--surface); }
+.a2k-opponents__tile h4 { margin: 0; color: var(--text-2); font-size: 12px; line-height: 1.25; white-space: nowrap; }
+.a2k-opponents__tile strong { overflow-wrap: anywhere; font-size: 13px; line-height: 1.25; }
+.a2k-opponents__tile small { color: var(--text-2); font-size: 12px; line-height: 1.25; }
+.a2k-opponents__table-wrap { min-width: 0; overflow-x: auto; }
+.a2k-opponents__table-wrap table { width: 100%; min-width: 480px; border-collapse: collapse; }
+.a2k-opponents__table-wrap :is(th, td) { padding: 5px 7px; border-bottom: 1px solid var(--line); text-align: right; font-size: 12px; }
+.a2k-opponents__table-wrap :is(th:first-child, td:first-child) { text-align: left; }
+.a2k-opponents__other { display: flex; flex-wrap: wrap; gap: 10px; color: var(--text-2); font-size: 12px; }
 .a2k-summary h2, .a2k-comparison h2, .a2k-report h2 { margin: 0; font-size: 1rem; }
 .a2k-summary__header, .a2k-lane-card header, .a2k-report header { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
 .a2k-summary__header span, .a2k-muted, .a2k-report small, .a2k-lane-card small { color: var(--text-2); }
@@ -144,6 +157,7 @@
 }
 @container (max-width: 500px) {
   .a2k-summary__header { display: grid; }
+  .a2k-opponents__headlines { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .a2k-draft__teams { grid-template-columns: minmax(0, 1fr); }
   .a2k-summary__hero-card { width: 176px; }
 }

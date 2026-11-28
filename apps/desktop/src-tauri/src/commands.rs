@@ -24,6 +24,7 @@ pub(crate) fn replay_library_list(
     let mut list = serde_json::to_value(&replay_list)
         .map_err(|_| "library_serialization_failed".to_owned())?;
     let history = state.match_history.entries();
+    let own_account_id = state.runtime.current_own_account_id();
     if let Some(rows) = list.get_mut("matches").and_then(Value::as_array_mut) {
         for (row, replay) in rows.iter_mut().zip(&replay_list.matches) {
             let match_id = replay.match_id.as_str();
@@ -36,6 +37,7 @@ pub(crate) fn replay_library_list(
             row["match_key"] = match_key.map_or(Value::Null, Value::String);
             if let Some(entry) = local {
                 row["own_hero"] = entry.hero.clone().map_or(Value::Null, Value::String);
+                row["bundle_identity"] = Value::Null;
                 row["local_history"] = json!({
                     "result": entry.result.map(|result| match result { crate::match_history::MatchResult::Win => "win", crate::match_history::MatchResult::Loss => "loss" }),
                     "kills": entry.kills,
@@ -49,10 +51,74 @@ pub(crate) fn replay_library_list(
                     .own_hero(match_id)
                     .map_or(Value::Null, Value::String);
                 row["local_history"] = Value::Null;
+                let identity = own_account_id
+                    .filter(|_| replay.status == crate::replay_library::ReplayStatus::Ready)
+                    .and_then(|account_id| library.open_bundle(match_id).ok().map(|bundle| (account_id, bundle)))
+                    .map(|(account_id, bundle)| derive_replay_bundle_identity(&bundle.match_data, account_id))
+                    .unwrap_or(Value::Null);
+                row["bundle_identity"] = identity;
             }
         }
     }
     Ok(list)
+}
+
+fn derive_replay_bundle_identity(match_data: &Value, own_account_id: u32) -> Value {
+    let Some(hero) = match_data
+        .get("heroes")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .find(|hero| hero.get("account_id").and_then(Value::as_u64) == Some(u64::from(own_account_id)))
+    else {
+        return Value::Null;
+    };
+    let Some(hero_id) = hero
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|id| id.starts_with("npc_dota_hero_"))
+    else {
+        return Value::Null;
+    };
+    let result = match (
+        hero.get("team").and_then(Value::as_i64),
+        match_data.pointer("/meta/winner").and_then(Value::as_str),
+    ) {
+        (Some(2), Some("radiant")) | (Some(3), Some("dire")) => Some("win"),
+        (Some(2), Some("dire")) | (Some(3), Some("radiant")) => Some("loss"),
+        _ => None,
+    };
+    json!({ "own_hero": hero_id, "result": result })
+}
+
+#[cfg(test)]
+mod replay_bundle_identity_tests {
+    use super::derive_replay_bundle_identity;
+    use serde_json::{json, Value};
+
+    #[test]
+    fn derives_only_the_matching_hero_and_never_returns_the_account_id() {
+        let match_data = json!({
+            "meta": { "winner": "dire" },
+            "heroes": [
+                { "id": "npc_dota_hero_axe", "team": 2, "account_id": 111 },
+                { "id": "npc_dota_hero_lina", "team": 3, "account_id": 222 }
+            ]
+        });
+        let identity = derive_replay_bundle_identity(&match_data, 222);
+        assert_eq!(identity, json!({ "own_hero": "npc_dota_hero_lina", "result": "win" }));
+        assert!(!identity.to_string().contains("222"));
+    }
+
+    #[test]
+    fn unknown_identity_or_result_stays_null() {
+        let match_data = json!({
+            "meta": { "winner": null },
+            "heroes": [{ "id": "npc_dota_hero_axe", "team": 2, "account_id": 111 }]
+        });
+        assert_eq!(derive_replay_bundle_identity(&match_data, 111), json!({ "own_hero": "npc_dota_hero_axe", "result": Value::Null }));
+        assert_eq!(derive_replay_bundle_identity(&match_data, 222), Value::Null);
+    }
 }
 
 #[tauri::command]

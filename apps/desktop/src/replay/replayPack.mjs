@@ -78,12 +78,21 @@ function calibration(value, size) {
   return { size, a: px[0], b: px[1], c: py[0], d: py[1] };
 }
 
-/** Prefer the calibration recorded in this bundle; fall back only to the matching patch pack. */
-export function chooseMapCalibration(manifestCalibration, manifestSize, packMap) {
-  const fromManifest = calibration(manifestCalibration, manifestSize ?? packMap?.size);
-  if (fromManifest) return { calibration: fromManifest, source: "manifest" };
+/** The replay pack for the bundle patch is the calibration authority for every projection. */
+export function chooseMapCalibration(_manifestCalibration, _manifestSize, packMap) {
   const fromPack = calibration(packMap?.calibration, packMap?.size);
   return fromPack ? { calibration: fromPack, source: "pack" } : { calibration: null, source: "unknown" };
+}
+
+/** Project a world-space radius with the same patch calibration used for map points. */
+export function worldRadiusToMapPixels(radiusWorld, mapCalibration, mapSidePixels = mapCalibration?.size) {
+  if (!Number.isFinite(radiusWorld) || radiusWorld < 0 || !mapCalibration
+    || !Number.isFinite(mapSidePixels) || mapSidePixels <= 0
+    || !Number.isFinite(mapCalibration.size) || mapCalibration.size <= 0
+    || !Number.isFinite(mapCalibration.a) || !Number.isFinite(mapCalibration.c)) return null;
+  const pixelScale = Math.sqrt(Math.abs(mapCalibration.a * mapCalibration.c))
+    * mapSidePixels / mapCalibration.size;
+  return Number.isFinite(pixelScale) && pixelScale > 0 ? radiusWorld * pixelScale : null;
 }
 
 export function isControlEffect(pack, name) {

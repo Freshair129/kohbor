@@ -44,6 +44,83 @@ export interface ReplayListItem {
 }
 
 const dateLocale = (locale: "th" | "en") => locale === "th" ? "th-TH-u-ca-gregory" : "en-US";
+const matchDateTimeZone = "Asia/Bangkok";
+
+export type ReplayDateFilter = "all" | "today" | "7days" | "30days" | "specific";
+export type ReplayResultFilter = "all" | "win" | "loss";
+
+export function replayEntryTimeMs(entry: ReplayLibraryEntry): number | null {
+  const linkedSeconds = entry.local_history?.ended_at_unix_s;
+  if (typeof linkedSeconds === "number" && Number.isFinite(linkedSeconds)) return linkedSeconds * 1000;
+  const parsed = entry.match_date_utc ? Date.parse(entry.match_date_utc) : NaN;
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function replayEntryHero(entry: ReplayLibraryEntry): string | null {
+  if (entry.local_history) return entry.own_hero ?? null;
+  return entry.bundle_identity?.own_hero ?? null;
+}
+
+export function replayEntryResult(entry: ReplayLibraryEntry): "win" | "loss" | null {
+  return entry.local_history?.result ?? entry.bundle_identity?.result ?? null;
+}
+
+export function formatReplayMatchDate(timestampMs: number, locale: "th" | "en", includeTime = false): string {
+  const options: Intl.DateTimeFormatOptions = {
+    dateStyle: "medium",
+    ...(includeTime ? { timeStyle: "short" as const } : {}),
+    timeZone: matchDateTimeZone,
+  };
+  return new Intl.DateTimeFormat(locale === "th" ? "th-TH" : "en-US", options).format(new Date(timestampMs));
+}
+
+export function formatReplayMatchTime(timestampMs: number, locale: "th" | "en"): string {
+  return new Intl.DateTimeFormat(locale === "th" ? "th-TH" : "en-US", {
+    hour: "2-digit", minute: "2-digit", timeZone: matchDateTimeZone,
+  }).format(new Date(timestampMs));
+}
+
+function replayDayKey(timestampMs: number): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    year: "numeric", month: "2-digit", day: "2-digit", timeZone: matchDateTimeZone,
+  }).formatToParts(new Date(timestampMs));
+  const part = (type: string) => parts.find(value => value.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+export function groupReplayMatches(
+  entries: readonly ReplayLibraryEntry[],
+  options: { dateFilter: ReplayDateFilter; resultFilter: ReplayResultFilter; specificDay: string; now: number; unknownDay: string },
+): Array<{ dateKey: string | null; label: string; entries: ReplayLibraryEntry[] }> {
+  const today = replayDayKey(options.now);
+  const cutoff = options.dateFilter === "7days" ? options.now - 7 * 24 * 60 * 60 * 1000
+    : options.dateFilter === "30days" ? options.now - 30 * 24 * 60 * 60 * 1000 : null;
+  const selected = entries.flatMap((entry, index) => {
+    const time = replayEntryTimeMs(entry);
+    const day = time === null ? null : replayDayKey(time);
+    if (options.resultFilter !== "all" && replayEntryResult(entry) !== options.resultFilter) return [];
+    if (options.dateFilter === "today" && day !== today) return [];
+    if (options.dateFilter === "specific" && day !== options.specificDay) return [];
+    if (cutoff !== null && (time === null || time < cutoff || time > options.now)) return [];
+    return [{ entry, index, time, day }];
+  });
+  selected.sort((left, right) => {
+    if (left.day === null || right.day === null) return left.day === right.day ? left.index - right.index : left.day === null ? 1 : -1;
+    return (right.time ?? 0) - (left.time ?? 0) || left.index - right.index;
+  });
+  const grouped = new Map<string | null, typeof selected>();
+  for (const row of selected) grouped.set(row.day, [...(grouped.get(row.day) ?? []), row]);
+  const keys = [...grouped.keys()].sort((left, right) => left === null ? 1 : right === null ? -1 : right.localeCompare(left));
+  return keys.map(dateKey => {
+    const rows = grouped.get(dateKey) ?? [];
+    const time = rows[0]?.time;
+    return {
+      dateKey,
+      label: time === null || time === undefined ? options.unknownDay : formatReplayMatchDate(time, "th"),
+      entries: rows.map(row => row.entry),
+    };
+  });
+}
 
 export function replayStatusLabel(status: ReplayStatus, copy: ReplayListCopy["states"]): string {
   switch (status.state) {
@@ -72,14 +149,13 @@ export function replayListViewModel(
     if (status.state === "ready" && packLookup.state === "needs_pack") status = { state: "needs_pack" };
     const added = new Date(entry.created_at_unix_ms);
     const addedLabel = Number.isFinite(added.getTime()) ? formatter.format(added) : copy.unknown;
-    const entryDate = entry.match_date_utc ? Date.parse(entry.match_date_utc) : NaN;
-    const matchDateMs = Number.isFinite(entryDate) ? entryDate : detail?.matchDate;
+    const matchDateMs = replayEntryTimeMs(entry) ?? detail?.matchDate;
     const matchDate = matchDateMs === null || matchDateMs === undefined || !Number.isFinite(matchDateMs)
-      ? copy.unknown : formatter.format(new Date(matchDateMs));
+      ? copy.unknown : formatReplayMatchDate(matchDateMs, locale);
     const durationS = entry.duration_s ?? detail?.durationS;
     const duration = durationS === null || durationS === undefined
       ? copy.unknown : copy.duration(formatDuration(durationS));
-    const ownHero = entry.own_hero ?? detail?.ownHero ?? null;
+    const ownHero = replayEntryHero(entry) ?? detail?.ownHero ?? null;
     const ownHeroSlug = ownHero?.replace(/^npc_dota_hero_/, "") ?? null;
     const ownHeroName = ownHeroSlug
       ? (packLookup.state === "ready" ? packLookup.pack.hero_names[ownHeroSlug] : undefined)

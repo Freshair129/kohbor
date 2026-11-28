@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://kohbor.invalid/contracts/replay-bundle.schema.json",
   "title": "Kohbor Replay Match Bundle",
-  "description": "Three-file Match Bundle emitted by replay-engine-rs 0.4.1; schemas 3.0, 3.1 and 3.2 are admitted.",
+  "description": "Three-file Match Bundle emitted by replay-engine-rs 0.5.0; schemas 3.0, 3.1, 3.2 and 3.3 are admitted.",
   "x-kohbor-contract-version": "1.2.0",
   "type": "object",
   "required": ["manifest", "match", "world"],
@@ -32,6 +32,36 @@
       "minItems": 2,
       "maxItems": 2,
       "prefixItems": [{ "type": "number" }, { "enum": ["day", "night"] }],
+      "items": false
+    },
+    "camp": {
+      "type": "object",
+      "required": ["id", "x", "y", "type"],
+      "properties": {
+        "id": { "type": "integer", "minimum": 0 },
+        "x": { "type": "integer" },
+        "y": { "type": "integer" },
+        "type": { "enum": ["small", "medium", "large", "ancient", null] },
+        "type_reason": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "type": "null" } }, "required": ["type"] },
+          "then": { "required": ["type_reason"] },
+          "else": { "not": { "required": ["type_reason"] } }
+        }
+      ]
+    },
+    "neutGoldRow": {
+      "type": "array",
+      "prefixItems": [
+        { "type": "number" },
+        { "type": ["integer", "null"], "minimum": 0 },
+        { "type": "integer", "minimum": 0 }
+      ],
+      "minItems": 3,
+      "maxItems": 3,
       "items": false
     },
     "modifierSource": {
@@ -100,7 +130,7 @@
         "run"
       ],
       "properties": {
-        "schema": { "enum": ["3.0", "3.1", "3.2"] },
+        "schema": { "enum": ["3.0", "3.1", "3.2", "3.3"] },
         "engine_version": { "type": "string", "minLength": 1 },
         "match_id": { "type": "integer", "minimum": 1 },
         "patch": { "type": "string", "minLength": 1 },
@@ -192,7 +222,7 @@
         "parse_error"
       ],
       "properties": {
-        "schema": { "enum": ["3.0", "3.1", "3.2"] },
+        "schema": { "enum": ["3.0", "3.1", "3.2", "3.3"] },
         "engine_version": { "type": "string" },
         "patch": { "type": "string" },
         "pack": { "type": "string" },
@@ -225,7 +255,11 @@
           "minItems": 1,
           "items": { "$ref": "#/$defs/daynightRow" }
         },
-        "daynight_reason": { "type": "string", "minLength": 1 }
+        "daynight_reason": { "type": "string", "minLength": 1 },
+        "camps": { "type": ["array", "null"], "items": { "$ref": "#/$defs/camp" } },
+        "camps_reason": { "type": "string", "minLength": 1 },
+        "gold_unattached": { "type": "integer", "minimum": 0 },
+        "neut_gold_unattached": { "type": "integer", "minimum": 0 }
       },
       "additionalProperties": true,
       "allOf": [
@@ -247,6 +281,15 @@
         {
           "if": { "properties": { "schema": { "const": "3.2" } }, "required": ["schema"] },
           "then": { "required": ["daynight"] }
+        },
+        {
+          "if": { "properties": { "camps": { "type": "null" } }, "required": ["camps"] },
+          "then": { "required": ["camps_reason"] },
+          "else": { "not": { "required": ["camps_reason"] } }
+        },
+        {
+          "if": { "properties": { "schema": { "const": "3.3" } }, "required": ["schema"] },
+          "then": { "required": ["camps", "gold_unattached", "neut_gold_unattached", "daynight"] }
         }
       ]
     },
@@ -299,9 +342,19 @@
           "additionalProperties": false
         },
         "mods_long": { "type": "array", "items": { "$ref": "#/$defs/modifierLong" } },
-        "mod_stacks": { "type": "array", "items": { "$ref": "#/$defs/modifierStack" } }
+        "mod_stacks": { "type": "array", "items": { "$ref": "#/$defs/modifierStack" } },
+        "neut_gold": { "type": ["array", "null"], "items": { "$ref": "#/$defs/neutGoldRow" } },
+        "neut_gold_reason": { "type": "string", "minLength": 1 },
+        "neut_gold_unattached": { "type": "integer", "minimum": 0 }
       },
-      "additionalProperties": true
+      "additionalProperties": true,
+      "allOf": [
+        {
+          "if": { "properties": { "neut_gold": { "type": "null" } }, "required": ["neut_gold"] },
+          "then": { "required": ["neut_gold_reason"] },
+          "else": { "not": { "required": ["neut_gold_reason"] } }
+        }
+      ]
     },
     "death": {
       "type": "object",
@@ -316,9 +369,31 @@
         "hits": { "type": "array" },
         "heals": { "type": "array" },
         "seen": { "type": "object" },
-        "out": { "type": "integer" }
+        "out": { "type": "integer" },
+        "gold_lost": { "type": ["integer", "null"], "minimum": 0 },
+        "gold_lost_reason": { "type": "string", "minLength": 1 },
+        "bounty": {
+          "type": ["object", "null"],
+          "patternProperties": {
+            "^npc_dota_hero_[a-z0-9_]+$": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        "bounty_reason": { "type": "string", "minLength": 1 }
       },
-      "additionalProperties": true
+      "additionalProperties": true,
+      "allOf": [
+        {
+          "if": { "properties": { "gold_lost": { "type": "null" } }, "required": ["gold_lost"] },
+          "then": { "required": ["gold_lost_reason"] },
+          "else": { "not": { "required": ["gold_lost_reason"] } }
+        },
+        {
+          "if": { "properties": { "bounty": { "type": "null" } }, "required": ["bounty"] },
+          "then": { "required": ["bounty_reason"] },
+          "else": { "not": { "required": ["bounty_reason"] } }
+        }
+      ]
     },
     "match": {
       "type": "object",
@@ -343,6 +418,18 @@
           },
           "then": {
             "properties": { "heroes": { "items": { "required": ["mods_long", "mod_stacks"] } } }
+          }
+        },
+        {
+          "if": {
+            "properties": { "meta": { "properties": { "schema": { "const": "3.3" } }, "required": ["schema"] } },
+            "required": ["meta"]
+          },
+          "then": {
+            "properties": {
+              "heroes": { "items": { "required": ["mods_long", "mod_stacks", "neut_gold", "neut_gold_unattached"] } },
+              "deaths": { "items": { "required": ["gold_lost", "bounty"] } }
+            }
           }
         }
       ]

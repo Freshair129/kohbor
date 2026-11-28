@@ -44,7 +44,12 @@ export function chooseMapCalibration(
   manifestCalibration: unknown,
   manifestSize: number | null | undefined,
   packMap: ReplayPatchData["map"] | undefined,
-): { calibration: MapCalibration | null; source: "manifest" | "pack" | "unknown" };
+): { calibration: MapCalibration | null; source: "pack" | "unknown" };
+export function worldRadiusToMapPixels(
+  radiusWorld: number,
+  mapCalibration: MapCalibration | null,
+  mapSidePixels?: number,
+): number | null;
 export function isControlEffect(pack: ReplayPatchData | null, name: string): boolean;
 export function isUltimateAbility(pack: ReplayPatchData | null, heroId: string, abilityName: string): boolean;
 export function isMobilityAbility(pack: ReplayPatchData | null, heroId: string, name: string): boolean;

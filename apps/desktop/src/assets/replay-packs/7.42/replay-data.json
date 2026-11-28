@@ -7,51 +7,16 @@
     "image": "map.png",
     "calibration": {
       "px": [
-        0.053799,
-        503.77
+        0.05322376334585866,
+        512.0126033871603
       ],
       "py": [
-        -0.053773,
-        518.4
+        -0.05322376334585866,
+        517.9204411185506
       ],
-      "formula": "px = a*x + b ; py = a*y + b (x,y in world coordinates)",
-      "status": "fitted on map features and the Radiant fountain, not validated against a 7.42 replay",
-      "method": "7.41 calibration composed with an image registration: water masks of the 7.41 and 7.42 minimaps were cross-correlated (p42 = s*p41 + t, sx=1.085, sy=1.095, tx=-46, ty=-36), then the result was checked against the Radiant fountain located in the 7.42 image.",
-      "expected_error_px": 4,
-      "fountains": {
-        "radiant": {
-          "world": [
-            -7456,
-            -6938
-          ],
-          "px_model": [
-            102.6,
-            891.5
-          ],
-          "px_located": [
-            102.5,
-            890.4
-          ],
-          "moved_in_7.42": false
-        },
-        "dire": {
-          "world_7.41f": [
-            7408,
-            6848
-          ],
-          "moved_in_7.42": true,
-          "note": "official notes: Dire fountain moved ~300 units closer to the Dire Ancient; the new world position is not in dotaconstants",
-          "px_located": [
-            889,
-            136
-          ],
-          "world_estimate": [
-            7161,
-            7112
-          ],
-          "world_estimate_error_units": 100
-        }
-      }
+      "formula": "candidate_px = (((x - pos_x) / scale) + 8) / 1.0156; candidate_py = (((pos_y - y) / scale) + 14) / 1.0156",
+      "status": "registered to the official overview; fitted residual exceeds 2 px",
+      "method": "Read pos_x=-9472, pos_y=9472, scale=18.5 from resource/overviews/dota.txt; the alternate texture is registered to the official overview using Sobel edge cross-correlation. Fit: reference_x=1.0156*candidate_x-8; reference_y=1.0156*candidate_y-14. Composed this transform with the official calibration."
     }
   },
   "base_attack_speed": {
@@ -325,10 +290,10 @@
     "bkb_mr_vs_pierce": true,
     "map": {
       "image": "map.png",
-      "a": 0.053799,
-      "b": 503.77,
-      "c": -0.053773,
-      "d": 518.4
+      "a": 0.05322376334585866,
+      "b": 512.0126033871603,
+      "c": -0.05322376334585866,
+      "d": 517.9204411185506
     }
   },
   "formulas": {

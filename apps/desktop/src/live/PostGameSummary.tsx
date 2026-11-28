@@ -190,7 +190,7 @@ export function PostGameSummary({ summary, locale, onClose, onOpenReplay, onOpen
               <button type="button" onClick={() => onOpenReplay(summary.stage2.openMatchKey ?? undefined)}>{text.openAnalysis}</button>
             </div>
             <div className="live-postgame-stage-two">
-              <PostGameMatchSummaryBlocks digest={summary.stage2.digest as any} compact={layoutMode === "compact"}
+              <PostGameMatchSummaryBlocks digest={summary.stage2.digest as any} ownHeroId={summary.heroHeader.heroId} compact={layoutMode === "compact"}
                 onSeek={() => onOpenReplay(summary.stage2.openMatchKey ?? undefined)} />
             </div>
           </> : <>
