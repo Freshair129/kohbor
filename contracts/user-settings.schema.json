@@ -26,6 +26,11 @@
         "en"
       ]
     },
+    "replay_auto_fetch_enabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Separate, default-off replay fetch preference. Missing or invalid values are treated as off."
+    },
     "gsi": {
       "type": "object",
       "additionalProperties": false,

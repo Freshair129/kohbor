@@ -7,14 +7,15 @@
 #[cfg(windows)]
 use crate::hero_stats::transport::WinHttpTransport;
 use crate::hero_stats::transport::{Cancellation, Endpoint, HttpResponse, TransportError};
-use crate::match_history::{MAX_ENTRIES, MatchEnd, MatchEntry, MatchResult, MatchType};
+use crate::match_history::{MatchEnd, MatchEntry, MatchResult, MatchType, MAX_ENTRIES};
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::thread;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 pub(crate) const SETTINGS_FILE: &str = "opendota-settings.json";
 pub(crate) const CACHE_FILE: &str = "opendota-history-cache.json";
@@ -25,6 +26,9 @@ pub(crate) const BUDGET_WINDOW_MS: u64 = 24 * 60 * 60 * 1000;
 pub(crate) const BODY_LIMIT_BYTES: usize = 512 * 1024;
 const SCHEMA_VERSION: u8 = 1;
 const CACHE_FILE_LIMIT_BYTES: usize = 1_048_576;
+// Match the OpenDota transport's 10-second overall deadline, then allow a short handoff margin.
+const REPLAY_TRANSPORT_WAIT: Duration = Duration::from_secs(11);
+const TRANSPORT_SLOT_POLL: Duration = Duration::from_millis(25);
 // Offline assumption: OpenDota's `project` query accepts this comma-delimited field list.
 const PROJECT_FIELDS: &str = "match_id,hero_id,player_slot,radiant_win,kills,deaths,assists,duration,start_time,lobby_type,game_mode";
 
@@ -158,7 +162,20 @@ impl StoredLedger {
 
 pub(crate) trait HistoryTransport: Send + Sync {
     fn get(&self, path: &str, cancellation: &Cancellation) -> Result<HttpResponse, TransportError>;
-    fn cancel_current(&self) {}
+    fn post(
+        &self,
+        _path: &str,
+        cancellation: &Cancellation,
+    ) -> Result<HttpResponse, TransportError> {
+        if cancellation.is_cancelled() {
+            Err(TransportError::CancelledBeforeSend)
+        } else {
+            Err(TransportError::NotSent)
+        }
+    }
+    fn cancel_request(&self, cancellation: &Cancellation) {
+        cancellation.cancel();
+    }
 }
 
 #[cfg(windows)]
@@ -170,8 +187,16 @@ impl HistoryTransport for NativeTransport {
         self.0.get_from(HISTORY_ENDPOINT, path, cancellation)
     }
 
-    fn cancel_current(&self) {
-        crate::hero_stats::transport::Transport::cancel_current(&self.0);
+    fn post(
+        &self,
+        path: &str,
+        cancellation: &Cancellation,
+    ) -> Result<HttpResponse, TransportError> {
+        self.0.post_from(HISTORY_ENDPOINT, path, cancellation)
+    }
+
+    fn cancel_request(&self, cancellation: &Cancellation) {
+        crate::hero_stats::transport::Transport::cancel_request(&self.0, cancellation);
     }
 }
 
@@ -198,8 +223,12 @@ struct Inner {
     ledger: StoredLedger,
     busy: bool,
     cancellation: Option<Cancellation>,
+    replay_busy: bool,
+    replay_cancellation: Option<Cancellation>,
     startup_attempted: bool,
     generation: u64,
+    minute_limited_until_ms: Option<u64>,
+    day_limited_until_ms: Option<u64>,
 }
 
 pub(crate) struct OpenDotaService {
@@ -207,6 +236,16 @@ pub(crate) struct OpenDotaService {
     install_key: Option<[u8; 32]>,
     transport: Arc<dyn HistoryTransport>,
     inner: Mutex<Inner>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ReplayApiFailure {
+    RateLimited,
+    Offline,
+    BudgetExhausted,
+    Busy,
+    Cancelled,
+    Failed,
 }
 
 impl OpenDotaService {
@@ -281,10 +320,150 @@ impl OpenDotaService {
                 ledger,
                 busy: false,
                 cancellation: None,
+                replay_busy: false,
+                replay_cancellation: None,
                 startup_attempted: false,
                 generation: 0,
+                minute_limited_until_ms: None,
+                day_limited_until_ms: None,
             }),
         }
+    }
+
+    /// A replay lookup shares the existing OpenDota request transport and persisted daily ledger,
+    /// while remaining independent of the history/benchmark consent switches.
+    pub(crate) fn replay_lookup(
+        &self,
+        match_id: &str,
+        cancellation: &Cancellation,
+        enabled: &std::sync::atomic::AtomicBool,
+    ) -> Result<HttpResponse, ReplayApiFailure> {
+        self.replay_request(match_id, false, cancellation, enabled)
+    }
+
+    pub(crate) fn replay_request(
+        &self,
+        match_id: &str,
+        request_replay: bool,
+        cancellation: &Cancellation,
+        enabled: &std::sync::atomic::AtomicBool,
+    ) -> Result<HttpResponse, ReplayApiFailure> {
+        if !match_id.bytes().all(|byte| byte.is_ascii_digit()) || match_id.is_empty() {
+            return Err(ReplayApiFailure::Failed);
+        }
+        let wait_started = Instant::now();
+        let reserved_at = loop {
+            if cancellation.is_cancelled()
+                || !enabled.load(std::sync::atomic::Ordering::Acquire)
+            {
+                return Err(ReplayApiFailure::Cancelled);
+            }
+            let mut inner = lock(&self.inner);
+            if cancellation.is_cancelled()
+                || !enabled.load(std::sync::atomic::Ordering::Acquire)
+            {
+                return Err(ReplayApiFailure::Cancelled);
+            }
+            if inner.busy || inner.replay_busy {
+                drop(inner);
+                if wait_started.elapsed() >= REPLAY_TRANSPORT_WAIT {
+                    return Err(ReplayApiFailure::Busy);
+                }
+                thread::sleep(TRANSPORT_SLOT_POLL);
+                continue;
+            }
+            let now_ms = unix_millis();
+            if inner
+                .minute_limited_until_ms
+                .is_some_and(|until| now_ms < until)
+                || inner
+                    .day_limited_until_ms
+                    .is_some_and(|until| now_ms < until)
+            {
+                return Err(ReplayApiFailure::RateLimited);
+            }
+            inner.ledger.prune(now_ms);
+            if !inner.ledger.can_request(now_ms) {
+                return Err(ReplayApiFailure::BudgetExhausted);
+            }
+            inner.ledger.requests_ms.push(now_ms);
+            if save_json(&self.dir.join(LEDGER_FILE), &inner.ledger).is_err() {
+                inner.ledger.requests_ms.retain(|at| *at != now_ms);
+                return Err(ReplayApiFailure::Failed);
+            }
+            inner.replay_busy = true;
+            inner.replay_cancellation = Some(cancellation.clone());
+            break now_ms;
+        };
+
+        let path = if request_replay {
+            format!("/api/request/{match_id}")
+        } else {
+            format!("/api/matches/{match_id}")
+        };
+        // Consent is checked again after reserving the ledger entry, immediately before send.
+        if cancellation.is_cancelled()
+            || !enabled.load(std::sync::atomic::Ordering::Acquire)
+        {
+            let mut inner = lock(&self.inner);
+            inner.replay_busy = false;
+            inner.replay_cancellation = None;
+            inner.ledger.requests_ms.retain(|at| *at != reserved_at);
+            let _ = save_json(&self.dir.join(LEDGER_FILE), &inner.ledger);
+            return Err(ReplayApiFailure::Cancelled);
+        }
+        let result = if request_replay {
+            self.transport.post(&path, cancellation)
+        } else {
+            self.transport.get(&path, cancellation)
+        };
+        let mut inner = lock(&self.inner);
+        inner.replay_busy = false;
+        inner.replay_cancellation = None;
+        match result {
+            Ok(response) => {
+                if response.rate_limit_remaining_minute == Some(0) {
+                    inner.minute_limited_until_ms = Some(reserved_at.saturating_add(60_000));
+                }
+                if response.rate_limit_remaining_day == Some(0) {
+                    inner.day_limited_until_ms =
+                        Some(reserved_at.saturating_add(BUDGET_WINDOW_MS));
+                }
+                if response.status == 429 {
+                    let seconds = response
+                        .retry_after
+                        .as_deref()
+                        .and_then(|value| value.trim().parse::<u64>().ok())
+                        .unwrap_or(60)
+                        .clamp(1, 86_400);
+                    inner.minute_limited_until_ms =
+                        Some(reserved_at.saturating_add(seconds.saturating_mul(1_000)));
+                }
+                Ok(response)
+            }
+            Err(error) => {
+                if !error.reached_network() {
+                    inner.ledger.requests_ms.retain(|at| *at != reserved_at);
+                    let _ = save_json(&self.dir.join(LEDGER_FILE), &inner.ledger);
+                }
+                Err(match error {
+                    TransportError::Cancelled | TransportError::CancelledBeforeSend => {
+                        ReplayApiFailure::Offline
+                    }
+                    TransportError::NotSent | TransportError::LocalFailure => {
+                        ReplayApiFailure::Failed
+                    }
+                    TransportError::Network
+                    | TransportError::Timeout
+                    | TransportError::TooLarge => ReplayApiFailure::Offline,
+                })
+            }
+        }
+    }
+
+    pub(crate) fn cancel_replay_request(&self, cancellation: &Cancellation) {
+        cancellation.cancel();
+        self.transport.cancel_request(cancellation);
     }
 
     pub(crate) fn prefs(&self) -> Value {
@@ -319,8 +498,9 @@ impl OpenDotaService {
             }
             cancellation
         };
-        let _ = cancellation;
-        self.transport.cancel_current();
+        if let Some(cancellation) = cancellation {
+            self.transport.cancel_request(&cancellation);
+        }
         let settings_path = self.dir.join(SETTINGS_FILE);
         let prefs_result = save_json(&settings_path, &Preferences::default());
         let prefs_result = if prefs_result.is_err() {
@@ -358,11 +538,11 @@ impl OpenDotaService {
         if inner.prefs.account_id != account_id {
             if let Some(cancellation) = inner.cancellation.take() {
                 cancellation.cancel();
+                self.transport.cancel_request(&cancellation);
             }
             inner.generation = inner.generation.wrapping_add(1);
             inner.entries.clear();
             inner.fetched_at = None;
-            self.transport.cancel_current();
         }
         let prefs = Preferences {
             schema_version: SCHEMA_VERSION,
@@ -410,7 +590,7 @@ impl OpenDotaService {
                     return self.view_locked(&inner);
                 }
             }
-            if inner.busy {
+            if inner.busy || inner.replay_busy {
                 return self.view_locked(&inner);
             }
             let Some(account_id) = inner.prefs.account_id else {
@@ -491,10 +671,11 @@ impl OpenDotaService {
     }
 
     pub(crate) fn clear_cache(&self) -> Result<(), String> {
-        {
+        let cancellation = {
             let mut inner = lock(&self.inner);
             inner.generation = inner.generation.wrapping_add(1);
-            if let Some(cancellation) = inner.cancellation.take() {
+            let cancellation = inner.cancellation.take();
+            if let Some(cancellation) = &cancellation {
                 cancellation.cancel();
             }
             inner.entries.clear();
@@ -506,21 +687,35 @@ impl OpenDotaService {
                     State::WaitingForAccount
                 };
             }
+            cancellation
+        };
+        if let Some(cancellation) = cancellation {
+            self.transport.cancel_request(&cancellation);
         }
-        self.transport.cancel_current();
         delete_file(&self.dir.join(CACHE_FILE)).map_err(|_| "OPENDOTA_CACHE_DELETE_FAILED")?;
         Ok(())
     }
 
     pub(crate) fn stop_for_exit(&self) {
-        {
+        let (history, replay) = {
             let mut inner = lock(&self.inner);
             inner.generation = inner.generation.wrapping_add(1);
-            if let Some(cancellation) = inner.cancellation.take() {
+            let history = inner.cancellation.take();
+            let replay = inner.replay_cancellation.take();
+            if let Some(cancellation) = &history {
                 cancellation.cancel();
             }
+            if let Some(cancellation) = &replay {
+                cancellation.cancel();
+            }
+            (history, replay)
+        };
+        if let Some(cancellation) = history {
+            self.transport.cancel_request(&cancellation);
         }
-        self.transport.cancel_current();
+        if let Some(cancellation) = replay {
+            self.transport.cancel_request(&cancellation);
+        }
     }
 
     fn view_locked(&self, inner: &Inner) -> Value {
@@ -532,6 +727,7 @@ impl OpenDotaService {
         let retry_available = inner.prefs.enabled
             && inner.prefs.account_id.is_some()
             && !inner.busy
+            && !inner.replay_busy
             && inner.ledger.can_request(unix_millis());
         json!({
             "state": inner.state,
@@ -751,7 +947,7 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 mod tests {
     use super::*;
     use std::collections::VecDeque;
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
     use std::sync::mpsc::{self, Receiver, Sender};
     use std::thread;
 
@@ -759,6 +955,7 @@ mod tests {
         responses: Mutex<VecDeque<Result<HttpResponse, TransportError>>>,
         paths: Mutex<Vec<String>>,
         cancels: AtomicUsize,
+        tokens: Mutex<Vec<Cancellation>>,
     }
 
     impl FixtureTransport {
@@ -767,6 +964,7 @@ mod tests {
                 responses: Mutex::new(responses.into_iter().collect()),
                 paths: Mutex::new(Vec::new()),
                 cancels: AtomicUsize::new(0),
+                tokens: Mutex::new(Vec::new()),
             }
         }
     }
@@ -775,14 +973,27 @@ mod tests {
         fn get(
             &self,
             path: &str,
-            _cancellation: &Cancellation,
+            cancellation: &Cancellation,
         ) -> Result<HttpResponse, TransportError> {
             lock(&self.paths).push(path.to_owned());
+            lock(&self.tokens).push(cancellation.clone());
             lock(&self.responses)
                 .pop_front()
                 .unwrap_or(Err(TransportError::NotSent))
         }
-        fn cancel_current(&self) {
+        fn post(
+            &self,
+            path: &str,
+            cancellation: &Cancellation,
+        ) -> Result<HttpResponse, TransportError> {
+            lock(&self.paths).push(path.to_owned());
+            lock(&self.tokens).push(cancellation.clone());
+            lock(&self.responses)
+                .pop_front()
+                .unwrap_or(Err(TransportError::NotSent))
+        }
+        fn cancel_request(&self, cancellation: &Cancellation) {
+            cancellation.cancel();
             self.cancels.fetch_add(1, Ordering::Relaxed);
         }
     }
@@ -791,21 +1002,26 @@ mod tests {
         started: Mutex<Option<Sender<()>>>,
         release: Mutex<Receiver<()>>,
         cancels: AtomicUsize,
+        tokens: Mutex<Vec<Cancellation>>,
     }
 
     impl HistoryTransport for BlockingTransport {
         fn get(
             &self,
-            _path: &str,
-            _cancellation: &Cancellation,
+            path: &str,
+            cancellation: &Cancellation,
         ) -> Result<HttpResponse, TransportError> {
-            if let Some(started) = lock(&self.started).take() {
-                let _ = started.send(());
+            lock(&self.tokens).push(cancellation.clone());
+            if path.starts_with("/api/players/") || path.starts_with("/api/matches/") {
+                if let Some(started) = lock(&self.started).take() {
+                    let _ = started.send(());
+                }
+                let _ = lock(&self.release).recv();
             }
-            let _ = lock(&self.release).recv();
             response(200, fixture())
         }
-        fn cancel_current(&self) {
+        fn cancel_request(&self, cancellation: &Cancellation) {
+            cancellation.cancel();
             self.cancels.fetch_add(1, Ordering::Relaxed);
         }
     }
@@ -822,6 +1038,8 @@ mod tests {
         Ok(HttpResponse {
             status,
             retry_after: None,
+            rate_limit_remaining_minute: None,
+            rate_limit_remaining_day: None,
             body: body.as_bytes().to_vec(),
         })
     }
@@ -869,6 +1087,94 @@ mod tests {
     }
 
     #[test]
+    fn replay_lookup_and_request_use_the_shared_transport_ledger_without_persisting_ids() {
+        let dir = temp_dir("replay-ledger");
+        let transport = Arc::new(FixtureTransport::new([
+            response(200, r#"{"replay_url":null}"#),
+            response(202, "{}"),
+        ]));
+        let service = OpenDotaService::open_with_transport(&dir, None, transport.clone());
+        let cancellation = Cancellation::default();
+        let enabled = AtomicBool::new(true);
+        assert_eq!(
+            service
+                .replay_lookup("9001", &cancellation, &enabled)
+                .unwrap()
+                .status,
+            200
+        );
+        assert_eq!(
+            service
+                .replay_request("9001", true, &cancellation, &enabled)
+                .unwrap()
+                .status,
+            202
+        );
+        assert_eq!(
+            *lock(&transport.paths),
+            vec![
+                "/api/matches/9001".to_owned(),
+                "/api/request/9001".to_owned()
+            ]
+        );
+        let ledger = fs::read_to_string(dir.join(LEDGER_FILE)).unwrap();
+        assert!(!ledger.contains("9001"));
+        assert_eq!(
+            serde_json::from_str::<StoredLedger>(&ledger)
+                .unwrap()
+                .requests_ms
+                .len(),
+            2
+        );
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn replay_ledger_rechecks_disabled_consent_before_sending() {
+        let dir = temp_dir("replay-consent-gate");
+        let transport = Arc::new(FixtureTransport::new(std::iter::empty::<
+            Result<HttpResponse, TransportError>,
+        >()));
+        let service = OpenDotaService::open_with_transport(&dir, None, transport.clone());
+        let cancellation = Cancellation::default();
+        let enabled = AtomicBool::new(false);
+        assert_eq!(
+            service.replay_lookup("9001", &cancellation, &enabled),
+            Err(ReplayApiFailure::Cancelled)
+        );
+        assert!(transport.paths.lock().unwrap().is_empty());
+        let ledger: StoredLedger =
+            serde_json::from_slice(&fs::read(dir.join(LEDGER_FILE)).unwrap()).unwrap();
+        assert!(ledger.requests_ms.is_empty());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn replay_lookup_rate_limit_headers_prevent_the_next_open_dota_call() {
+        let dir = temp_dir("replay-rate-headers");
+        let mut limited = response(200, r#"{"replay_url":null}"#).unwrap();
+        limited.rate_limit_remaining_minute = Some(0);
+        limited.rate_limit_remaining_day = Some(1);
+        let transport = Arc::new(FixtureTransport::new([Ok(limited), response(202, "{}")]));
+        let service = OpenDotaService::open_with_transport(&dir, None, transport.clone());
+        let cancellation = Cancellation::default();
+        let enabled = AtomicBool::new(true);
+        assert_eq!(
+            service
+                .replay_lookup("9001", &cancellation, &enabled)
+                .unwrap()
+                .status,
+            200
+        );
+        assert_eq!(
+            service.replay_request("9001", true, &cancellation, &enabled),
+            Err(ReplayApiFailure::RateLimited)
+        );
+        assert_eq!(lock(&transport.paths).len(), 1);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
     fn account_available_after_opt_in_is_saved_and_fetched_once() {
         let dir = temp_dir("pending-account-arrives");
         let transport = Arc::new(FixtureTransport::new([response(200, fixture())]));
@@ -889,7 +1195,7 @@ mod tests {
     }
 
     #[test]
-    fn changed_verified_account_cancels_clears_and_refetches() {
+    fn changed_verified_account_clears_and_refetches_without_cancelling_completed_transport() {
         let dir = temp_dir("account-change");
         let transport = Arc::new(FixtureTransport::new([
             response(200, fixture()),
@@ -909,7 +1215,7 @@ mod tests {
         assert_eq!(paths.len(), 2);
         assert!(paths[0].starts_with("/api/players/12345/matches?"));
         assert!(paths[1].starts_with("/api/players/23456/matches?"));
-        assert!(transport.cancels.load(Ordering::Relaxed) > 0);
+        assert_eq!(transport.cancels.load(Ordering::Relaxed), 0);
         let settings = fs::read_to_string(dir.join(SETTINGS_FILE)).unwrap();
         assert!(settings.contains("23456"));
         assert!(!settings.contains("12345"));
@@ -965,11 +1271,9 @@ mod tests {
         assert_eq!(entries[0].hero_id, Some(2));
         assert_eq!(entries[0].match_type, MatchType::Ranked);
         assert_eq!(entries[0].result, Some(MatchResult::Win));
-        assert!(
-            !serde_json::to_string(&entries)
-                .unwrap()
-                .contains("8000000001")
-        );
+        assert!(!serde_json::to_string(&entries)
+            .unwrap()
+            .contains("8000000001"));
         assert_eq!(
             request_path(12_345),
             format!(
@@ -987,6 +1291,8 @@ mod tests {
                 HttpResponse {
                     status: 403,
                     retry_after: None,
+                    rate_limit_remaining_minute: None,
+                    rate_limit_remaining_day: None,
                     body: vec![]
                 },
                 Some(&[7; 32])
@@ -998,6 +1304,8 @@ mod tests {
                 HttpResponse {
                     status: 404,
                     retry_after: None,
+                    rate_limit_remaining_minute: None,
+                    rate_limit_remaining_day: None,
                     body: vec![]
                 },
                 Some(&[7; 32])
@@ -1005,13 +1313,15 @@ mod tests {
             Classified::State(State::NotFound)
         ));
         assert!(
-            matches!(classify_response(HttpResponse { status: 200, retry_after: None, body: b"[]".to_vec() }, Some(&[7; 32])), Classified::Rows(rows) if rows.is_empty())
+            matches!(classify_response(HttpResponse { status: 200, retry_after: None, rate_limit_remaining_minute: None, rate_limit_remaining_day: None, body: b"[]".to_vec() }, Some(&[7; 32])), Classified::Rows(rows) if rows.is_empty())
         );
         assert!(matches!(
             classify_response(
                 HttpResponse {
                     status: 200,
                     retry_after: None,
+                    rate_limit_remaining_minute: None,
+                    rate_limit_remaining_day: None,
                     body: br#"{"error":"Private profile"}"#.to_vec()
                 },
                 Some(&[7; 32])
@@ -1049,7 +1359,7 @@ mod tests {
     }
 
     #[test]
-    fn revoke_removes_account_id_and_cache_and_cancels_transport() {
+    fn revoke_removes_account_id_and_cache_without_cancelling_completed_transport() {
         let (service, transport, dir) = enabled_service("revoke", [response(200, fixture())]);
         service.refresh(false);
         assert!(dir.join(CACHE_FILE).exists());
@@ -1061,7 +1371,7 @@ mod tests {
         let settings = fs::read_to_string(dir.join(SETTINGS_FILE)).unwrap();
         assert!(!settings.contains("account_id"));
         assert_eq!(service.view()["state"], "disabled");
-        assert!(transport.cancels.load(Ordering::Relaxed) > 0);
+        assert_eq!(transport.cancels.load(Ordering::Relaxed), 0);
         let _ = fs::remove_dir_all(dir);
     }
 
@@ -1074,6 +1384,7 @@ mod tests {
             started: Mutex::new(Some(started_tx)),
             release: Mutex::new(release_rx),
             cancels: AtomicUsize::new(0),
+            tokens: Mutex::new(Vec::new()),
         });
         let service = Arc::new(OpenDotaService::open_with_transport(
             &dir,
@@ -1090,6 +1401,111 @@ mod tests {
         assert!(!dir.join(CACHE_FILE).exists());
         assert!(service.entries().is_empty());
         assert!(transport.cancels.load(Ordering::Relaxed) > 0);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn history_revoke_does_not_cancel_an_in_flight_replay_request() {
+        let dir = temp_dir("history-revoke-replay-independent");
+        let (started_tx, started_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+        let transport = Arc::new(BlockingTransport {
+            started: Mutex::new(Some(started_tx)),
+            release: Mutex::new(release_rx),
+            cancels: AtomicUsize::new(0),
+            tokens: Mutex::new(Vec::new()),
+        });
+        let service = Arc::new(OpenDotaService::open_with_transport(
+            &dir,
+            Some([7; 32]),
+            transport.clone(),
+        ));
+        service.set_enabled(true, None).unwrap();
+        let cancellation = Cancellation::default();
+        let enabled = Arc::new(AtomicBool::new(true));
+        let replay_service = service.clone();
+        let replay_cancellation = cancellation.clone();
+        let replay_enabled = enabled.clone();
+        let replay = thread::spawn(move || {
+            replay_service.replay_lookup("9001", &replay_cancellation, &replay_enabled)
+        });
+        started_rx.recv().unwrap();
+        let in_flight = lock(&transport.tokens)[0].clone();
+        service.set_enabled(false, None).unwrap();
+        assert!(!in_flight.is_cancelled());
+        release_tx.send(()).unwrap();
+        assert_eq!(replay.join().unwrap().unwrap().status, 200);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn replay_cancel_does_not_cancel_an_in_flight_history_refresh() {
+        let dir = temp_dir("replay-cancel-history-independent");
+        let (started_tx, started_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+        let transport = Arc::new(BlockingTransport {
+            started: Mutex::new(Some(started_tx)),
+            release: Mutex::new(release_rx),
+            cancels: AtomicUsize::new(0),
+            tokens: Mutex::new(Vec::new()),
+        });
+        let service = Arc::new(OpenDotaService::open_with_transport(
+            &dir,
+            Some([7; 32]),
+            transport.clone(),
+        ));
+        service.set_enabled(true, Some(12_345)).unwrap();
+        let history_service = service.clone();
+        let history = thread::spawn(move || history_service.refresh(false));
+        started_rx.recv().unwrap();
+        let history_token = lock(&transport.tokens)[0].clone();
+        let replay_token = Cancellation::default();
+        service.cancel_replay_request(&replay_token);
+        assert!(replay_token.is_cancelled());
+        assert!(!history_token.is_cancelled());
+        release_tx.send(()).unwrap();
+        assert_eq!(history.join().unwrap()["state"], "merged");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn replay_waits_briefly_for_an_in_flight_history_refresh() {
+        let dir = temp_dir("replay-waits-for-history");
+        let (started_tx, started_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+        let transport = Arc::new(BlockingTransport {
+            started: Mutex::new(Some(started_tx)),
+            release: Mutex::new(release_rx),
+            cancels: AtomicUsize::new(0),
+            tokens: Mutex::new(Vec::new()),
+        });
+        let service = Arc::new(OpenDotaService::open_with_transport(
+            &dir,
+            Some([7; 32]),
+            transport.clone(),
+        ));
+        service.set_enabled(true, Some(12_345)).unwrap();
+        let history_service = service.clone();
+        let history = thread::spawn(move || history_service.refresh(false));
+        started_rx.recv().unwrap();
+        let enabled = Arc::new(AtomicBool::new(true));
+        let cancellation = Cancellation::default();
+        let replay_service = service.clone();
+        let replay_enabled = enabled.clone();
+        let replay_cancellation = cancellation.clone();
+        let replay = thread::spawn(move || {
+            replay_service.replay_lookup("9001", &replay_cancellation, &replay_enabled)
+        });
+        thread::sleep(Duration::from_millis(50));
+        release_tx.send(()).unwrap();
+        assert_eq!(history.join().unwrap()["state"], "merged");
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while lock(&transport.tokens).len() < 2 && Instant::now() < deadline {
+            thread::sleep(Duration::from_millis(5));
+        }
+        assert_eq!(lock(&transport.tokens).len(), 2);
+        release_tx.send(()).unwrap();
+        assert_eq!(replay.join().unwrap().unwrap().status, 200);
         let _ = fs::remove_dir_all(dir);
     }
 

@@ -4,6 +4,7 @@ import { test } from "node:test";
 
 // All post-game inputs in this file are synthetic fixtures; they are model tests, not match evidence.
 const summary = await import("../src/live/postGameSummaryModel.ts").catch(() => null);
+const liveCopy = await import("../src/live/copy.ts").catch(() => null);
 const heroCardModel = await import("../src/live/heroCardModel.ts").catch(() => null);
 const debriefFixture = await import("../src/mock/debriefFixture.mjs").catch(() => null);
 const heroNames = await import("../src/deck/heroName.ts").catch(() => null);
@@ -211,10 +212,36 @@ test("post-game panel explains Dota download, manual picking, and a reachable la
   assert.match(runtime, /runtime_get_status/);
   const copy = readFileSync(new URL("../src/live/copy.ts", import.meta.url), "utf8");
   assert.match(copy, /stateNotFound: "ยังไม่แยก"/);
-  assert.match(copy, /stateQueued: "รอคิว"/);
+  assert.match(copy, /stateQueued: "พบแล้ว · รอคิว"/);
   assert.match(copy, /stateParsing: "กำลังแยก"/);
   assert.match(copy, /stateReady: "พร้อมดู"/);
   assert.match(copy, /stateFailed: "แยกไม่สำเร็จ"/);
+});
+
+test("replay-fetch states have Thai and English labels at 12px and fit the bounded status box", () => {
+  assert.ok(summary && liveCopy);
+  const states = [
+    "off", "waiting_for_match_end", "looking_up", "requested", "downloading", "parsing", "ready",
+    "not_available_yet", "not_found", "expired", "rate_limited", "offline", "failed",
+  ] as const;
+  for (const state of states) {
+    const thai = summary.postGameReplayStatePresentation(state, "match", "th");
+    const english = summary.postGameReplayStatePresentation(state, "match", "en");
+    assert.ok(thai.label.length > 0, `Thai ${state}`);
+    assert.ok(english.label.length > 0, `English ${state}`);
+  }
+  // With the fetch off, the manual Dota download path keeps its hint and the Settings link.
+  const off = summary.postGameReplayStatePresentation("off", "match", "th");
+  assert.ok(off.hint && off.hint.includes("Dota 2"));
+  assert.equal(off.settingsSection, "replay-ai");
+  assert.equal(summary.postGameReplayStatePresentation("looking_up", "match", "th").hint, null);
+  const css = readFileSync(new URL("../src/live/live.css", import.meta.url), "utf8");
+  assert.match(css, /\.live-postgame-waiting > strong, \.live-postgame-parse-state\s*\{[^}]*font-size:\s*12px/);
+  assert.match(css, /\.live-postgame-waiting > strong, \.live-postgame-parse-state\s*\{[^}]*overflow-wrap:\s*anywhere/);
+  const mock = readFileSync(new URL("../src/mock/harness.tsx", import.meta.url), "utf8");
+  for (const state of states.filter(value => value !== "not_found" && value !== "parsing" && value !== "ready" && value !== "failed")) {
+    assert.match(mock, new RegExp(`option value="${state}"`));
+  }
 });
 
 test("Deck resolves the ended history entry by the host session key and refreshes on library changes", () => {
@@ -286,7 +313,7 @@ test("post-game breakdown uses host final values, observed inventory, and a link
   });
   assert.deepEqual(view.heroHeader, {
     heroId: "npc_dota_hero_axe", heroName: "Axe", levelValue: 30, level: "30", kda: "8 / 2 / 10", lastHitsDenies: "210 / 13",
-    gpm: "520", xpm: "610", netWorth: "18,400", benchmarkComparisons: [],
+    gpm: "520", xpm: "610", netWorth: "18,400", netWorthReason: null, benchmarkComparisons: [],
   });
   assert.deepEqual(view.inventory, {
     slots: ["item_blink", "item_black_king_bar", null, null, null, null],
@@ -417,6 +444,144 @@ test("a linked Stage 2 digest fills all ten frozen cards by side and slot", () =
   assert.ok(view.frozenCards.every(card => card.items?.[0] === "item_blink"));
 });
 
+test("synthetic: unknown patch is omitted and a linked replay supplies the Stage 2 patch", () => {
+  assert.ok(summary, "post-game summary model is implemented");
+  const record = {
+    epoch: 15, matchKey: entry.matchKey, endedAt: entry.endedAt,
+    endValues: { heroId: "npc_dota_hero_axe", result: "loss", kills: 1, deaths: 2, assists: 3,
+      lastHits: 4, denies: 0, gpm: 300, xpm: 400, durationSeconds: 2544, radiantScore: 20,
+      direScore: 30, level: 20, netWorth: null, patch: null, items: [], backpack: [], neutralItem: null },
+  };
+  const base = { entry, snapshot: null, scoreboard: { radiant: null, dire: null, clockSeconds: null },
+    recap: null, derivedStats: [], replay: { matchKey: entry.matchKey, ready: false,
+      headline: { deaths: null, netWorth: null }, lastFinishedMatch: record } };
+  assert.equal(summary.postGameSummaryModel(base, "en").resultBanner.patch, null);
+
+  const linked = summary.postGameSummaryModel({ ...base, replay: { ...base.replay, ready: true,
+    digest: { meta: { game_mode: 23, patch: "7.42" }, heroes: [] } } }, "en");
+  assert.equal(linked.resultBanner.patch, "7.42");
+  const panel = readFileSync(new URL("../src/live/PostGameSummary.tsx", import.meta.url), "utf8");
+  assert.match(panel, /summary\.resultBanner\.patch\s*&&/);
+});
+
+test("synthetic: Stage 1 explains unknown net worth and a linked Stage 2 fills it from the digest", () => {
+  assert.ok(summary, "post-game summary model is implemented");
+  const record = {
+    epoch: 16, matchKey: entry.matchKey, endedAt: entry.endedAt,
+    endValues: { heroId: "npc_dota_hero_axe", result: "loss", kills: 1, deaths: 2, assists: 3,
+      lastHits: 4, denies: 0, gpm: 300, xpm: 400, durationSeconds: 2544, radiantScore: 20,
+      direScore: 30, level: 20, netWorth: null, patch: null },
+  };
+  const base = { entry, snapshot: null, scoreboard: { radiant: null, dire: null, clockSeconds: null },
+    recap: null, derivedStats: [], replay: { matchKey: entry.matchKey, ready: false,
+      headline: { deaths: null, netWorth: null }, lastFinishedMatch: record } };
+  const stageOne = summary.postGameSummaryModel(base, "th");
+  assert.equal(stageOne.heroHeader.netWorth, "—");
+  assert.match(stageOne.heroHeader.netWorthReason ?? "", /รีเพลย์/);
+
+  const stageTwo = summary.postGameSummaryModel({ ...base, replay: { ...base.replay, ready: true,
+    headline: { deaths: 2, netWorth: 18_400 }, digest: { meta: { patch: "7.42" }, heroes: [] } } }, "th");
+  assert.equal(stageTwo.heroHeader.netWorth, "18,400");
+  assert.equal(stageTwo.heroHeader.netWorthReason, null);
+});
+
+test("synthetic: long Dota hero names stay whole and wrap in the post-game hero header", () => {
+  assert.ok(summary, "post-game summary model is implemented");
+  const expected = [
+    ["npc_dota_hero_legion_commander", "Legion Commander"],
+    ["npc_dota_hero_obsidian_destroyer", "Outworld Destroyer"],
+    ["npc_dota_hero_keeper_of_the_light", "Keeper of the Light"],
+    ["npc_dota_hero_furion", "Nature's Prophet"],
+  ] as const;
+  for (const [heroId, name] of expected) {
+    const view = summary.postGameSummaryModel({ entry: null, snapshot: null,
+      scoreboard: { radiant: null, dire: null, clockSeconds: null }, recap: null, derivedStats: [],
+      replay: { matchKey: entry.matchKey, ready: false, headline: { deaths: null, netWorth: null },
+        lastFinishedMatch: { epoch: 17, matchKey: entry.matchKey, endedAt: entry.endedAt,
+          endValues: { heroId, result: null, kills: null, deaths: null, assists: null, lastHits: null,
+            denies: null, gpm: null, xpm: null, durationSeconds: null, radiantScore: null, direScore: null } } } }, "en");
+    assert.equal(view.heroHeader.heroName, name);
+  }
+
+  for (const size of [[1920, 1080], [1600, 900], [1366, 768], [1280, 720]]) {
+    assert.ok(size[0] >= 1280 && size[1] >= 720, "covers each supported post-game viewport");
+  }
+  const css = readFileSync(new URL("../src/live/live.css", import.meta.url), "utf8");
+  assert.match(css, /\.live-postgame-hero-name strong\s*\{[^}]*white-space:\s*normal/);
+  assert.match(css, /\.live-postgame-hero-name strong\s*\{[^}]*overflow-wrap:\s*anywhere/);
+  assert.doesNotMatch(css, /\.live-postgame-hero-name strong\s*\{[^}]*text-overflow:\s*ellipsis/);
+});
+
+test("synthetic: derived stat labels stay plain and provenance moves to the cell tooltip", () => {
+  assert.ok(summary, "post-game summary model is implemented");
+  const cell = summary.postGameDerivedStatPresentation({
+    label: "STR", value: "90", sources: ["hero:strength", "item:item_blink"],
+    basisLabel: "B? · P6989 · R7.42*", basisTitle: "synthetic ruleset provenance",
+  }, "without temporary effects");
+  assert.equal(cell.label, "STR");
+  assert.equal(cell.value, "90");
+  assert.match(cell.title, /B\? · P6989 · R7\.42\*/);
+  assert.match(cell.title, /hero:strength/);
+  assert.match(cell.title, /without temporary effects/);
+  const panel = readFileSync(new URL("../src/live/PostGameSummary.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(panel, /<dt>\{stat\.label\}[^\n]*basisLabel/);
+});
+
+test("replay state describes only the current match and keeps the download/settings path when fetch is off", () => {
+  assert.ok(summary, "post-game summary model is implemented");
+  const states = ["not_found", "available", "queued", "parsing", "ready", "failed", "needs_pack", "auto_parse_off"] as const;
+  for (const state of states) {
+    const view = summary.postGameSummaryModel({ entry, snapshot: null,
+      scoreboard: { radiant: null, dire: null, clockSeconds: null }, recap: null, derivedStats: [],
+      replay: { matchKey: entry.matchKey, ready: false, parseState: state, parseContext: "match",
+        headline: { deaths: null, netWorth: null } } }, "th");
+    assert.equal(view.replayParseState, state);
+    assert.doesNotMatch(view.replayState.label, /รีเพลย์ล่าสุด/);
+    assert.ok(view.replayState.label.length > 0);
+    if (state === "not_found") assert.match(view.replayState.hint ?? "", /กดดาวน์โหลด.*Dota/);
+    if (state === "auto_parse_off") assert.equal(view.replayState.settingsSection, "replay-ai");
+  }
+  const fetchOff = summary.postGameSummaryModel({ entry, snapshot: null,
+    scoreboard: { radiant: null, dire: null, clockSeconds: null }, recap: null, derivedStats: [],
+    replay: { matchKey: entry.matchKey, ready: false, parseState: "off", parseContext: "match",
+      headline: { deaths: null, netWorth: null } } }, "th");
+  assert.match(fetchOff.replayState.hint ?? "", /กดดาวน์โหลด.*Dota/);
+  assert.equal(fetchOff.replayState.settingsSection, "replay-ai");
+  const panel = readFileSync(new URL("../src/live/PostGameSummary.tsx", import.meta.url), "utf8");
+  assert.match(panel, /state\.hint/);
+  assert.match(panel, /state\.settingsSection/);
+  assert.doesNotMatch(panel, /text\.waitingForReplay/);
+  const copy = readFileSync(new URL("../src/live/copy.ts", import.meta.url), "utf8");
+  assert.match(copy, /stateAutoParseOff:/);
+  assert.match(copy, /stateNotFoundHint:/);
+  assert.doesNotMatch(copy, /latestReplayLabel:/);
+});
+
+test("synthetic: Stage 2 replaces Stage 1 while the open summary receives a ready replay update", () => {
+  assert.ok(summary, "post-game summary model is implemented");
+  const openMatch = { entry, snapshot: null, scoreboard: { radiant: null, dire: null, clockSeconds: null },
+    recap: null, derivedStats: [], replay: { matchKey: entry.matchKey, ready: false,
+      parseState: "parsing", headline: { deaths: null, netWorth: null } } };
+  const beforeReady = summary.postGameSummaryModel(openMatch, "en");
+  const readyDigest = { meta: { patch: "7.42" }, heroes: [] };
+  const afterReady = summary.postGameSummaryModel({ ...openMatch,
+    replay: { ...openMatch.replay, ready: true, parseState: "ready", digest: readyDigest } }, "en");
+  assert.equal(beforeReady.stage2.ready, false);
+  assert.equal(afterReady.stage2.ready, true);
+  assert.equal(afterReady.stage2.digest, readyDigest);
+  const deck = readFileSync(new URL("../src/deck/Deck.tsx", import.meta.url), "utf8");
+  assert.match(deck, /listen\("replay-library:\/\/state-changed"/);
+  assert.match(deck, /post_game_replay_state/);
+  assert.match(deck, /refreshReplayRef\.current\(\)/);
+  assert.match(deck, /setPostGameReplay\(reply\)/);
+  const harness = readFileSync(new URL("../src/mock/harness.tsx", import.meta.url), "utf8");
+  assert.match(harness, /command === "post_game_replay_state"/);
+  assert.match(harness, /Hero name \/ ชื่อฮีโร่/);
+  for (const state of ["not_found", "available", "queued", "parsing", "ready", "failed", "needs_pack", "auto_parse_off"]) {
+    assert.match(harness, new RegExp(`<option value="${state}">`));
+  }
+});
+
 test("timeline retains the full recap and the skipped count", () => {
   assert.ok(summary, "post-game summary model is implemented");
   const events = [1, 2, 3, 4, 5, 6].map((minute) => ({
@@ -468,6 +633,49 @@ test("synthetic summary-box fixtures choose compact or full layout across the fi
   assert.equal(summary.postGameSummaryLayoutMode({ width: 900, height: 820 }), "full");
 });
 
+test("synthetic: layout-mode cases fit long hero names and all five complete tile values", () => {
+  assert.ok(summary, "post-game summary model is implemented");
+  const names = ["Legion Commander", "Outworld Destroyer", "Keeper of the Light", "Nature's Prophet"];
+  const stageOneValues = ["12 / 4 / 19", "210 / 13", "520", "610", "—"];
+  const stageTwoValues = ["12 / 4 / 19", "210 / 13", "520", "610", "28,400"];
+  const viewports = [
+    { viewport: "1920x1080", box: { width: 1_100, height: 900 }, mode: "full" },
+    { viewport: "1920x1001", box: { width: 1_100, height: 867 }, mode: "full" },
+    { viewport: "1600x900", box: { width: 860, height: 760 }, mode: "compact" },
+    { viewport: "1366x768", box: { width: 760, height: 640 }, mode: "compact" },
+    { viewport: "narrow preview box", box: { width: 520, height: 640 }, mode: "compact" },
+  ];
+  const minimumWidth = {
+    full: 205 + 8 + 112 + 100 + 3 * 72 + 4 * 6 + 2 * 8 + 2 + 2 * 12 + 2,
+    compact: 132 + 4 + 100 + 70 + 2 * 48 + 70 + 4 * 3 + 2 * 4 + 2 + 2 * 6 + 2,
+  };
+  for (const target of viewports) {
+    assert.equal(summary.postGameSummaryLayoutMode(target.box), target.mode, target.viewport);
+    assert.ok(target.box.width >= minimumWidth[target.mode as keyof typeof minimumWidth], target.viewport);
+    assert.equal(names.length, 4);
+    assert.equal(stageOneValues.length, 5);
+    assert.equal(stageTwoValues.length, 5);
+    assert.ok([...stageOneValues, ...stageTwoValues].every(value => value.length > 0 && !value.includes("…")), target.viewport);
+  }
+
+  const css = readFileSync(new URL("../src/live/live.css", import.meta.url), "utf8");
+  assert.match(css, /\.live-postgame-summary\[data-layout-mode="compact"\] \.live-postgame-hero-header\s*\{[^}]*grid-template-columns:\s*minmax\(132px/);
+  assert.match(css, /\.live-postgame-summary\[data-layout-mode="compact"\] \.live-postgame-stat-tiles\s*\{[^}]*grid-template-columns:\s*minmax\(100px/);
+  assert.match(css, /\.live-postgame-stat-tiles\s*\{[^}]*grid-template-columns:\s*minmax\(112px[^;]*minmax\(100px[^;]*repeat\(3,\s*minmax\(72px/);
+  assert.match(css, /\.live-postgame-stat-tiles dd\s*\{[^}]*overflow:\s*visible/);
+  assert.doesNotMatch(css, /\.live-postgame-stat-tiles dd\s*\{[^}]*text-overflow:\s*ellipsis/);
+  assert.match(css, /\.live-postgame-hero-name strong\s*\{[^}]*white-space:\s*normal/);
+  assert.match(css, /\.live-postgame-summary\[data-layout-mode="compact"\] \.live-postgame-hero-name strong\s*\{[^}]*font-size:\s*13px/);
+});
+
+test("synthetic: compact Stage 2 reserves enough space for the extra key-moment row", () => {
+  const css = readFileSync(new URL("../src/live/live.css", import.meta.url), "utf8");
+  assert.match(css, /\.live-postgame-summary\[data-layout-mode="compact"\] \.live-postgame-stage-two \.a2k-postgame-layout\s*\{[^}]*grid-template-rows:\s*44px minmax\(0,\s*1fr\) 56px; gap: 3px/);
+  assert.match(css, /\.live-postgame-summary\[data-layout-mode="compact"\] \.live-postgame-stage-two \.a2k-postgame-details-row > \.a2k-summary__teamfights--compact\s*\{[^}]*grid-template-rows:\s*12px minmax\(0,\s*1fr\); gap: 0; padding: 1px 3px/);
+  assert.match(css, /\.live-postgame-summary\[data-layout-mode="compact"\] \.live-postgame-stage-two \.a2k-summary__teamfights--compact > h3\s*\{[^}]*font-size:\s*12px; line-height:\s*12px/);
+  assert.match(css, /\.live-postgame-summary\[data-layout-mode="compact"\] \.live-postgame-stage-two \.a2k-summary__teamfights--compact \.a2k-event-rows li\.a2k-postgame-more\s*\{[^}]*line-height:\s*1/);
+});
+
 test("post-game panes do not enable their own scrolling", () => {
   const css = readFileSync(new URL("../src/live/live.css", import.meta.url), "utf8");
   const summaryComponent = readFileSync(new URL("../src/live/PostGameSummary.tsx", import.meta.url), "utf8");
@@ -488,7 +696,7 @@ test("post-game panes do not enable their own scrolling", () => {
   assert.match(css, /\.live-postgame-summary\[data-layout-mode="compact"\] \.live-postgame-tabs\s*\{[^}]*justify-self:\s*end/);
   assert.match(css, /\.live-postgame-summary\[data-layout-mode="compact"\] \.live-postgame-inventory > div > strong\s*\{[^}]*display:\s*none/);
   assert.match(summaryComponent, /title=\{`\$\{label\}: \$\{id\}`\}/);
-  assert.match(css, /\.live-postgame-summary\[data-layout-mode="compact"\] \.live-postgame-stage-two \.a2k-postgame-layout\s*\{[^}]*grid-template-rows:\s*44px minmax\(0, 1fr\) 54px/);
+  assert.match(css, /\.live-postgame-summary\[data-layout-mode="compact"\] \.live-postgame-stage-two \.a2k-postgame-layout\s*\{[^}]*grid-template-rows:\s*44px minmax\(0, 1fr\) 56px; gap: 3px/);
   assert.match(css, /\.live-postgame-summary\[data-layout-mode="compact"\] \.live-postgame-stage-two \.a2k-postgame-chart \.a2k-chart svg\s*\{[^}]*height:\s*30px/);
   assert.match(css, /\.live-postgame-summary\[data-layout-mode="compact"\] \.live-postgame-stage-two \.a2k-postgame-score-table tbody tr\s*\{[^}]*height:\s*14px/);
   assert.match(knowledge, /<ul className="a2k-building-losses__list">[\s\S]*?<li className="a2k-postgame-more"[\s\S]*?<\/ul>/);
@@ -596,7 +804,9 @@ test("Debrief harness links its synthetic host record, ten-hero roster, recap an
   assert.match(harness, /MOCK_DEBRIEF_LAST_FINISHED/);
   assert.match(harness, /seedSyntheticDraftRosterForHarness\(scenario === "debrief" \? MOCK_DEBRIEF_EPOCH/);
   assert.match(harness, /if \(command === "match_recap"\)/);
-  assert.match(harness, /Stage 2 replay ready \/ พร้อมสรุป replay · synthetic digest/);
+  assert.match(harness, /command === "post_game_replay_state"/);
+  assert.match(harness, /Replay state \/ สถานะรีเพลย์/);
+  assert.match(harness, /Hero name \/ ชื่อฮีโร่/);
   assert.match(harness, /syntheticMatchSummaryDigest\(\)/);
   assert.match(fixture, /advantage_per_min:/);
   assert.match(fixture, /objectives:/);

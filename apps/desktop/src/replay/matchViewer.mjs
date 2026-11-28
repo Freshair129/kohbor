@@ -9,6 +9,15 @@ import { reflowHeroCardDisplay, visibleHeroCardRows, visibleStatKeys } from "../
 const sourceTeamId = team => team === "radiant" ? 2 : team === "dire" ? 3 : team === "neutral" ? 4 : null;
 const unknownSource = locale => locale === "en" ? "Unknown source" : "ไม่ทราบที่มา";
 
+export function drawCenteredPortrait(context, image, x, y, width, height) {
+  const imageWidth = Number(image?.naturalWidth);
+  const imageHeight = Number(image?.naturalHeight);
+  if (!(imageWidth > 0) || !(imageHeight > 0)) return false;
+  const side = Math.min(imageWidth, imageHeight);
+  context.drawImage(image, (imageWidth - side) / 2, (imageHeight - side) / 2, side, side, x, y, width, height);
+  return true;
+}
+
 function unitSourceLabel(unit, locale) {
   const value = String(unit ?? "");
   if (/tower/i.test(value)) return locale === "en" ? "Tower" : "ป้อม";
@@ -332,7 +341,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, stat
     }
     ctx.save(); ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.closePath(); ctx.fillStyle = "#000"; ctx.fill(); ctx.clip();
     if (!alive) ctx.filter = "grayscale(1) brightness(.6)";
-    if (im && im.complete && im.naturalWidth) ctx.drawImage(im, 56, 0, 144, 144, x - r, y - r, 2 * r, 2 * r);
+    if (im && im.complete && im.naturalWidth) drawCenteredPortrait(ctx, im, x - r, y - r, 2 * r, 2 * r);
     else { ctx.fillStyle = h.color; ctx.fillRect(x - r, y - r, 2 * r, 2 * r); }
     ctx.restore(); ctx.filter = "none";
     ctx.lineWidth = 3; ctx.strokeStyle = h.color; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke();
@@ -1067,7 +1076,7 @@ export function mountMatchView(root, bundle, { locale, markup, style, icon, stat
       // row label with value at replay time
       c.fillStyle = r % 2 ? "transparent" : (css("--surface") || "#fff"); c.globalAlpha = .55; c.fillRect(0, y0, TW, ROW); c.globalAlpha = 1;
       const im = S.port[h.id];
-      c.save(); c.beginPath(); c.arc(20, y0 + 22, 14, 0, 7); c.clip(); if (im && im.complete && im.naturalWidth) c.drawImage(im, 56, 0, 144, 144, 6, y0 + 8, 28, 28); c.restore();
+      c.save(); c.beginPath(); c.arc(20, y0 + 22, 14, 0, 7); c.clip(); if (im && im.complete && im.naturalWidth) drawCenteredPortrait(c, im, 6, y0 + 8, 28, 28); c.restore();
       c.strokeStyle = h.color; c.lineWidth = 2.5; c.beginPath(); c.arc(20, y0 + 22, 14, 0, 7); c.stroke();
       c.textAlign = "left"; c.fillStyle = ink; c.font = `600 12.5px ${css("--f-body")}`; c.fillText(h.name, 40, y0 + 19);
       const e = h.eco[i0]; c.font = `11px ${css("--f-mono")}`; c.fillStyle = css("--ink-2") || "#555";

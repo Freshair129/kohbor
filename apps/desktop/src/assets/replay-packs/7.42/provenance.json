@@ -11,6 +11,249 @@
     "upstream_license": "MIT (upstream notice; not independently reviewed)",
     "network_fetch": false
   },
+  "map_asset": {
+    "game_build": "6997",
+    "image_file": "map.png",
+    "vpk": "game/dota/pak01_dir.vpk",
+    "overview_source_path": "resource/overviews/dota.txt",
+    "material_source_path": "materials/overviews/dota.vmat_c",
+    "texture_source_path": "materials/overviews/dota_psd_8b4a9409.vtex_c",
+    "texture_source_bytes": 4196356,
+    "texture_source_sha256": "a10430c9dab968ed2fdca0c0f18d1a3005f8771d2dc8ebe6eb9f69883adccff5",
+    "image_bytes": 913042,
+    "image_sha256": "447028ade5f1075f65e7dbc9fd1a4979fe948973c01f8c5cf2b403bbf3a38769",
+    "calibration": {
+      "pos_x": -9472,
+      "pos_y": 9472,
+      "scale": 18.5
+    },
+    "rights_note": "Valve game art. Rights review required before public release.",
+    "style": "detailed",
+    "material_logical_path": "materials/overviews/dota.vmat",
+    "simple_material_logical_path": "materials/overviews/dota_minimal.vmat",
+    "source_dimensions": [
+      1024,
+      1024
+    ],
+    "image_dimensions": [
+      1024,
+      1024
+    ],
+    "resampling": "source 1024 px, native-size export with no upscale or resampling",
+    "map_entry_override": "materials/overviews/dota_psd_8b4a9409.vtex_c",
+    "export_provenance": {
+      "schema": "kohbor.dota-overview-map/1",
+      "gameBuild": "6997",
+      "vpk": "game/dota/pak01_dir.vpk",
+      "overview": {
+        "sourcePath": "resource/overviews/dota.txt",
+        "style": "detailed",
+        "materialLogicalPath": "materials/overviews/dota.vmat",
+        "simpleMaterialLogicalPath": "materials/overviews/dota_minimal.vmat",
+        "selectedMaterialCompiledPath": "materials/overviews/dota.vmat_c",
+        "selectedTexturePath": "materials/overviews/dota_tga_d8178876.vtex_c",
+        "textureReference": {
+          "sourcePath": "materials/overviews/dota_tga_d8178876.vtex_c",
+          "bytes": 1050628,
+          "sha256": "6bd12841e16c747578faaee8aafdacea805a6cc8bfc5367eb08ad8fd58336196"
+        },
+        "pos_x": -9472,
+        "pos_y": 9472,
+        "scale": 18.5
+      },
+      "mapEntryOverride": "materials/overviews/dota_psd_8b4a9409.vtex_c",
+      "selectedTexture": {
+        "sourcePath": "materials/overviews/dota_psd_8b4a9409.vtex_c",
+        "bytes": 4196356,
+        "sha256": "a10430c9dab968ed2fdca0c0f18d1a3005f8771d2dc8ebe6eb9f69883adccff5",
+        "dimensions": [
+          1024,
+          1024
+        ]
+      },
+      "map": {
+        "path": "map.png",
+        "bytes": 913042,
+        "sha256": "447028ade5f1075f65e7dbc9fd1a4979fe948973c01f8c5cf2b403bbf3a38769",
+        "sourcePath": "materials/overviews/dota_psd_8b4a9409.vtex_c",
+        "dimensions": [
+          1024,
+          1024
+        ],
+        "resampling": "source 1024 px, native-size export with no upscale or resampling"
+      },
+      "rights": "Valve game art. Rights review required before public release."
+    },
+    "registered_runtime_calibration": {
+      "px": [
+        0.05322376334585866,
+        512.0126033871603
+      ],
+      "py": [
+        -0.05322376334585866,
+        517.9204411185506
+      ]
+    },
+    "registration": {
+      "method": "Sobel edge cross-correlation; axis-aligned affine fit from candidate pixels to official-reference pixels",
+      "reference": {
+        "description": "Official-calibration reference: detailed texture selected by resource/overviews/dota.txt material, smoothly upscaled by the exporter from 512 px to 1024 px.",
+        "source_texture_path": "materials/overviews/dota_tga_d8178876.vtex_c",
+        "source_texture_sha256": "6bd12841e16c747578faaee8aafdacea805a6cc8bfc5367eb08ad8fd58336196",
+        "image_bytes": 1048072,
+        "image_sha256": "29376a9f3597da13c2e375200f18c01f649270c2eae38ca5ec5ac3c6931a36d2"
+      },
+      "candidate": {
+        "source_texture_path": "materials/overviews/dota_psd_8b4a9409.vtex_c",
+        "source_bytes": 4196356,
+        "source_sha256": "a10430c9dab968ed2fdca0c0f18d1a3005f8771d2dc8ebe6eb9f69883adccff5",
+        "dimensions": [
+          1024,
+          1024
+        ],
+        "image_sha256": "447028ade5f1075f65e7dbc9fd1a4979fe948973c01f8c5cf2b403bbf3a38769"
+      },
+      "candidate_to_reference_transform": {
+        "x": {
+          "scale": 1.0156,
+          "offset_px": -7.999999999999999
+        },
+        "y": {
+          "scale": 1.0156,
+          "offset_px": -14
+        }
+      },
+      "edge_cross_correlation": {
+        "identity": 0.495771448120488,
+        "fitted": 0.9706959281596982
+      },
+      "official_mapping_residuals_px": [
+        {
+          "point": "top_left",
+          "candidate_x_px": 0,
+          "candidate_y_px": 0,
+          "reference_x_px": -7.999999999999999,
+          "reference_y_px": -14,
+          "official_delta_x_px": -7.999999999999999,
+          "official_delta_y_px": -14,
+          "official_delta_length_px": 16.1245154965971
+        },
+        {
+          "point": "top_right",
+          "candidate_x_px": 1023,
+          "candidate_y_px": 0,
+          "reference_x_px": 1030.9588,
+          "reference_y_px": -14,
+          "official_delta_x_px": 7.95880000000011,
+          "official_delta_y_px": -14,
+          "official_delta_length_px": 16.104114301631174
+        },
+        {
+          "point": "bottom_right",
+          "candidate_x_px": 1023,
+          "candidate_y_px": 1023,
+          "reference_x_px": 1030.9588,
+          "reference_y_px": 1024.9588,
+          "official_delta_x_px": 7.95880000000011,
+          "official_delta_y_px": 1.9588000000001102,
+          "official_delta_length_px": 8.196303732781148
+        },
+        {
+          "point": "bottom_left",
+          "candidate_x_px": 0,
+          "candidate_y_px": 1023,
+          "reference_x_px": -7.999999999999999,
+          "reference_y_px": 1024.9588,
+          "official_delta_x_px": -7.999999999999999,
+          "official_delta_y_px": 1.9588000000001102,
+          "official_delta_length_px": 8.236315768594622
+        },
+        {
+          "point": "center",
+          "candidate_x_px": 511.5,
+          "candidate_y_px": 511.5,
+          "reference_x_px": 511.47940000000006,
+          "reference_y_px": 505.47940000000006,
+          "official_delta_x_px": -0.020599999999944885,
+          "official_delta_y_px": -6.020599999999945,
+          "official_delta_length_px": 6.020635242231449
+        }
+      ],
+      "threshold_px": 2,
+      "official_calibration_selected": false,
+      "decision": "Fitted residuals exceed 2 px, so the pack uses the composed calibration registered to the official overview.",
+      "landmark_checks": [
+        {
+          "name": "radiant_fountain_feature_centroid",
+          "world_x": -7700.327485380118,
+          "world_y": -6949.508771929824,
+          "official_reference_x_px": 95.76608187134502,
+          "official_reference_y_px": 887.6491228070175,
+          "candidate_projected_x_px": 102.17219561967804,
+          "candidate_projected_y_px": 887.7994513657123,
+          "measured_candidate_center_x_px": 101.82525697503671,
+          "measured_candidate_center_y_px": 887.7679882525697,
+          "feature_center_residual_px": 0.34836238406892894,
+          "projection_inside_measured_feature": true,
+          "candidate_projected_pixel_matches_feature_mask": null,
+          "reference_feature": {
+            "measurement": "centroid of cyan/blue pixels (B>105, G>75, B>R+18, G>R+10) in x=50..149,y=820..929",
+            "pixel_count": 684,
+            "center_x_px": 95.76608187134502,
+            "center_y_px": 887.6491228070175,
+            "min_x_px": 82,
+            "min_y_px": 866,
+            "max_x_px": 113,
+            "max_y_px": 905
+          },
+          "candidate_feature": {
+            "measurement": "centroid of cyan/blue pixels (B>105, G>75, B>R+18, G>R+10) in x=50..149,y=820..929",
+            "pixel_count": 681,
+            "center_x_px": 101.82525697503671,
+            "center_y_px": 887.7679882525697,
+            "min_x_px": 88,
+            "min_y_px": 866,
+            "max_x_px": 119,
+            "max_y_px": 905
+          }
+        },
+        {
+          "name": "tormentor_7744_-6208",
+          "world_x": 7744,
+          "world_y": -6208,
+          "official_reference_x_px": 930.5945945945946,
+          "official_reference_y_px": 847.5675675675676,
+          "candidate_projected_x_px": 924.1774267374897,
+          "candidate_projected_y_px": 848.3335639696412,
+          "measured_candidate_center_x_px": 930.5990099009902,
+          "measured_candidate_center_y_px": 844.2920792079208,
+          "feature_center_residual_px": 7.587511410533187,
+          "projection_inside_measured_feature": true,
+          "candidate_projected_pixel_matches_feature_mask": true,
+          "reference_feature": {
+            "measurement": "smallest connected near-neutral bright component containing the projected point (min RGB>105, channel range<90)",
+            "pixel_count": 726,
+            "center_x_px": 936.7121212121212,
+            "center_y_px": 843.0454545454545,
+            "min_x_px": 920,
+            "min_y_px": 826,
+            "max_x_px": 954,
+            "max_y_px": 859
+          },
+          "candidate_feature": {
+            "measurement": "smallest connected near-neutral bright component containing the projected point (min RGB>105, channel range<90)",
+            "pixel_count": 202,
+            "center_x_px": 930.5990099009902,
+            "center_y_px": 844.2920792079208,
+            "min_x_px": 922,
+            "min_y_px": 836,
+            "max_x_px": 939,
+            "max_y_px": 852
+          }
+        }
+      ]
+    }
+  },
   "source_files": [
     {
       "patch": "7.42",
@@ -47,8 +290,14 @@
     {
       "patch": "7.42",
       "file": "replay-data.json",
-      "bytes": 139894,
-      "sha256": "55bfcb4c6fd063e95d490ad6686dfb0139dd0c67f4306fea6df3cacbbdbf68cb"
+      "bytes": 139241,
+      "sha256": "adf672c4425b9c41ce169aad508ee562a0361537ee889bf02da187aab374a441"
+    },
+    {
+      "patch": "7.42",
+      "file": "map.png",
+      "bytes": 913042,
+      "sha256": "447028ade5f1075f65e7dbc9fd1a4979fe948973c01f8c5cf2b403bbf3a38769"
     }
   ]
 }

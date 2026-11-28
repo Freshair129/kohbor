@@ -15,7 +15,7 @@ export interface SettingsPageProps {
   sections: Partial<Record<SettingsSectionId, ReactNode>>;
   objectiveAlerts?: ReactNode;
   /** Select a Settings section when the page is opened from a quick action. */
-  initialSection?: "overlay-layout" | "hero-card" | null;
+  initialSection?: "overlay-layout" | "hero-card" | "replay-ai" | null;
 }
 
 const rendererStorage = {
@@ -37,6 +37,7 @@ export function SettingsPage({ locale, sections, objectiveAlerts, initialSection
   useEffect(() => {
     if (initialSection === "overlay-layout") setActiveSection(DEFAULT_SETTINGS_SECTION);
     if (initialSection === "hero-card") setActiveSection("hero-card");
+    if (initialSection === "replay-ai") setActiveSection("replay-ai");
   }, [initialSection]);
 
   return (

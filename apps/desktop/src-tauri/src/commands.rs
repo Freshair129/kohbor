@@ -4,11 +4,11 @@
 use crate::audio_prefs::{AudioPrefs, AudioPrefsService};
 use crate::hotkeys::{StartFailure, VolumeStep};
 use crate::intake::lock;
-use crate::{AppState, settings, status};
-use serde_json::{Map, Value, json};
-use std::sync::Arc;
+use crate::{settings, status, AppState};
+use serde_json::{json, Map, Value};
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::{Emitter as TauriEmitter, Manager};
 
@@ -24,6 +24,7 @@ pub(crate) fn replay_library_list(
     let mut list = serde_json::to_value(&replay_list)
         .map_err(|_| "library_serialization_failed".to_owned())?;
     let history = state.match_history.entries();
+    let own_account_id = state.runtime.current_own_account_id();
     if let Some(rows) = list.get_mut("matches").and_then(Value::as_array_mut) {
         for (row, replay) in rows.iter_mut().zip(&replay_list.matches) {
             let match_id = replay.match_id.as_str();
@@ -36,6 +37,7 @@ pub(crate) fn replay_library_list(
             row["match_key"] = match_key.map_or(Value::Null, Value::String);
             if let Some(entry) = local {
                 row["own_hero"] = entry.hero.clone().map_or(Value::Null, Value::String);
+                row["bundle_identity"] = Value::Null;
                 row["local_history"] = json!({
                     "result": entry.result.map(|result| match result { crate::match_history::MatchResult::Win => "win", crate::match_history::MatchResult::Loss => "loss" }),
                     "kills": entry.kills,
@@ -49,10 +51,74 @@ pub(crate) fn replay_library_list(
                     .own_hero(match_id)
                     .map_or(Value::Null, Value::String);
                 row["local_history"] = Value::Null;
+                let identity = own_account_id
+                    .filter(|_| replay.status == crate::replay_library::ReplayStatus::Ready)
+                    .and_then(|account_id| library.open_bundle(match_id).ok().map(|bundle| (account_id, bundle)))
+                    .map(|(account_id, bundle)| derive_replay_bundle_identity(&bundle.match_data, account_id))
+                    .unwrap_or(Value::Null);
+                row["bundle_identity"] = identity;
             }
         }
     }
     Ok(list)
+}
+
+fn derive_replay_bundle_identity(match_data: &Value, own_account_id: u32) -> Value {
+    let Some(hero) = match_data
+        .get("heroes")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .find(|hero| hero.get("account_id").and_then(Value::as_u64) == Some(u64::from(own_account_id)))
+    else {
+        return Value::Null;
+    };
+    let Some(hero_id) = hero
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|id| id.starts_with("npc_dota_hero_"))
+    else {
+        return Value::Null;
+    };
+    let result = match (
+        hero.get("team").and_then(Value::as_i64),
+        match_data.pointer("/meta/winner").and_then(Value::as_str),
+    ) {
+        (Some(2), Some("radiant")) | (Some(3), Some("dire")) => Some("win"),
+        (Some(2), Some("dire")) | (Some(3), Some("radiant")) => Some("loss"),
+        _ => None,
+    };
+    json!({ "own_hero": hero_id, "result": result })
+}
+
+#[cfg(test)]
+mod replay_bundle_identity_tests {
+    use super::derive_replay_bundle_identity;
+    use serde_json::{json, Value};
+
+    #[test]
+    fn derives_only_the_matching_hero_and_never_returns_the_account_id() {
+        let match_data = json!({
+            "meta": { "winner": "dire" },
+            "heroes": [
+                { "id": "npc_dota_hero_axe", "team": 2, "account_id": 111 },
+                { "id": "npc_dota_hero_lina", "team": 3, "account_id": 222 }
+            ]
+        });
+        let identity = derive_replay_bundle_identity(&match_data, 222);
+        assert_eq!(identity, json!({ "own_hero": "npc_dota_hero_lina", "result": "win" }));
+        assert!(!identity.to_string().contains("222"));
+    }
+
+    #[test]
+    fn unknown_identity_or_result_stays_null() {
+        let match_data = json!({
+            "meta": { "winner": null },
+            "heroes": [{ "id": "npc_dota_hero_axe", "team": 2, "account_id": 111 }]
+        });
+        assert_eq!(derive_replay_bundle_identity(&match_data, 111), json!({ "own_hero": "npc_dota_hero_axe", "result": Value::Null }));
+        assert_eq!(derive_replay_bundle_identity(&match_data, 222), Value::Null);
+    }
 }
 
 #[tauri::command]
@@ -76,16 +142,16 @@ pub(crate) fn replay_library_pick_file(
 #[cfg(windows)]
 mod replay_file_dialog {
     use std::ffi::c_void;
+    use windows::core::w;
     use windows::Win32::System::Com::{
-        CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED, CoCreateInstance, CoInitializeEx,
-        CoTaskMemFree, CoUninitialize,
+        CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_INPROC_SERVER,
+        COINIT_APARTMENTTHREADED,
     };
     use windows::Win32::UI::Shell::Common::COMDLG_FILTERSPEC;
     use windows::Win32::UI::Shell::{
-        FOS_FILEMUSTEXIST, FOS_FORCEFILESYSTEM, FOS_PATHMUSTEXIST, FileOpenDialog, IFileOpenDialog,
+        FileOpenDialog, IFileOpenDialog, FOS_FILEMUSTEXIST, FOS_FORCEFILESYSTEM, FOS_PATHMUSTEXIST,
         SIGDN_FILESYSPATH,
     };
-    use windows::core::w;
 
     struct ComApartment;
 
@@ -995,9 +1061,10 @@ pub(crate) fn hero_benchmarks_set(
     state: tauri::State<'_, AppState>,
     enabled: bool,
 ) -> Result<crate::hero_stats::benchmarks::BenchmarksView, String> {
-    let prefs = state
-        .hero_stats
-        .prefs_set(webview.label(), serde_json::json!({"benchmarks_on": enabled}))?;
+    let prefs = state.hero_stats.prefs_set(
+        webview.label(),
+        serde_json::json!({"benchmarks_on": enabled}),
+    )?;
     state.benchmarks.set_enabled(prefs.benchmarks_on)
 }
 
@@ -1305,6 +1372,45 @@ pub(crate) fn settings_patch(
     settings::patch(&state.settings_dir, &request)
 }
 
+/// Persist the independent MEM-008 consent switch. Enabling is rejected until the renderer's
+/// explicit disclosure step has been accepted; disabling is always available and cancels fetches.
+#[tauri::command(async)]
+pub(crate) fn replay_auto_fetch_set(
+    webview: tauri::Webview,
+    state: tauri::State<'_, AppState>,
+    enabled: bool,
+    consent_accepted: bool,
+) -> Result<bool, String> {
+    require_control(&webview)?;
+    if state.host.shutdown_started() {
+        return Err("CANCELLED".to_owned());
+    }
+    let _settings_guard = lock(&state.settings_gate);
+    if state.host.shutdown_started() {
+        return Err("CANCELLED".to_owned());
+    }
+    let enabled = persist_replay_auto_fetch_change(
+        enabled,
+        || state.replay_auto_fetch.set_enabled(false),
+        || settings::set_replay_auto_fetch_enabled(&state.settings_dir, enabled, consent_accepted),
+    )?;
+    if enabled {
+        state.replay_auto_fetch.set_enabled(true);
+    }
+    Ok(enabled)
+}
+
+fn persist_replay_auto_fetch_change(
+    enabled: bool,
+    revoke: impl FnOnce(),
+    persist: impl FnOnce() -> Result<bool, String>,
+) -> Result<bool, String> {
+    if !enabled {
+        revoke();
+    }
+    persist()
+}
+
 #[tauri::command]
 pub(crate) fn objective_prefs_get(state: tauri::State<'_, AppState>) -> Value {
     state.objectives.prefs.current().to_value()
@@ -1458,7 +1564,10 @@ pub(crate) fn media_uninstall(
     let result = state.host.commands.media_uninstall(&install_id);
     log_media_result("uninstall", &result);
     if result.is_ok() {
-        let _ = app.emit("media://library-changed", json!({ "install_id": install_id }));
+        let _ = app.emit(
+            "media://library-changed",
+            json!({ "install_id": install_id }),
+        );
     }
     result
 }
@@ -2403,7 +2512,19 @@ pub(crate) fn media_protocol_handler(
             .and_then(|value| value.to_str().ok())
             .map(str::to_owned),
     };
-    let state = context.app_handle().state::<AppState>();
+    // The webview can ask for media before `setup()` has managed `AppState`.
+    // `state()` panics in that window and aborts the app; answer 503 instead.
+    let Some(state) = context.app_handle().try_state::<AppState>() else {
+        crate::log_info!(
+            "media",
+            "protocol_early_request",
+            "media protocol request arrived before app state was ready"
+        );
+        responder.respond(media_http_response(
+            crate::host::unavailable_protocol_response(),
+        ));
+        return;
+    };
     state
         .host
         .dispatch_protocol(protocol_request, move |response| {
@@ -2416,19 +2537,57 @@ pub(crate) fn media_protocol_handler(
                     reason_code = response.reason_code.unwrap_or("MEDIA_RESPONSE_UNKNOWN")
                 );
             }
-            let mut output = tauri::http::Response::new(response.body);
-            *output.status_mut() = tauri::http::StatusCode::from_u16(response.status)
-                .unwrap_or(tauri::http::StatusCode::SERVICE_UNAVAILABLE);
-            for (name, value) in response.headers {
-                if let (Ok(name), Ok(value)) = (
-                    tauri::http::header::HeaderName::from_bytes(name.as_bytes()),
-                    tauri::http::header::HeaderValue::from_str(&value),
-                ) {
-                    output.headers_mut().insert(name, value);
-                }
-            }
-            responder.respond(output);
+            responder.respond(media_http_response(response));
         });
+}
+
+fn media_http_response(
+    response: crate::media::protocol::ProtocolResponse,
+) -> tauri::http::Response<Vec<u8>> {
+    let mut output = tauri::http::Response::new(response.body);
+    *output.status_mut() = tauri::http::StatusCode::from_u16(response.status)
+        .unwrap_or(tauri::http::StatusCode::SERVICE_UNAVAILABLE);
+    for (name, value) in response.headers {
+        if let (Ok(name), Ok(value)) = (
+            tauri::http::header::HeaderName::from_bytes(name.as_bytes()),
+            tauri::http::header::HeaderValue::from_str(&value),
+        ) {
+            output.headers_mut().insert(name, value);
+        }
+    }
+    output
+}
+
+#[cfg(test)]
+mod media_protocol_tests {
+    use super::media_http_response;
+
+    #[test]
+    fn early_request_response_is_503_not_a_panic() {
+        let output = media_http_response(crate::host::unavailable_protocol_response());
+        assert_eq!(
+            output.status(),
+            tauri::http::StatusCode::SERVICE_UNAVAILABLE
+        );
+        assert_eq!(
+            output
+                .headers()
+                .get("Cache-Control")
+                .and_then(|v| v.to_str().ok()),
+            Some("no-store")
+        );
+    }
+
+    #[test]
+    fn unknown_status_falls_back_to_503() {
+        let mut response = crate::host::unavailable_protocol_response();
+        response.status = 1000;
+        let output = media_http_response(response);
+        assert_eq!(
+            output.status(),
+            tauri::http::StatusCode::SERVICE_UNAVAILABLE
+        );
+    }
 }
 
 #[cfg(test)]
@@ -2439,7 +2598,7 @@ mod audio_volume_tests {
     };
     use crate::audio_prefs::{AudioPrefs, AudioPrefsService, AudioPrefsStore};
     use crate::hotkeys::VolumeStep;
-    use serde_json::{Value, json};
+    use serde_json::{json, Value};
     use std::sync::{Arc, Mutex};
 
     struct FakeStore(Mutex<AudioPrefs>);
@@ -2571,7 +2730,7 @@ mod audio_volume_tests {
 
 #[cfg(test)]
 mod audition_result_tests {
-    use super::{AuditionSignal, wait_for_audition_result};
+    use super::{wait_for_audition_result, AuditionSignal};
     use crate::overlay::{VideoDiagnostic, VideoDiagnosticOutcome};
     use std::sync::mpsc;
 
@@ -2624,5 +2783,26 @@ mod audition_result_tests {
         assert_eq!(none.visual_status, "none");
         assert_eq!(none.visual_reason, None);
         assert_eq!(none.video_error_code, None);
+    }
+}
+
+#[cfg(test)]
+mod replay_auto_fetch_command_tests {
+    use super::persist_replay_auto_fetch_change;
+    use std::cell::Cell;
+
+    #[test]
+    fn disabling_revokes_before_a_failed_settings_persist() {
+        let revoked = Cell::new(false);
+        let result = persist_replay_auto_fetch_change(
+            false,
+            || revoked.set(true),
+            || {
+                assert!(revoked.get());
+                Err("settings_write_failed".to_owned())
+            },
+        );
+        assert_eq!(result, Err("settings_write_failed".to_owned()));
+        assert!(revoked.get());
     }
 }

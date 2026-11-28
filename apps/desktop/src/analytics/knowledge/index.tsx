@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
 import { ANALYTICS_TABS } from "../analyticsModel";
+import { ANALYTICS_OPPONENTS_COPY } from "../../copy";
 import { buildLineSegments, heroComparisonEngineMetric, laneBadgeLabel, laneExpectationReading, matchupRows, showLaneExpectationInStrip } from "./presentationModel.mjs";
 import { buildingMapPoint, buildMatchSummaryViewModel } from "./matchSummaryModel.mjs";
-import { BUNDLED } from "../../replay/bundledIcons";
+import { buildOpponentsViewModel } from "./opponentsModel.mjs";
+import { BUNDLED, replayMapUrlForPatch } from "../../replay/bundledIcons";
 import { gameModeName, iconResolver } from "../../replay/matchBundle";
 import { displayHeroName } from "../../deck/heroName";
 import type { MapCalibration } from "../../replay/replayPack.mjs";
@@ -40,6 +42,7 @@ export type KnowledgeDigest = {
   advantage_per_min?: Array<Record<string, any>> | null;
   advantage_per_min_reason?: string | null;
   provisional_thresholds?: { label?: string };
+  opponent_stats?: Record<string, unknown> | null;
 };
 
 export type SavedReport = {
@@ -70,6 +73,9 @@ export interface KnowledgePanelProps {
   onSeek?: (seconds: number) => void;
   /** Locally selected replay map calibration for the destroyed-building overlay. */
   mapCalibration?: MapCalibration | null;
+  /** Match-local own hero identity and raw validated match section for death attribution. */
+  ownHeroId?: string | null;
+  matchData?: Record<string, any> | null;
   /** Persisted report metadata; load markdown through the host read command. */
   reports?: SavedReport[];
   selectedReportId?: string | null;
@@ -215,12 +221,12 @@ export function LaneCards({ digest, onSeek, compact = false, compactLimit = 2 }:
   })}</div>;
 }
 
-function BuildingLosses({ digest, mapCalibration, onSeek, compact = false, compactLimit = 2 }: Pick<KnowledgePanelProps, "digest" | "mapCalibration" | "onSeek"> & { compact?: boolean; compactLimit?: number }) {
+function BuildingLosses({ digest, mapCalibration, onSeek, mapImageUrl, compact = false, compactLimit = 2 }: Pick<KnowledgePanelProps, "digest" | "mapCalibration" | "onSeek"> & { mapImageUrl?: string | null; compact?: boolean; compactLimit?: number }) {
   const buildings = Array.isArray(digest?.objectives?.buildings) ? digest.objectives.buildings : [];
   const buildingsKnown = Array.isArray(digest?.objectives?.buildings);
   const destroyed = buildings.filter((item: any) => item.destroyed === true);
   const unknownCount = buildings.filter((item: any) => item.destroyed == null).length;
-  const mapUrl = BUNDLED.icons.get("map:");
+  const mapUrl = mapImageUrl ?? null;
   const positioned = destroyed.flatMap((building: any, index: number) => {
     const point = buildingMapPoint(building.position, mapCalibration);
     return point ? [{ building, index, point }] : [];
@@ -314,7 +320,55 @@ export function MatchupStrip({ digest, selectedHeroId, onSelectHero }: Pick<Know
 }
 
 /** Combined post-match summary using only fields present in the local digest. */
-export function MatchSummaryTab({ digest, loading, onSeek, mapCalibration }: Pick<KnowledgePanelProps, "digest" | "loading" | "onSeek" | "mapCalibration">) {
+function OpponentsSection({ digest, ownHeroId, matchData }: Pick<KnowledgePanelProps, "digest" | "ownHeroId" | "matchData">) {
+  const copy = ANALYTICS_OPPONENTS_COPY;
+  const model = buildOpponentsViewModel({ digest, ownHeroId, matchData });
+  const displayName = (head: { state: string; names?: string[] }) => {
+    if (head.state === "unknown") return copy.unknown;
+    if (head.state === "none") return copy.noEvents;
+    const values = head.names ?? [];
+    return values.length ? values.join(" / ") : copy.unknown;
+  };
+  const detail = (head: { state: string; count?: number | null; gold?: number | null }, engineStat = false) => {
+    if (head.state === "unknown") return engineStat ? copy.missingEngine : null;
+    if (head.gold !== undefined && head.gold !== null) return copy.gold(head.gold);
+    return head.count === null || head.count === undefined ? null : copy.count(head.count);
+  };
+  const tiles = [
+    ["mostKills", copy.headlines.mostKills, model.headlines.mostKills, false],
+    ["mostKillGold", copy.headlines.mostKillGold, model.headlines.mostKillGold, true],
+    ["mostDeaths", copy.headlines.mostDeaths, model.headlines.mostDeaths, false],
+    ["mostGoldLost", copy.headlines.mostGoldLost, model.headlines.mostGoldLost, true],
+    ["mostJungleGold", copy.headlines.mostJungleGold, model.headlines.mostJungleGold, true],
+  ] as const;
+  const metric = (value: number | null) => value === null ? "—" : value.toLocaleString("th-TH");
+  return <section className="a2k-opponents" aria-label={copy.title}>
+    <h3>{copy.title}</h3>
+    {model.state === "unknown" && <p className="a2k-opponents__unknown">{model.reason === "enemy_team_unknown" ? copy.emptyEnemyTeam : copy.unknownTeam}</p>}
+    <div className="a2k-opponents__headlines">
+      {tiles.map(([key, label, head, engineStat]) => <article className="a2k-opponents__tile" key={key}>
+        <h4>{label}</h4>
+        <strong>{displayName(head)}</strong>
+        {detail(head, engineStat) && <small>{detail(head, engineStat)}</small>}
+        {key === "mostJungleGold" && model.jungleUnattached !== null && model.jungleUnattached > 0 && <small>{copy.jungleUnattached(model.jungleUnattached)}</small>}
+      </article>)}
+    </div>
+    {model.enemyRows.length > 0 && <div className="a2k-opponents__table-wrap">
+      <table><thead><tr><th scope="col">{copy.columns.hero}</th><th scope="col">{copy.columns.kills}</th><th scope="col">{copy.columns.deaths}</th><th scope="col">{copy.columns.killGold}</th><th scope="col">{copy.columns.goldLost}</th></tr></thead>
+        <tbody>{model.enemyRows.map(row => <tr key={row.heroId}>
+          <th scope="row">{row.hero}</th><td>{metric(row.kills)}</td><td>{metric(row.deaths)}</td><td>{metric(row.killGold)}</td><td>{metric(row.goldLost)}</td>
+        </tr>)}</tbody>
+      </table>
+    </div>}
+    <div className="a2k-opponents__other">
+      <span>{model.otherDeaths === null ? copy.otherDeathsUnknown : copy.otherDeaths(model.otherDeaths)}</span>
+      {model.otherGoldLost !== null && <span>{copy.otherGoldLost(model.otherGoldLost)}</span>}
+      {model.unknownKillerDeaths !== null && model.unknownKillerDeaths > 0 && <span>{copy.unknownKillerDeaths(model.unknownKillerDeaths)}</span>}
+    </div>
+  </section>;
+}
+
+export function MatchSummaryTab({ digest, loading, onSeek, mapCalibration, ownHeroId, matchData }: Pick<KnowledgePanelProps, "digest" | "loading" | "onSeek" | "mapCalibration" | "ownHeroId" | "matchData">) {
   if (loading) return <div className="a2k-empty" role="status">กำลังอ่านข้อมูลแมตช์…</div>;
   if (!digest) return <div className="a2k-empty">สรุปข้อมูลแมตช์ยังไม่พร้อม</div>;
   const view = buildMatchSummaryViewModel(digest);
@@ -344,6 +398,8 @@ export function MatchSummaryTab({ digest, loading, onSeek, mapCalibration }: Pic
     </header>
     {header.warning && <p className="a2k-result-warning" role="alert">{header.warning}</p>}
 
+    <OpponentsSection digest={digest} ownHeroId={ownHeroId} matchData={matchData} />
+
     <section className="a2k-summary__hero-teams" aria-label="การ์ดฮีโร่ทั้งสองทีม">
       <h3>ฮีโร่ในแมตช์</h3>
       {(["radiant", "dire"] as const).map((side) => <section className={`a2k-summary__hero-team is-${side}`} key={side} aria-label={`ฮีโร่ทีม ${sideNames[side]}`}>
@@ -368,7 +424,8 @@ export function MatchSummaryTab({ digest, loading, onSeek, mapCalibration }: Pic
 
     <section className="a2k-summary__middle" aria-label="ความได้เปรียบ แผนที่ และผลเลน">
       <AdvantageChart digest={digest} onSeek={onSeek} />
-      <BuildingLosses digest={digest} mapCalibration={mapCalibration} onSeek={onSeek} />
+      <BuildingLosses digest={digest} mapCalibration={mapCalibration} onSeek={onSeek}
+        mapImageUrl={replayMapUrlForPatch(matchData?.meta?.patch ?? matchData?.patch)} />
       <div className="a2k-summary__lane-results"><h3>ผลเลน</h3><LaneCards digest={digest} onSeek={onSeek} /></div>
     </section>
 
@@ -449,7 +506,7 @@ export function MatchSummaryTab({ digest, loading, onSeek, mapCalibration }: Pic
 }
 
 /** Compact post-game arrangement of the same UI-023 digest model and summary blocks. */
-export function PostGameMatchSummaryBlocks({ digest, onSeek, compact = false }: Pick<KnowledgePanelProps, "digest" | "onSeek"> & { compact?: boolean }) {
+export function PostGameMatchSummaryBlocks({ digest, onSeek, ownHeroId, compact = false }: Pick<KnowledgePanelProps, "digest" | "onSeek" | "ownHeroId"> & { compact?: boolean }) {
   if (!digest) return <div className="a2k-empty">สรุปข้อมูลแมตช์ยังไม่พร้อม</div>;
   const view = buildMatchSummaryViewModel(digest);
   const score = (metric: { value: number | null }) => metric.value === null ? "— ไม่ทราบ" : Math.round(metric.value).toLocaleString("th-TH");
@@ -462,6 +519,7 @@ export function PostGameMatchSummaryBlocks({ digest, onSeek, compact = false }: 
   const compactLimit = compact ? 1 : 2;
   const rows = (["radiant", "dire"] as const).flatMap((side) => view.scoreboard[side].rows.slice(0, 5).map((row, index) => ({ side, row, key: row.heroId ?? `${side}-${index}` })));
   return <div className="a2k-postgame-layout" data-testid="post-game-stage-two-layout">
+    <OpponentsSection digest={digest} ownHeroId={ownHeroId} />
     <div className="a2k-postgame-main-row">
       <div className="a2k-postgame-chart"><h3 className="a2k-postgame-chart-title">ความได้เปรียบ</h3><AdvantageChart digest={digest} onSeek={onSeek} /></div>
       <section className="a2k-postgame-scoreboard" aria-label="ตารางฮีโร่ทั้งสิบพร้อมไอเท็ม">

@@ -1,16 +1,6 @@
 export const english: Record<string, string>;
 export interface MatchViewerCopy {
   viewerStrings: Record<string, string>;
-  panel: {
-    title: string;
-    availability: string;
-    reportTab: string;
-    matchTab: string;
-    viewGroup: string;
-    openReport: string;
-    readingReport: string;
-    invalidReport: string;
-  };
   title: string;
   libraryTitle: string;
   loading: string;
@@ -56,7 +46,6 @@ export interface MatchViewerCopy {
   clearError: string;
   needsPack: (patch: string | null) => string;
   calibrationError: string;
-  calibrationManifest: string;
   calibrationPack: string;
   abilityDataSource: (build: number | null) => string;
   ultimateUnavailable: string;

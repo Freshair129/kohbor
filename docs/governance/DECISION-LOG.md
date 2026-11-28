@@ -489,3 +489,32 @@ Decided by the product owner 2026-11-27 in the lead session, recorded by an agen
 
 Also adopted from the CR: after match end the ten hero cards keep their last observed state with a Final mark (own card from host-recorded end values, others unknown), and Stage 2 fills all ten cards from the digest and embeds the UI-023 summary blocks. UI-002 is amended; UX-SPEC and REPLAY-PIPELINE are aligned. No diagram change. UI-002 remains NOT_RUN; nothing is implemented yet.
 
+### Owner decision: opt-in replay fetch via OpenDota (DEC-REPLAY-AUTOFETCH, 2026-11-27)
+
+Decided by the product owner 2026-11-27 in the lead session, recorded by an agent. Owner words: “Approve as recommended”. The owner approved CR-REPLAY-AUTOFETCH (`F:\kohbor-coord\designeplay-autofetch-20261127\CR.md`) after the first real-match test of the post-game summary, where the replay arrived only after a manual download in Dota.
+
+1. **Option B.** An opt-in switch fetches the player's own replay after the match: OpenDota lookup with the session's in-memory match ID, download from Valve's replay host, local decompression and the existing local parse. No OpenDota match statistics are displayed.
+2. **Off by default**, as a consent separate from the OpenDota history and benchmark switches.
+3. **Delete** the download after a successful parse.
+4. **Automatic** at match end, after the barrier clears.
+5. **Measured first** under DEC-REPLAY-INTEGRATION item 12 (`F:\kohbor-coordunseplay-autofetch-measure-20261127\RESULT.md`): replay_url present without a parse request about 1 h after the match; 60 per minute and 3,000 per day rate-limit headers; plain-HTTP replay host; the `.dem.bz2` file is Zstandard; 46.4 MB in 8.6 s; the decompressed `.dem` is byte-identical to Dota's own download. Not yet measured: how soon after match end the URL appears, and Valve retention.
+
+Adds MEM-008 and amends MEM-007 (network exception) and UI-002 (the in-memory match ID may also feed the opt-in fetch). Amends DEC-REPLAY-INTEGRATION item 6 from later/on demand to automatic under the opt-in. REPLAY-PIPELINE and UX-SPEC aligned. OpenDota flows are not drawn in the diagrams (as for MEM-006); no diagram change. MEM-008 is NOT_RUN; nothing is implemented yet.
+
+Amendment (owner 2026-11-27, “Approve ruzstd”): the owner approved adding the ruzstd crate (0.9.1, MIT, default features off, no transitive dependencies) from crates.io as the Zstandard decoder. No bzip2 decoder is added: since the measured container is Zstandard, a bzip2 or unknown container fails and is deleted.
+
+### Owner decision: jungle zones, 7.42 minimap and engine 0.5.0 (DEC-REPLAY-UX-20261128, 2026-11-28)
+
+Decided by the product owner 2026-11-28 in the lead session, recorded by an agent.
+
+1. **Jungle zones.** The owner set the zone map in an interactive picker over the 7.42 camps: R1 to R6 and D1 to D5, with every camp in a zone. Camps are resolved by position, never by bundle camp id, because ids change between patches. Neutral gold that cannot be placed in a camp is excluded and its count is shown.
+2. **Engine re-pin.** Kohbor pins replay-engine-rs 0.5.0 (bundle schema 3.3), which adds per-death gold and neutral camp fields, and keeps admitting schemas 3.0 to 3.2. Replays parsed earlier need a re-parse to show the new values.
+3. **7.42 minimap.** The previous image was the stale 7.37 overview with a guessed calibration. The owner chose the detailed real-game overview: “เอาแบบ 1 ก่อน แบบ 2 ค่อยทำทีหลัง”. Kohbor uses the game's 1024 px detailed overview, registered to the official `resource/overviews/dota.txt` calibration. A 3D top-down render is deferred to the path and ward-vision work.
+
+### Owner decision: banner cold-start warm-up and CSP media-src (DEC-BANNER-WARMUP, 2026-11-28)
+
+Decided by the product owner 2026-11-28 in the lead session, recorded by an agent. Owner words: “เอาทาง 1”.
+
+In-game measurement found that the first banner after each app start drops frames: 8/106, 11/165 and 7/69, with stalls of 287 to 300 ms. Later banners are clean. An invisible one-shot warm-up clip removed the stall in two runs (0/96 and 0/106). Route 1: the overlay plays a bundled, original, transparent 15 KB clip once after the host is ready. The overlay CSP `media-src` gains `'self'` for that bundled asset only; it is otherwise unchanged.
+
+A related finding stays open as separate work: `media_protocol_handler` reads `AppState` before `setup()` manages it. A media request in the first seconds after start therefore aborts the app (observed 2026-11-28 during measurement).

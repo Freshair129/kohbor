@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { AI_PROVIDER_COPY, copy, type Locale } from "../copy";
+import { AI_PROVIDER_COPY, ANALYTICS_MATCH_LIST_COPY, copy, type Locale } from "../copy";
 import {
   analyticsPaneLayout, analyticsShortcut, analyticsSizeClass, analyticsTopBarLayout, toggleCardColumns,
   defaultPanePreferences, readPanePreferences, resetPanePreferences, writePanePreferences,
@@ -14,6 +14,10 @@ import {
 import { HeroCardDisplayControls } from "../settings/HeroCardDisplaySettings";
 import { readDeveloperMode } from "../shell/developerMode";
 import type { ReplayLibraryEntry, ReplayLibraryList, ReplayStatus } from "../replay/replayLibraryClient";
+import {
+  formatReplayMatchDate, formatReplayMatchTime, groupReplayMatches, replayEntryHero, replayEntryResult, replayEntryTimeMs,
+  type ReplayDateFilter, type ReplayResultFilter,
+} from "../replay/replayLibraryModel";
 import { MatchViewerSurface, analyticsPlayerShadowCss } from "../replay/MatchViewPanel";
 import { BUNDLED } from "../replay/bundledIcons";
 import { admitLibraryBundle, type MatchBundle } from "../replay/matchBundle";
@@ -145,11 +149,8 @@ function deathRows(bundle: MatchBundle | null): Record<string, unknown>[] {
   return bundle && Array.isArray(bundle.match.deaths) ? bundle.match.deaths as Record<string, unknown>[] : [];
 }
 function thaiDate(entry: ReplayLibraryEntry | null, locale: Locale): string {
-  const seconds = entry?.local_history?.ended_at_unix_s;
-  if (typeof seconds === "number" && Number.isFinite(seconds)) {
-    return new Intl.DateTimeFormat(locale === "th" ? "th-TH" : "en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Bangkok" }).format(new Date(seconds * 1000));
-  }
-  return entry?.match_date_utc ?? UNKNOWN_VALUE;
+  const timestamp = entry ? replayEntryTimeMs(entry) : null;
+  return timestamp === null ? UNKNOWN_VALUE : formatReplayMatchDate(timestamp, locale, true);
 }
 function displayHeroName(value: string | null | undefined): string {
   if (!value) return UNKNOWN_VALUE;
@@ -189,13 +190,15 @@ function moveMenuFocus(event: ReactKeyboardEvent<HTMLDivElement>) {
   items[next]!.focus();
 }
 
-export function AnalyticsPage({ locale, onOpenReplay, onOpenHeroCardSettings, restoreContext, openMatchKey = null, active = true }: {
+export function AnalyticsPage({ locale, onOpenReplay, onOpenHeroCardSettings, restoreContext, openMatchKey = null, openReplayLibraryNonce = 0, active = true }: {
   locale: Locale;
   onOpenReplay?: (route: AnalyticsReplayDetailsRoute) => void;
   onOpenHeroCardSettings?: () => void;
   restoreContext?: AnalyticsReturnContext | null;
   /** Open the library match whose install-keyed hash equals `key` (post-game panel). `nonce` repeats a request. */
   openMatchKey?: { key: string; nonce: number } | null;
+  /** Open the match list when a post-game session has no linked match key. */
+  openReplayLibraryNonce?: number;
   active?: boolean;
 }) {
   const [library, setLibrary] = useState<ReplayLibraryList | null>(null);
@@ -216,7 +219,10 @@ export function AnalyticsPage({ locale, onOpenReplay, onOpenHeroCardSettings, re
   const [showRawSource, setShowRawSource] = useState(false);
   const [noteDeleteConfirmId, setNoteDeleteConfirmId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
-  const [filter, setFilter] = useState<"all" | "pinned" | "notAnalysed">("all");
+  const [dateFilter, setDateFilter] = useState<ReplayDateFilter>("all");
+  const [resultFilter, setResultFilter] = useState<ReplayResultFilter>("all");
+  const [specificDay, setSpecificDay] = useState("");
+  const [filterNow, setFilterNow] = useState(() => Date.now());
   const [showList, setShowList] = useState(false);
   const [pageSize, setPageSize] = useState({ width: 0, height: 0 });
   const pageRef = useRef<HTMLDivElement>(null);
@@ -238,7 +244,6 @@ export function AnalyticsPage({ locale, onOpenReplay, onOpenHeroCardSettings, re
   const [cardSettingsOpen, setCardSettingsOpen] = useState(false);
   const [layoutMenuOpen, setLayoutMenuOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
-  const [matchPickerOpen, setMatchPickerOpen] = useState(false);
   const [heroCardDisplay, setHeroCardDisplay] = useState<HeroCardDisplay>(() => readHeroCardDisplay(preferenceStorage()));
   const [selectionAction, setSelectionAction] = useState<{ quote: SelectionQuote; rect: DOMRect } | null>(null);
   const [quoteChips, setQuoteChips] = useState<SelectionQuote[]>([]);
@@ -323,15 +328,15 @@ export function AnalyticsPage({ locale, onOpenReplay, onOpenHeroCardSettings, re
     return () => observer.disconnect();
   }, [shellToolsTarget]);
   useEffect(() => {
-    if (!cardSettingsOpen && !layoutMenuOpen && !moreMenuOpen && !matchPickerOpen) return;
+    if (!cardSettingsOpen && !layoutMenuOpen && !moreMenuOpen && !showList) return;
     const close = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       event.preventDefault();
       if (cardSettingsOpen) {
         setCardSettingsOpen(false);
         cardSettingsTrigger.current?.focus();
-      } else if (matchPickerOpen) {
-        setMatchPickerOpen(false);
+      } else if (showList) {
+        setShowList(false);
         matchPickerButton.current?.focus();
       } else if (layoutMenuOpen) {
         setLayoutMenuOpen(false);
@@ -343,7 +348,7 @@ export function AnalyticsPage({ locale, onOpenReplay, onOpenHeroCardSettings, re
     };
     document.addEventListener("keydown", close);
     return () => document.removeEventListener("keydown", close);
-  }, [cardSettingsOpen, layoutMenuOpen, moreMenuOpen, matchPickerOpen]);
+  }, [cardSettingsOpen, layoutMenuOpen, moreMenuOpen, showList]);
   useEffect(() => {
     if (pageSize.width <= 0) return;
     const changedClass = paneSizeClassRef.current !== paneSizeClass;
@@ -535,9 +540,18 @@ export function AnalyticsPage({ locale, onOpenReplay, onOpenHeroCardSettings, re
     return () => { stopDelta?.(); stopComplete?.(); stopTool?.(); };
   }, []);
 
-  const rows = useMemo(() => (library?.matches ?? []).filter(entry => filter === "all"
-    || (filter === "pinned" && entry.pinned) || (filter === "notAnalysed" && entry.status.state !== "ready")), [library, filter]);
-  useEffect(() => { setOwnHero(selected?.own_hero ?? null); setOwnHeroChoice(selected?.own_hero ?? ""); setHero(null); }, [selectedId, selected?.own_hero]);
+  const rows = useMemo(() => library?.matches ?? [], [library]);
+  const matchGroups = useMemo(() => groupReplayMatches(rows, {
+    dateFilter, resultFilter, specificDay, now: filterNow,
+    unknownDay: ANALYTICS_MATCH_LIST_COPY.unknownDay,
+  }), [rows, dateFilter, resultFilter, specificDay, filterNow]);
+  const matchCount = matchGroups.reduce((count, group) => count + group.entries.length, 0);
+  useEffect(() => {
+    const hero = selected ? replayEntryHero(selected) : null;
+    setOwnHero(hero);
+    setOwnHeroChoice(hero ?? "");
+    setHero(null);
+  }, [selectedId, selected?.own_hero, selected?.bundle_identity?.own_hero]);
   const aiAvailable = prefs.consent && prefs.ai_on && (!keyStatus.requires_key || keyStatus.set);
   const state = analyticsViewState({ entries: library?.matches ?? [], selectedId, selectedReady: !!bundle,
     openDocument: openNote !== SYSTEM_NOTE_ID, aiAvailable, showList, showSettings: false });
@@ -556,6 +570,11 @@ export function AnalyticsPage({ locale, onOpenReplay, onOpenHeroCardSettings, re
   async function pickDem() {
     try { const path = await libraryClient.pick(); if (path) { await libraryClient.parse(path); void refresh(); } }
     catch { setError(t(locale, "เลือกหรือแยก .dem ไม่สำเร็จ", "Could not select or parse the .dem file")); }
+  }
+  function openLibraryList() {
+    setFilterNow(Date.now());
+    setShowDataManagement(false);
+    setShowList(true);
   }
   async function togglePin(entry: ReplayLibraryEntry) {
     try { await libraryClient.pin(entry.match_id, !entry.pinned); void refresh(); }
@@ -726,6 +745,12 @@ export function AnalyticsPage({ locale, onOpenReplay, onOpenHeroCardSettings, re
     handledMatchKey.current = openMatchKey.nonce;
     setSelectedId(entry.match_id); setShowList(false); setError(null);
   }, [openMatchKey, library]);
+  const handledOpenReplayLibrary = useRef(0);
+  useEffect(() => {
+    if (openReplayLibraryNonce <= 0 || handledOpenReplayLibrary.current === openReplayLibraryNonce) return;
+    handledOpenReplayLibrary.current = openReplayLibraryNonce;
+    openLibraryList();
+  }, [openReplayLibraryNonce]);
   useEffect(() => {
     if (!restoreContext) return;
     setSelectedId(restoreContext.matchId);
@@ -1042,22 +1067,12 @@ export function AnalyticsPage({ locale, onOpenReplay, onOpenHeroCardSettings, re
   if (loadedReport && !reportRows.some(report => report.id === loadedReport.id)) reportRows.unshift(loadedReport);
   const providerControls = <ProviderControls locale={locale} developerMode={developerMode} settings={prefs}
     onSettingsChange={setPrefs} onKeyStatusChange={setKeyStatus} compact consentOpen={consentOpen} onConsentOpenChange={setConsentOpen} />;
-  const duration = selected?.duration_s == null ? UNKNOWN_VALUE : clock(selected.duration_s);
   const timelineStart = typeof bundle?.match.t0 === "number" ? bundle.match.t0 : 0;
   const timelineEnd = typeof bundle?.match.t1 === "number" ? bundle.match.t1 : null;
   const durationSeconds = bundle?.durationS ?? null;
   const timelineLength = timelineEnd !== null ? Math.max(1, timelineEnd - timelineStart) : 1;
   const timePercent = (seconds: number) => Math.max(0, Math.min(100, (seconds - timelineStart) / timelineLength * 100));
   const playbackLabel = `${formatAnalyticsTime(currentTime)} / ${formatAnalyticsTime(durationSeconds)}`;
-  const heroName = matchHeroes.find(item => item.id === (selected?.own_hero ?? ownHero))?.name;
-  const selectedHeroName = typeof heroName === "string" ? heroName
-    : UNKNOWN_VALUE;
-  const matchHeroId = selected?.own_hero ?? ownHero ?? null;
-  const matchHeroIcon = matchHeroId ? BUNDLED.icons.get(`hero:${matchHeroId.replace(/^npc_dota_hero_/, "").toLowerCase()}`) : null;
-  const result = selected?.local_history?.result === "win" ? t(locale, "ชนะ", "Win")
-    : selected?.local_history?.result === "loss" ? t(locale, "แพ้", "Loss") : UNKNOWN_VALUE;
-  const matchPickerLabel = [thaiDate(selected, locale), selectedHeroName, result, duration,
-    selected ? statusText(selected.status, locale) : t(locale, "เลือกรีเพลย์", "Choose replay")].filter(Boolean).join(" · ");
   const player = playerSlot && bundle && timelineEnd !== null && timelineEnd > timelineStart ? createPortal(
     <>
       <style>{analyticsPlayerShadowCss}</style>
@@ -1125,27 +1140,19 @@ export function AnalyticsPage({ locale, onOpenReplay, onOpenHeroCardSettings, re
   const shellToolbar = shellToolsTarget ? createPortal(
     <div className="analytics-topbar" data-toolbar-size={shellBarWidth >= 1181 ? "wide" : shellBarWidth >= 981 ? "medium" : shellBarWidth >= 760 ? "narrow" : "compact"}>
       <div className="analytics-replay-select">
-          <button type="button" className="analytics-match-step" aria-label={t(locale, "รีเพลย์ก่อนหน้า", "Previous replay")} title={t(locale, "รีเพลย์ก่อนหน้า", "Previous replay")} onClick={() => {
+        <button type="button" className="analytics-match-step" aria-label={ANALYTICS_MATCH_LIST_COPY.previous} title={ANALYTICS_MATCH_LIST_COPY.previous} onClick={() => {
           const index = rows.findIndex(row => row.match_id === selectedId); if (rows.length) void selectEntry(rows[(index - 1 + rows.length) % rows.length]!);
         }}>‹</button>
-        <button ref={matchPickerButton} type="button" className="analytics-match-picker" aria-label={matchPickerLabel} title={matchPickerLabel} aria-haspopup="menu" aria-expanded={matchPickerOpen} onClick={() => setMatchPickerOpen(open => !open)}>
-          <span className="analytics-match-avatar" aria-hidden="true">{matchHeroIcon ? <img src={matchHeroIcon} alt="" /> : <span>?</span>}</span>
-          <span className="analytics-match-date">{thaiDate(selected, locale)}</span>
-          <span className="analytics-match-hero">{selectedHeroName}</span>
-          <span className="analytics-match-result" data-result={selected?.local_history?.result ?? "unknown"}>{result}</span>
-          <span className="analytics-match-duration">{duration}</span>
-          <span className="analytics-match-status">{selected ? statusText(selected.status, locale) : t(locale, "เลือกรีเพลย์", "Choose replay")}</span>
+        <button ref={matchPickerButton} type="button" className="analytics-match-picker" aria-label={ANALYTICS_MATCH_LIST_COPY.openList}
+          title={selected ? `${thaiDate(selected, locale)} · ${statusText(selected.status, locale)}` : ANALYTICS_MATCH_LIST_COPY.openList}
+          aria-expanded={showList} onClick={openLibraryList}>
+          <span>{ANALYTICS_MATCH_LIST_COPY.openList}</span>
+          {selected && <span className="analytics-match-date">{thaiDate(selected, locale)}</span>}
         </button>
-        <button type="button" className="analytics-match-step" aria-label={t(locale, "รีเพลย์ถัดไป", "Next replay")} title={t(locale, "รีเพลย์ถัดไป", "Next replay")} onClick={() => {
+        <button type="button" className="analytics-match-step" aria-label={ANALYTICS_MATCH_LIST_COPY.next} title={ANALYTICS_MATCH_LIST_COPY.next} onClick={() => {
           const index = rows.findIndex(row => row.match_id === selectedId); if (rows.length) void selectEntry(rows[(index + 1) % rows.length]!);
         }}>›</button>
-        {matchPickerOpen && <div className="analytics-shell-menu analytics-match-menu" role="menu" aria-label={t(locale, "เลือกรีเพลย์", "Choose replay")} onKeyDown={moveMenuFocus}>
-          {(library?.matches ?? []).map(entry => <button role="menuitem" key={entry.match_id} onClick={() => { void selectEntry(entry); setMatchPickerOpen(false); }}>
-            {thaiDate(entry, locale)} · {displayHeroName(entry.own_hero)} · {entry.local_history?.result === "win" ? t(locale, "ชนะ", "Win") : entry.local_history?.result === "loss" ? t(locale, "แพ้", "Loss") : UNKNOWN_VALUE} · {statusText(entry.status, locale)}
-          </button>)}
-        </div>}
       </div>
-      {selected && analyticsReplayAction(selected.status) && analyticsReplayAction(selected.status) !== "reparse" && <button type="button" className="analytics-parse-action" aria-label={t(locale, "แยกรีเพลย์", "Parse replay")} title={t(locale, "แยกรีเพลย์", "Parse replay")} onClick={() => void parseSelectedEntry(selected)}><span aria-hidden="true">↻</span><span className="analytics-toolbar-label">{t(locale, "แยกรีเพลย์", "Parse replay")}</span></button>}
       {bundle && topBarLayout.hero !== "more" && <label className="analytics-own-hero">
         <span>{topBarLayout.hero === "portraitLabel" ? t(locale, "ฮีโร่ของฉัน", "My hero") : t(locale, "ฮีโร่", "Hero")}</span>
         <select value={ownHeroChoice} aria-label={t(locale, "เลือกฮีโร่ของฉัน", "Choose my hero")} onChange={event => setOwnHeroChoice(event.currentTarget.value)}>
@@ -1201,7 +1208,7 @@ export function AnalyticsPage({ locale, onOpenReplay, onOpenHeroCardSettings, re
             </select><button type="button" disabled={!ownHeroChoice} onClick={() => identifyOwnHero(ownHeroChoice)}>{t(locale, "ตั้งค่า", "Set")}</button>
           </label>}
           <button role="menuitem" onClick={() => void toggleDataManagement()}>{t(locale, "ข้อมูลวิเคราะห์", "Analysis data")}</button>
-          <button role="menuitem" onClick={() => { setMoreMenuOpen(false); setShowDataManagement(false); setShowList(true); }}>{t(locale, "คลังรีเพลย์", "Replay library")}</button>
+          <button role="menuitem" onClick={() => { setMoreMenuOpen(false); openLibraryList(); }}>{ANALYTICS_MATCH_LIST_COPY.title}</button>
           {consentVersionNotice && <button role="menuitem" className="analytics-consent-version-notice" onClick={() => setConsentOpen(true)}>{t(locale, "อ่านข้อความยินยอมอีกครั้ง", "Review updated consent")}</button>}
           <p>{t(locale, "ปุ่มลัด: Ctrl+\\ แผง · Ctrl+Shift+\\ การ์ด · Ctrl+J ผู้ช่วย · Ctrl+Alt+0 คืนค่า · F6 เปลี่ยนพื้นที่ · I บัฟ", "Shortcuts: Ctrl+\\ pane · Ctrl+Shift+\\ cards · Ctrl+J assistant · Ctrl+Alt+0 reset · F6 region · I effects")}</p>
         </div>}
@@ -1228,7 +1235,8 @@ export function AnalyticsPage({ locale, onOpenReplay, onOpenHeroCardSettings, re
         <section className="analytics-knowledge-slot" aria-label={t(locale, "แท็บความรู้และโน้ตแมตช์", "Match knowledge and notes tabs")} data-knowledge-tabs-slot>
           <KnowledgeTabs activeTab={knowledgeTab} onSelectTab={setKnowledgeTab} />
           <div className="analytics-knowledge-panel" data-analytics-quotable="summary">
-            {knowledgeTab === "summary" && <MatchSummaryTab digest={knowledge?.digest ?? null} loading={!knowledge && !!selectedId} onSeek={seek} mapCalibration={summaryMapCalibration} />}
+            {knowledgeTab === "summary" && <MatchSummaryTab digest={knowledge?.digest ?? null} loading={!knowledge && !!selectedId} onSeek={seek}
+              mapCalibration={summaryMapCalibration} ownHeroId={ownHero ?? (ownHeroChoice || null)} matchData={bundle?.match ?? null} />}
             {knowledgeTab === "compare" && <HeroComparisonTab digest={knowledge?.digest ?? null} selectedHeroId={hero ?? ownHero ?? knowledge?.own_hero_id ?? null}
               opponentHeroId={compareHero} onSelectHero={setHero} onSelectOpponentHero={setCompareHero} />}
             {knowledgeTab === "ai" && <AiReportTab reports={reportRows} selectedReportId={selectedReportId ?? reportRows[0]?.id ?? null}
@@ -1374,29 +1382,77 @@ export function AnalyticsPage({ locale, onOpenReplay, onOpenHeroCardSettings, re
         })}</ul>)}
       </section>
     </section></div>}
-    {showList && <div className="analytics-list-overlay" role="dialog" aria-modal="true" aria-label={t(locale, "คลังรีเพลย์", "Replay library")}><section>
-      <header><strong>{t(locale, "คลังรีเพลย์", "Replay library")}</strong><button onClick={() => setShowList(false)}>×</button></header>
-      <div className="analytics-library-filters" role="group" aria-label={t(locale, "ตัวกรองรีเพลย์", "Replay filters")}>
-        <button aria-pressed={filter === "all"} onClick={() => setFilter("all")}>{t(locale, "ทั้งหมด", "All")}</button>
-        <button aria-pressed={filter === "pinned"} onClick={() => setFilter("pinned")}>{t(locale, "ปักหมุด", "Pinned")}</button>
-        <button aria-pressed={filter === "notAnalysed"} onClick={() => setFilter("notAnalysed")}>{t(locale, "ยังไม่แยก", "Not parsed")}</button>
-      </div>
-      <p className="analytics-storage">{library?.matches.filter(entry => entry.status.state === "ready" && !entry.pinned).length ?? 0}/{prefs.keep_newest} · {((library?.matches.reduce((sum, entry) => sum + entry.storage_bytes, 0) ?? 0) / 1024 ** 2).toFixed(0)} MB / {(prefs.max_bytes / 1024 ** 3).toFixed(1)} GB</p>
-      <button type="button" onClick={() => void pickDem()}>{t(locale, "เพิ่มไฟล์ .dem…", "Add .dem file…")}</button>
-      {rows.map(entry => <article key={entry.match_id}><button onClick={() => void selectEntry(entry)}>{statusText(entry.status, locale)} · {thaiDate(entry, locale)} · {entry.local_history?.result === "win" ? t(locale, "ชนะ", "Win") : entry.local_history?.result === "loss" ? t(locale, "แพ้", "Loss") : UNKNOWN_VALUE}</button>
-        <button onClick={() => void togglePin(entry)}>{entry.pinned ? t(locale, "เลิกปักหมุด", "Unpin") : t(locale, "เก็บไว้", "Keep")}</button>
-        {analyticsReplayAction(entry.status) === "reparse"
-          ? <button disabled={entry.source_exists !== true}
-              title={entry.source_exists === true
-                ? t(locale, `แยกรีเพลย์นี้ใหม่ด้วย engine ปัจจุบัน (ตอนนี้ schema ${entry.bundle_schema ?? "ไม่ทราบ"}) ข้อมูลเดิมอยู่จนกว่าจะแยกเสร็จ`, `Re-parse with the current engine (now schema ${entry.bundle_schema ?? "unknown"}); the old data stays until it finishes`)
-                : t(locale, "ไม่พบไฟล์ .dem ต้นฉบับแล้ว", "The source .dem file is gone")}
-              onClick={() => void libraryClient.reparse(entry.match_id).then(() => refresh(), () => setError(t(locale, "แยกใหม่ไม่สำเร็จ", "Re-parse failed")))}>
-              {t(locale, "แยกใหม่", "Re-parse")}{entry.bundle_schema ? ` · ${entry.bundle_schema}` : ""}</button>
-          : ["parse", "retry"].includes(analyticsReplayAction(entry.status) ?? "") && <button onClick={() => void parseSelectedEntry(entry)}>{entry.status.state === "failed" ? t(locale, "ลองแยกอีกครั้ง", "Try parsing again") : t(locale, "แยกรีเพลย์นี้", "Parse this replay")}</button>}
-        <button onClick={() => void invoke("replay_library_open_folder", { matchId: entry.match_id })}>{t(locale, "เปิดโฟลเดอร์", "Open folder")}</button>
-        <button onClick={() => { if (window.confirm(t(locale, "นำรีเพลย์ออกจากคลังหรือไม่? โน้ตจะยังอยู่", "Remove replay from library? Notes will be kept"))) void libraryClient.remove(entry.match_id); }}>{t(locale, "นำออกจากคลัง", "Remove from library")}</button>
-      </article>)}
-    </section></div>}
+    {showList && <div className="analytics-list-overlay" role="dialog" aria-modal="true" aria-label={ANALYTICS_MATCH_LIST_COPY.title}>
+      <section className="analytics-match-list-panel">
+        <header className="analytics-match-list-header"><strong>{ANALYTICS_MATCH_LIST_COPY.title}</strong><div>
+          <button type="button" onClick={() => void pickDem()}>{ANALYTICS_MATCH_LIST_COPY.addDem}</button>
+          <button type="button" aria-label={ANALYTICS_MATCH_LIST_COPY.close} onClick={() => setShowList(false)}>×</button>
+        </div></header>
+        <div className="analytics-match-list-filters">
+          <div className="analytics-library-filters" role="group" aria-label={ANALYTICS_MATCH_LIST_COPY.filterByDay}>
+            {(["all", "today", "7days", "30days"] as const).map(value => <button key={value} type="button" aria-pressed={dateFilter === value}
+              onClick={() => setDateFilter(value)}>{value === "all" ? ANALYTICS_MATCH_LIST_COPY.dateFilters.all
+                : value === "today" ? ANALYTICS_MATCH_LIST_COPY.dateFilters.today
+                  : value === "7days" ? ANALYTICS_MATCH_LIST_COPY.dateFilters.sevenDays : ANALYTICS_MATCH_LIST_COPY.dateFilters.thirtyDays}</button>)}
+            <label className="analytics-match-date-filter">{ANALYTICS_MATCH_LIST_COPY.dateFilters.specific}
+              <input type="date" aria-label={ANALYTICS_MATCH_LIST_COPY.datePicker} value={specificDay}
+                onChange={event => { const value = event.currentTarget.value; setSpecificDay(value); setDateFilter(value ? "specific" : "all"); }} />
+            </label>
+          </div>
+          <div className="analytics-library-filters" role="group" aria-label={ANALYTICS_MATCH_LIST_COPY.filterByResult}>
+            {(["win", "loss", "all"] as const).map(value => <button key={value} type="button" aria-pressed={resultFilter === value}
+              onClick={() => setResultFilter(value)}>{ANALYTICS_MATCH_LIST_COPY.resultFilters[value]}</button>)}
+          </div>
+          <p className="analytics-match-list-count" role="status">{ANALYTICS_MATCH_LIST_COPY.count(matchCount)}</p>
+        </div>
+        <div className="analytics-match-list" role="list" aria-label={ANALYTICS_MATCH_LIST_COPY.title}>
+          <div className="analytics-match-list-columns" aria-hidden="true">
+            <span>{ANALYTICS_MATCH_LIST_COPY.columns.time}</span><span />
+            <span>{ANALYTICS_MATCH_LIST_COPY.columns.hero}</span>
+            <span>{ANALYTICS_MATCH_LIST_COPY.columns.result}</span>
+            <span>{ANALYTICS_MATCH_LIST_COPY.columns.duration}</span>
+            <span>{ANALYTICS_MATCH_LIST_COPY.columns.status}</span>
+            <span>{ANALYTICS_MATCH_LIST_COPY.columns.actions}</span>
+          </div>
+          {matchGroups.length === 0 && <p className="analytics-data-message">{ANALYTICS_MATCH_LIST_COPY.noMatches}</p>}
+          {matchGroups.map(group => <section className="analytics-match-day" key={group.dateKey ?? "unknown-day"}>
+            <h3>{group.label}</h3>
+            {group.entries.map(entry => {
+              const heroId = replayEntryHero(entry);
+              const heroIcon = heroId ? BUNDLED.icons.get(`hero:${heroId.replace(/^npc_dota_hero_/, "").toLowerCase()}`) : null;
+              const matchResult = replayEntryResult(entry);
+              const timestamp = replayEntryTimeMs(entry);
+              const action = analyticsReplayAction(entry.status);
+              const heroName = heroId ? displayHeroName(heroId) : ANALYTICS_MATCH_LIST_COPY.unknownHero;
+              return <article className="analytics-match-row" key={entry.match_id} role="listitem" data-selected={entry.match_id === selectedId}>
+                <button type="button" className="analytics-match-row-open" aria-label={`${ANALYTICS_MATCH_LIST_COPY.open} · ${thaiDate(entry, locale)} · ${heroName}`}
+                  onClick={() => void selectEntry(entry)}>
+                  <time>{timestamp === null ? ANALYTICS_MATCH_LIST_COPY.unknownTime : formatReplayMatchTime(timestamp, locale)}</time>
+                  <span className="analytics-match-row-hero-icon" aria-hidden="true">{heroIcon ? <img src={heroIcon} alt="" /> : "?"}</span>
+                  <strong>{heroName}</strong>
+                  <span className="analytics-match-row-result" data-result={matchResult ?? "unknown"}>{matchResult ? ANALYTICS_MATCH_LIST_COPY.result[matchResult] : ANALYTICS_MATCH_LIST_COPY.result.unknown}</span>
+                  <span>{entry.duration_s === null ? ANALYTICS_MATCH_LIST_COPY.unknownDuration : clock(entry.duration_s)}</span>
+                  <span className="analytics-match-row-status">{statusText(entry.status, locale)}</span>
+                </button>
+                <div className="analytics-match-row-actions">
+                  {action === "reparse" ? <button type="button" disabled={entry.source_exists !== true}
+                    title={entry.source_exists === true ? ANALYTICS_MATCH_LIST_COPY.reparseTitle(entry.bundle_schema ?? "ไม่ทราบ") : ANALYTICS_MATCH_LIST_COPY.sourceMissing}
+                    onClick={() => void libraryClient.reparse(entry.match_id).then(() => refresh(), () => setError(ANALYTICS_MATCH_LIST_COPY.reparseFailed))}>
+                    {ANALYTICS_MATCH_LIST_COPY.reparse}</button>
+                    : action && <button type="button" onClick={() => void parseSelectedEntry(entry)}>
+                      {action === "retry" ? ANALYTICS_MATCH_LIST_COPY.retry : ANALYTICS_MATCH_LIST_COPY.parse}</button>}
+                  <button type="button" onClick={() => void togglePin(entry)}>{entry.pinned ? t(locale, "เลิกปักหมุด", "Unpin") : t(locale, "เก็บไว้", "Keep")}</button>
+                  <button type="button" onClick={() => {
+                    if (window.confirm(ANALYTICS_MATCH_LIST_COPY.removeConfirm)) void libraryClient.remove(entry.match_id)
+                      .then(() => refresh(), () => setError(ANALYTICS_MATCH_LIST_COPY.removeFailed));
+                  }}>{ANALYTICS_MATCH_LIST_COPY.remove}</button>
+                </div>
+              </article>;
+            })}
+          </section>)}
+        </div>
+      </section>
+    </div>}
   </div>;
 }
 

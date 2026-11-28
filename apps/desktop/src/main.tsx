@@ -9,6 +9,8 @@ import {
   type ChipState,
 } from "./overlayModel";
 import { OverlayStage } from "./OverlayStage";
+import { startBannerWarmup } from "./bannerWarmup";
+import bannerWarmupUrl from "./assets/overlay/banner-warmup.webm";
 import { HudStage } from "./HudStage";
 import { OrbStage } from "./orb/OrbStage";
 import { DraftStage } from "./draft/DraftStage";
@@ -67,6 +69,8 @@ function OverlayView({ MockHarness }: { MockHarness?: ComponentType }) {
     && navigator.userAgent.includes("Windows");
   const [hostContentVisible, setHostContentVisible] = useState(false);
   const [hostVisibilityReady, setHostVisibilityReady] = useState(!windowsNativeOverlay);
+  const [hostStatusSeen, setHostStatusSeen] = useState(false);
+  const stopBannerWarmup = useRef<(() => void) | null>(null);
   const previousVisualId = useRef<string | null>(null);
   const visualId = playback.visual?.playback_id ?? null;
   const currentVisualId = useRef<string | null>(visualId);
@@ -81,6 +85,7 @@ function OverlayView({ MockHarness }: { MockHarness?: ComponentType }) {
       const media = mediaFromOverlayStatus(payload);
       if (!media) return;
       const at = performance.now();
+      setHostStatusSeen(true);
       setNowMs(at);
       setChip((state) => reduceChip(state, { type: "status", media, now_ms: at }));
     });
@@ -125,6 +130,17 @@ function OverlayView({ MockHarness }: { MockHarness?: ComponentType }) {
       stopContentVisibility?.();
     };
   }, [windowsNativeOverlay]);
+
+  // Warm the banner video path once, invisibly, after the host's first status (host set up, window
+  // mapped) and before any banner; a banner that starts first ends the warm-up at once.
+  useEffect(() => {
+    if (!hostStatusSeen || stopBannerWarmup.current || currentVisualId.current) return;
+    stopBannerWarmup.current = startBannerWarmup(bannerWarmupUrl);
+  }, [hostStatusSeen]);
+  useEffect(() => {
+    if (visualId) stopBannerWarmup.current?.();
+  }, [visualId]);
+  useEffect(() => () => stopBannerWarmup.current?.(), []);
 
   useEffect(() => {
     const at = performance.now();

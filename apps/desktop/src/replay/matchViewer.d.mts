@@ -2,6 +2,14 @@ import type { IconKind, MatchBundle } from "./matchBundle";
 import type { MapCalibration, ReplayPatchData } from "./replayPack.mjs";
 import type { StatIconDefinition, StatIconId, StatKey } from "../live/statIcons/catalog";
 import type { HeroCardDisplay } from "../shared/heroCardDisplay.mjs";
+export function drawCenteredPortrait(
+  context: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): boolean;
 export function mountMatchView(
   root: ShadowRoot,
   bundle: MatchBundle,

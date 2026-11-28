@@ -11,6 +11,14 @@
     "upstream_license": "MIT (upstream notice; not independently reviewed)",
     "network_fetch": false
   },
+  "map_asset": {
+    "game_build": "6993",
+    "image_file": "map.png",
+    "source_texture_path": "materials/overviews/dota_737_psd_28d44696.vtex_c",
+    "image_bytes": 1171098,
+    "image_sha256": "7ee63aeffdc94cc63038029364285c962a31ab4521855b67d1d3aa361cfa43e6",
+    "rights_note": "Valve game art. Rights review required before public release."
+  },
   "source_files": [
     {
       "patch": "7.41f",
@@ -49,6 +57,12 @@
       "file": "replay-data.json",
       "bytes": 129858,
       "sha256": "e39752d20bab1a6c330c1d2bb3ab8d0e4eddbf77d4ead12664176b5d1b42ba1c"
+    },
+    {
+      "patch": "7.41f",
+      "file": "map.png",
+      "bytes": 1171098,
+      "sha256": "7ee63aeffdc94cc63038029364285c962a31ab4521855b67d1d3aa361cfa43e6"
     }
   ]
 }

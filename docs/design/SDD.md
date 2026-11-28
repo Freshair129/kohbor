@@ -145,7 +145,7 @@ For UI-011 and MEDIA-009, allocate a native mixer module. One host COM thread ow
 |---|---|---|---|
 | Maintain approved local evidence and bounded derived snapshots/summaries with durable forget behavior. | Permitted local events/archive metadata, explicit completion/outcome evidence and user read/forget/delete actions. | Versioned source-supported aggregates, at most three complete-session summary points and durable forget acknowledgement. | Corrupt cutoff fails closed. No inferred outcomes, peer history or cloud export. Snapshot replacement is atomic; memory clear preserves separately governed journals. |
 
-**Primary SRS allocation:** `MEM-001`, `MEM-002`, `MEM-003`, `MEM-004`, `MEM-005`, `MEM-006`, `MEM-007`.
+**Primary SRS allocation:** `MEM-001`, `MEM-002`, `MEM-003`, `MEM-004`, `MEM-005`, `MEM-006`, `MEM-007`, `MEM-008`.
 
 **Collaborating components:** CMP-INGEST, CMP-READMODEL, CMP-VOICE, CMP-ADVICE.
 

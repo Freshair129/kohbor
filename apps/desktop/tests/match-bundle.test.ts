@@ -265,10 +265,10 @@ test("bundled icons resolve by exact name from the newest build, else to a named
   assert.equal(icon("hero", "beta").startsWith("/assets/"), false, "never another hero's icon");
 });
 
-test("the Match view has no icon folder picker and loads the bundled set", () => {
+test("the Match view has no icon folder picker and selects the patch's bundled set", () => {
   const panel = readFileSync(new URL("../src/replay/MatchViewPanel.tsx", import.meta.url), "utf8");
   assert.doesNotMatch(panel, /webkitdirectory|readIcons/);
-  assert.match(panel, /BUNDLED\.icons/);
+  assert.match(panel, /replayIconsForPatch\(initialBundle\.patch\)/);
   const glob = readFileSync(new URL("../src/replay/bundledIcons.ts", import.meta.url), "utf8");
   assert.match(glob, /import\.meta\.glob/);
 });

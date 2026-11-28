@@ -20,7 +20,7 @@ import type { SecondMonitorSide } from "../live/secondMonitorModel";
 import { overviewClient } from "../overview/overviewClient";
 import { parseMatchHistory, type MatchHistory } from "../overview/overviewModel";
 import { pregameDashboardModel } from "../live/pregameDashboardModel";
-import { frozenRosterSlots, postGameSummaryModel, type PostGameBenchmarkInput, type PostGameReplayInput, type ReplayWatcherView } from "../live/postGameSummaryModel";
+import { frozenRosterSlots, postGameSummaryModel, type PostGameBenchmarkInput, type PostGameReplayInput, type PostGameReplayStateInput, type ReplayWatcherView } from "../live/postGameSummaryModel";
 import { loadMatchRecap, type MatchRecapSnapshot } from "../packs/recapModel";
 import { PregameDashboard } from "../live/PregameDashboard";
 import { PostGameSummary } from "../live/PostGameSummary";
@@ -53,12 +53,13 @@ type CachedBenchmarksReply = {
   benchmarks: PostGameBenchmarkInput["cached"] | null;
 };
 
-function CenteredLiveField({ locale, status, snapshot, hostLost, steamStatus, matchEnded, state, own, loadout, stale, draftBar, roster, ownTeam, ownSlot, allyCards, enemyCards, onOpenReplay }: {
+function CenteredLiveField({ locale, status, snapshot, hostLost, steamStatus, matchEnded, state, own, loadout, stale, draftBar, roster, ownTeam, ownSlot, allyCards, enemyCards, onOpenReplay, onOpenReplaySettings }: {
   locale: Locale; status: RuntimeStatus | null; snapshot: OwnSnapshot | null; hostLost: boolean; steamStatus: SteamStatus | null;
   matchEnded: boolean;
   state: DeckStateView; own: ReturnType<typeof deriveOwnHeroViewModel>; loadout: ReturnType<typeof deriveLoadoutViewModel>;
   stale: boolean; draftBar: ReturnType<typeof useDraftBar>; roster: ReturnType<typeof useRosterMemory>; ownTeam: "radiant" | "dire" | null;
   ownSlot: number | null; allyCards: HeroCard[]; enemyCards: HeroCard[]; onOpenReplay: (matchKey?: string) => void;
+  onOpenReplaySettings?: () => void;
 }) {
   const text = deckCopy(locale);
   const cardsText = cardCopy(locale === "en" ? "en" : "th");
@@ -133,13 +134,16 @@ function CenteredLiveField({ locale, status, snapshot, hostLost, steamStatus, ma
     const refresh = async () => {
       const generation = ++refreshGeneration;
       const replayArgs = phase === "post_game" && statusEpoch !== null ? { sessionEpoch: statusEpoch } : { sessionEpoch: null };
-      const [replayResult, historyResult] = await Promise.allSettled([
+      const [replayResult, replayStateResult, historyResult] = await Promise.allSettled([
         invoke<PostGameReplayInput>("post_game_replay_summary", replayArgs),
+        invoke<PostGameReplayStateInput>("post_game_replay_state", replayArgs),
         overviewClient.matchHistory(0),
       ]);
       if (!active || generation !== refreshGeneration) return;
       if (replayResult.status === "fulfilled") {
-        const reply = replayResult.value;
+        const reply = replayStateResult.status === "fulfilled"
+          ? { ...replayResult.value, parseState: replayStateResult.value.state, parseContext: replayStateResult.value.context }
+          : replayResult.value;
         setPostGameReplay(reply);
         setWatcher(reply.watcher ?? { state: "unknown", folder: "unknown", lastScanAtMs: null });
         const ended = reply.lastFinishedMatch;
@@ -300,6 +304,7 @@ function CenteredLiveField({ locale, status, snapshot, hostLost, steamStatus, ma
             </div>
           </> : showPostGame ? <PostGameSummary summary={summary} locale={locale === "en" ? "en" : "th"}
             onClose={() => { setFrozenRosterMemory(null); setPostGameBenchmarks(null); setPostGame(value => value ? { ...value, dismissed: true } : null); }} onOpenReplay={onOpenReplay}
+            onOpenReplaySettings={onOpenReplaySettings}
             onPickReplay={() => { void pickReplay(); }} pickPending={pickPending} pickFailed={pickFailed} />
             : showReopenPostGame ? <button type="button" className="live-postgame-reopen"
               onClick={() => setPostGame(value => value ? { ...value, dismissed: false } : null)}>
@@ -329,6 +334,7 @@ export function Deck({
   matchEnded = false,
   secondMonitor,
   onOpenReplay = () => {},
+  onOpenReplaySettings,
 }: {
   locale: Locale;
   status: RuntimeStatus | null;
@@ -339,6 +345,7 @@ export function Deck({
   inMatch: boolean;
   matchEnded?: boolean;
   onOpenReplay?: (matchKey?: string) => void;
+  onOpenReplaySettings?: () => void;
   /** Second-monitor mode (UI-016). Present only while a match runs and a monitor side is set. */
   secondMonitor?: { side: Exclude<SecondMonitorSide, "off"> };
 }) {
@@ -366,5 +373,5 @@ export function Deck({
   );
   return <CenteredLiveField locale={locale} status={status} snapshot={snapshot} hostLost={hostLost} steamStatus={steamStatus} matchEnded={matchEnded}
     state={state} own={own} loadout={loadout} stale={stale} draftBar={draftBar} roster={roster} ownTeam={cardTeam}
-    ownSlot={ownSlot} allyCards={allyCards} enemyCards={enemyCards} onOpenReplay={onOpenReplay} />;
+    ownSlot={ownSlot} allyCards={allyCards} enemyCards={enemyCards} onOpenReplay={onOpenReplay} onOpenReplaySettings={onOpenReplaySettings} />;
 }

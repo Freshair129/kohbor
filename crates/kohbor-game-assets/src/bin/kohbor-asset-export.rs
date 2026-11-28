@@ -9,7 +9,8 @@
 //! must not exist yet, so a rerun never mixes two builds or two tool versions.
 //!
 //! Usage:
-//!   kohbor-asset-export --out <dir> [--game <dota 2 beta dir>] [--map-entry <vpk path>]
+//!   kohbor-asset-export --out <dir> [--game <dota 2 beta dir>] [--map-style detailed|simple] [--map-entry <vpk path>]
+//!   kohbor-asset-export --map-only --out <dir> [--game <dota 2 beta dir>] [--map-style detailed|simple] [--map-entry <vpk path>]
 //!   kohbor-asset-export --preview <vpk path> <out.png> [--game <dir>]
 //!   kohbor-asset-export --list-prefix <vpk path prefix> <extension> <path fragment> [--game <dir>]
 //!   kohbor-asset-export --stat-icon-formats [--game <dir>]
@@ -21,6 +22,7 @@ use kohbor_game_assets::{
     decode_vtex_c_for_display, decode_vtex_c_for_display_with_format, game_stats, icon_name,
     IconKind, Image, TextureDecodeFlags, Vpk, STAT_ICON_SOURCES,
 };
+use kohbor_game_assets::keyvalues::{self, KvObject, KvValue};
 use std::fmt::Write as _;
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
@@ -28,12 +30,46 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::{collections::BTreeSet, error::Error};
 
-/// Minimap overview. The Match view's prototype calibration (matchTables.mjs
-/// `MAP`) was fitted on a 1024 px 7.41 minimap whose frame and art match this
-/// 7.37 overview within a few pixels; `dota_psd_8b4a9409` shows the newer
-/// corner features but at a different scale, so it would need its own fit.
-const MAP_ENTRIES: [&str; 1] = ["materials/overviews/dota_737_psd_28d44696.vtex_c"];
 const MAP_SIZE: u32 = 1024;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum MapStyle {
+    Detailed,
+    Simple,
+}
+
+impl MapStyle {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Detailed => "detailed",
+            Self::Simple => "simple",
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct OverviewConfig {
+    material: String,
+    simple_material: String,
+    pos_x: f64,
+    pos_y: f64,
+    scale: f64,
+}
+
+#[derive(Clone, Debug)]
+struct MapOverview {
+    style: MapStyle,
+    source_path: String,
+    material_logical_path: String,
+    simple_material_logical_path: String,
+    material_path: String,
+    texture_path: String,
+    pos_x: f64,
+    pos_y: f64,
+    scale: f64,
+    source_texture_bytes: u64,
+    source_texture_sha256: String,
+}
 
 fn card_size(kind: IconKind) -> (u32, u32) {
     match kind {
@@ -47,11 +83,13 @@ struct Args {
     out: Option<PathBuf>,
     game: Option<PathBuf>,
     map_entry: Option<String>,
+    map_style: MapStyle,
     preview: Option<(String, PathBuf)>,
     stats_only: bool,
     stat_icons_only: bool,
     refresh_stat_icons: bool,
     stat_icon_formats: bool,
+    map_only: bool,
     list_prefix: Option<(String, String, String)>,
 }
 
@@ -174,6 +212,48 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         println!("sha256: {}", hex(&sha256(json.as_bytes())));
         return Ok(());
     }
+
+    let overview = match resolve_map_overview(&vpk, args.map_style) {
+        Ok(overview) => Some(overview),
+        Err(error) if args.map_entry.is_some() => {
+            eprintln!("overview metadata unavailable for explicit --map-entry: {error}");
+            None
+        }
+        Err(error) => return Err(error),
+    };
+    let map_entry = args
+        .map_entry
+        .clone()
+        .or_else(|| overview.as_ref().map(|overview| overview.texture_path.clone()));
+    if args.map_only {
+        let entry = map_entry.ok_or("no minimap texture resolved")?;
+        if out.exists() {
+            return Err(format!("{} already exists; refusing to mix exports", out.display()).into());
+        }
+        fs::create_dir_all(&out)?;
+        let out = fs::canonicalize(&out)?;
+        refuse_inside(&out, &game)?;
+        let (image, source_bytes) = load_map(&vpk, &entry)?;
+        let png = encode_png(&map_export_image(&image))?;
+        let file = out.join("map.png");
+        let written = record_from_source(&out, &file, &png, &entry)?;
+        write_new(&file, &png)?;
+        let provenance = map_provenance_json(
+            &build,
+            &game,
+            overview.as_ref(),
+            args.map_entry.as_deref(),
+            &entry,
+            source_bytes.len() as u64,
+            &hex(&sha256(&source_bytes)),
+            &image,
+            &written,
+        );
+        write_new(&out.join("provenance.json"), provenance.as_bytes())?;
+        println!("map: {entry} ({}x{})", image.width, image.height);
+        println!("map.png: {} bytes sha256={}", written.bytes, written.sha256);
+        return Ok(());
+    }
     if out.exists() {
         return Err(format!("{} already exists; remove it first", out.display()).into());
     }
@@ -205,7 +285,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     continue;
                 }
             };
-            let png = encode_png(&fit(&image, w, h))?;
+            let png = encode_png(&fit(&image, w, h, ResampleFilter::Nearest))?;
             written.push(record_from_source(&out, &file, &png, entry.path())?);
             write_new(&file, &png)?;
             count += 1;
@@ -214,20 +294,21 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         counts.push((kind.out_dir(), count));
     }
 
-    let candidates: Vec<String> = match args.map_entry {
-        Some(entry) => vec![entry],
-        None => MAP_ENTRIES.iter().map(|s| (*s).to_owned()).collect(),
-    };
+    let candidates: Vec<String> = map_entry.into_iter().collect();
     let mut map_source = None;
+    let mut map_source_bytes = None;
+    let mut map_source_sha256 = None;
     for entry in &candidates {
-        match load(&vpk, entry) {
-            Ok(image) => {
-                let png = encode_png(&fit(&image, MAP_SIZE, MAP_SIZE))?;
+        match load_map(&vpk, entry) {
+            Ok((image, source_bytes)) => {
+                let png = encode_png(&map_export_image(&image))?;
                 let file = out.join("map.png");
                 written.push(record_from_source(&out, &file, &png, entry)?);
                 write_new(&file, &png)?;
                 println!("map: {entry} ({}x{})", image.width, image.height);
                 map_source = Some(entry.clone());
+                map_source_bytes = Some(source_bytes.len() as u64);
+                map_source_sha256 = Some(hex(&sha256(&source_bytes)));
                 break;
             }
             Err(error) => failures.push(format!("{entry}: {error}")),
@@ -248,6 +329,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         &failures,
         &written,
         total,
+        overview.as_ref(),
+        map_source_bytes,
+        map_source_sha256.as_deref(),
     );
     write_new(&out.join("provenance.json"), provenance.as_bytes())?;
     Ok(())
@@ -258,11 +342,13 @@ fn parse_args(mut args: impl Iterator<Item = String>) -> Result<Args, String> {
         out: None,
         game: None,
         map_entry: None,
+        map_style: MapStyle::Detailed,
         preview: None,
         stats_only: false,
         stat_icons_only: false,
         refresh_stat_icons: false,
         stat_icon_formats: false,
+        map_only: false,
         list_prefix: None,
     };
     while let Some(arg) = args.next() {
@@ -271,10 +357,18 @@ fn parse_args(mut args: impl Iterator<Item = String>) -> Result<Args, String> {
             "--out" => parsed.out = Some(PathBuf::from(value("--out")?)),
             "--game" => parsed.game = Some(PathBuf::from(value("--game")?)),
             "--map-entry" => parsed.map_entry = Some(value("--map-entry")?),
+            "--map-style" => {
+                parsed.map_style = match value("--map-style")?.as_str() {
+                    "detailed" => MapStyle::Detailed,
+                    "simple" => MapStyle::Simple,
+                    other => return Err(format!("--map-style must be detailed or simple, got {other}")),
+                };
+            }
             "--stats-only" => parsed.stats_only = true,
             "--stat-icons-only" => parsed.stat_icons_only = true,
             "--refresh-stat-icons" => parsed.refresh_stat_icons = true,
             "--stat-icon-formats" => parsed.stat_icon_formats = true,
+            "--map-only" => parsed.map_only = true,
             "--list-prefix" => {
                 let prefix = value("--list-prefix")?;
                 let extension = value("--list-prefix")?;
@@ -293,22 +387,137 @@ fn parse_args(mut args: impl Iterator<Item = String>) -> Result<Args, String> {
         parsed.stats_only,
         parsed.stat_icons_only,
         parsed.refresh_stat_icons,
+        parsed.map_only,
     ]
     .into_iter()
     .filter(|selected| *selected)
     .count();
     if export_modes > 1 || (parsed.stat_icon_formats && export_modes > 0) {
         return Err(
-            "--stats-only, --stat-icons-only, --refresh-stat-icons and --stat-icon-formats are mutually exclusive"
+            "--stats-only, --stat-icons-only, --refresh-stat-icons, --map-only and --stat-icon-formats are mutually exclusive"
                 .into(),
         );
     }
     Ok(parsed)
 }
 
-fn load(vpk: &Vpk, path: &str) -> Result<Image, Box<dyn std::error::Error>> {
+fn load_map(vpk: &Vpk, path: &str) -> Result<(Image, Vec<u8>), Box<dyn std::error::Error>> {
     let entry = vpk.find(path).ok_or_else(|| format!("{path} not found"))?;
-    Ok(decode_vtex_c_for_display(&vpk.read(&entry)?)?)
+    let bytes = vpk.read(&entry)?;
+    let image = decode_vtex_c_for_display(&bytes)?;
+    Ok((image, bytes))
+}
+
+fn parse_overview_text(text: &str) -> Result<OverviewConfig, String> {
+    fn find(object: &KvObject) -> Option<OverviewConfig> {
+        let config = OverviewConfig {
+            material: object.scalar("material")?.trim().to_owned(),
+            simple_material: object.scalar("simple_material")?.trim().to_owned(),
+            pos_x: object.scalar("pos_x")?.parse().ok()?,
+            pos_y: object.scalar("pos_y")?.parse().ok()?,
+            scale: object.scalar("scale")?.parse().ok()?,
+        };
+        [config.pos_x, config.pos_y, config.scale]
+            .into_iter()
+            .all(f64::is_finite)
+            .then_some(config)
+    }
+    fn visit(object: &KvObject) -> Option<OverviewConfig> {
+        find(object).or_else(|| object.entries().iter().find_map(|(_, value)| match value {
+            KvValue::Object(child) => visit(child),
+            KvValue::Scalar(_) => None,
+        }))
+    }
+
+    let root = keyvalues::parse(text).map_err(|error| error.to_string())?;
+    visit(&root).ok_or_else(|| "overview has no material, simple_material and calibration".to_owned())
+}
+
+fn overview_material(config: &OverviewConfig, style: MapStyle) -> &str {
+    match style {
+        MapStyle::Detailed => &config.material,
+        MapStyle::Simple => &config.simple_material,
+    }
+}
+
+fn compiled_material_path(path: &str) -> Result<String, String> {
+    let path = path.trim().replace('\\', "/");
+    let lower = path.to_ascii_lowercase();
+    if lower.ends_with(".vmat_c") {
+        return Ok(path);
+    }
+    if lower.ends_with(".vmat") {
+        return Ok(format!("{}_c", path));
+    }
+    Err(format!("overview material is not a .vmat path: {path}"))
+}
+
+fn extract_vmat_texture_reference(bytes: &[u8]) -> Result<String, String> {
+    fn normalize_token(token: &str) -> Option<String> {
+        let token = token.replace('\\', "/");
+        let lower = token.to_ascii_lowercase();
+        if lower.ends_with(".vtex_c") {
+            Some(token)
+        } else if lower.ends_with(".vtex") {
+            Some(format!("{}.vtex_c", &token[..token.len() - ".vtex".len()]))
+        } else {
+            None
+        }
+    }
+
+    let text = String::from_utf8_lossy(bytes);
+    let mut candidates = BTreeSet::new();
+    let mut token = String::new();
+    for ch in text.chars().chain(std::iter::once(' ')) {
+        if ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.' | '/' | '\\') {
+            token.push(ch);
+        } else {
+            if let Some(path) = normalize_token(&token) {
+                candidates.insert(path);
+            }
+            token.clear();
+        }
+    }
+    match candidates.len() {
+        1 => Ok(candidates.into_iter().next().unwrap()),
+        0 => Err("compiled material contains no .vtex_c reference".to_owned()),
+        _ => Err(format!("compiled material contains ambiguous texture references: {}", candidates.into_iter().collect::<Vec<_>>().join(", "))),
+    }
+}
+
+fn resolve_map_overview(vpk: &Vpk, style: MapStyle) -> Result<MapOverview, Box<dyn std::error::Error>> {
+    let overview_entry = vpk
+        .find("resource/overviews/dota.txt")
+        .ok_or("resource/overviews/dota.txt is absent from the installed VPK")?;
+    let source_path = overview_entry.path().to_owned();
+    let overview_text = String::from_utf8(vpk.read(&overview_entry)?)?;
+    let config = parse_overview_text(&overview_text)?;
+    let selected_material = overview_material(&config, style);
+    let material_path = compiled_material_path(selected_material)?;
+    let material_entry = vpk
+        .find(&material_path)
+        .ok_or_else(|| format!("{} is absent from the installed VPK", material_path))?;
+    let material_path = material_entry.path().to_owned();
+    let material_bytes = vpk.read(&material_entry)?;
+    let texture_path = extract_vmat_texture_reference(&material_bytes)?;
+    let texture_entry = vpk
+        .find(&texture_path)
+        .ok_or_else(|| format!("{} referenced by the {} material is absent from the installed VPK", texture_path, style.as_str()))?;
+    let texture_path = texture_entry.path().to_owned();
+    let texture_bytes = vpk.read(&texture_entry)?;
+    Ok(MapOverview {
+        style,
+        source_path,
+        material_logical_path: config.material,
+        simple_material_logical_path: config.simple_material,
+        material_path,
+        texture_path,
+        pos_x: config.pos_x,
+        pos_y: config.pos_y,
+        scale: config.scale,
+        source_texture_bytes: texture_bytes.len() as u64,
+        source_texture_sha256: hex(&sha256(&texture_bytes)),
+    })
 }
 
 fn load_with_format(
@@ -637,6 +846,9 @@ fn provenance_json(
     failures: &[String],
     written: &[Written],
     total: u64,
+    map_overview: Option<&MapOverview>,
+    map_source_bytes: Option<u64>,
+    map_source_sha256: Option<&str>,
 ) -> String {
     let mut s = String::new();
     let date = utc_date();
@@ -670,9 +882,18 @@ fn provenance_json(
     let _ = writeln!(s, "    }},");
     let _ = writeln!(
         s,
-        "    \"map\": {}",
+        "    \"map\": {},",
         map_source.map_or_else(|| "null".to_owned(), json_str)
     );
+    let _ = writeln!(s, "    \"overview\": {},", overview_provenance_json(map_overview));
+    let source_texture = match (map_source, map_source_bytes, map_source_sha256) {
+        (Some(path), Some(bytes), Some(hash)) => format!(
+            "{{ \"sourcePath\": {}, \"bytes\": {}, \"sha256\": {} }}",
+            json_str(path), bytes, json_str(hash)
+        ),
+        _ => "null".to_owned(),
+    };
+    let _ = writeln!(s, "    \"mapSourceTexture\": {source_texture}");
     let _ = writeln!(s, "  }},");
     let _ = writeln!(s, "  \"sizes\": {{ \"heroes\": [128, 72], \"abilities\": [64, 64], \"items\": [88, 64], \"map\": [{MAP_SIZE}, {MAP_SIZE}] }},");
     let count_text: Vec<String> = counts
@@ -723,6 +944,56 @@ fn provenance_json(
         })
         .collect();
     let _ = writeln!(s, "  \"files\": [\n{}\n  ]", files.join(",\n"));
+    let _ = writeln!(s, "}}");
+    s
+}
+
+fn overview_provenance_json(overview: Option<&MapOverview>) -> String {
+    let Some(overview) = overview else {
+        return "null".to_owned();
+    };
+    format!(
+        "{{ \"sourcePath\": {}, \"style\": {}, \"materialLogicalPath\": {}, \"simpleMaterialLogicalPath\": {}, \"selectedMaterialCompiledPath\": {}, \"selectedTexturePath\": {}, \"textureReference\": {{ \"sourcePath\": {}, \"bytes\": {}, \"sha256\": {} }}, \"pos_x\": {}, \"pos_y\": {}, \"scale\": {} }}",
+        json_str(&overview.source_path),
+        json_str(overview.style.as_str()),
+        json_str(&overview.material_logical_path),
+        json_str(&overview.simple_material_logical_path),
+        json_str(&overview.material_path),
+        json_str(&overview.texture_path),
+        json_str(&overview.texture_path),
+        overview.source_texture_bytes,
+        json_str(&overview.source_texture_sha256),
+        overview.pos_x,
+        overview.pos_y,
+        overview.scale,
+    )
+}
+
+fn map_provenance_json(
+    build: &str,
+    game: &Path,
+    overview: Option<&MapOverview>,
+    map_entry_override: Option<&str>,
+    selected_texture: &str,
+    selected_source_bytes: u64,
+    selected_source_sha256: &str,
+    source_image: &Image,
+    written: &Written,
+) -> String {
+    let mut s = String::new();
+    let _ = writeln!(s, "{{");
+    let _ = writeln!(s, "  \"schema\": \"kohbor.dota-overview-map/1\",");
+    let _ = writeln!(s, "  \"gameBuild\": {},", json_str(build));
+    let vpk = relative_game_path(game, &game.join("game/dota/pak01_dir.vpk"))
+        .unwrap_or_else(|_| "game/dota/pak01_dir.vpk".to_owned());
+    let _ = writeln!(s, "  \"vpk\": {},", json_str(&vpk));
+    let _ = writeln!(s, "  \"overview\": {},", overview_provenance_json(overview));
+    let override_value = map_entry_override.map_or_else(|| "null".to_owned(), json_str);
+    let _ = writeln!(s, "  \"mapEntryOverride\": {override_value},");
+    let _ = writeln!(s, "  \"selectedTexture\": {{ \"sourcePath\": {}, \"bytes\": {}, \"sha256\": {}, \"dimensions\": [{}, {}] }},", json_str(selected_texture), selected_source_bytes, json_str(selected_source_sha256), source_image.width, source_image.height);
+    let upsample_note = map_resampling_note(source_image);
+    let _ = writeln!(s, "  \"map\": {{ \"path\": {}, \"bytes\": {}, \"sha256\": {}, \"sourcePath\": {}, \"dimensions\": [{}, {}], \"resampling\": {} }},", json_str(&written.rel), written.bytes, json_str(&written.sha256), json_str(selected_texture), MAP_SIZE, MAP_SIZE, json_str(upsample_note));
+    let _ = writeln!(s, "  \"rights\": \"Valve game art. Rights review required before public release.\"");
     let _ = writeln!(s, "}}");
     s
 }
@@ -1025,10 +1296,15 @@ fn civil_from_days(days: i64) -> (i64, u32, u32) {
 
 /* ---------------- image fitting ---------------- */
 
-/// Centre-crop to the target aspect ratio, then area-average down (or
-/// up-sample by the same weights) with premultiplied alpha so transparent
-/// edges do not bleed dark fringes.
-fn fit(image: &Image, width: u32, height: u32) -> Image {
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ResampleFilter {
+    Nearest,
+    Smooth,
+}
+
+/// Centre-crop to the target aspect ratio, area-average down, and select the
+/// requested upsampling filter. Premultiplied alpha avoids dark fringes.
+fn fit(image: &Image, width: u32, height: u32, filter: ResampleFilter) -> Image {
     let (sw, sh) = (image.width as f64, image.height as f64);
     let target = width as f64 / height as f64;
     let (cw, ch) = if sw / sh > target {
@@ -1037,8 +1313,8 @@ fn fit(image: &Image, width: u32, height: u32) -> Image {
         (sw, sw / target)
     };
     let (cx, cy) = ((sw - cw) / 2.0, (sh - ch) / 2.0);
-    let xs = weights(cx, cw, image.width, width);
-    let ys = weights(cy, ch, image.height, height);
+    let xs = weights(cx, cw, image.width, width, filter);
+    let ys = weights(cy, ch, image.height, height, filter);
     let premul: Vec<[f64; 4]> = image
         .rgba
         .chunks_exact(4)
@@ -1086,8 +1362,34 @@ fn fit(image: &Image, width: u32, height: u32) -> Image {
     }
 }
 
+fn map_export_image(image: &Image) -> Image {
+    if image.width == MAP_SIZE && image.height == MAP_SIZE {
+        image.clone()
+    } else {
+        fit(image, MAP_SIZE, MAP_SIZE, ResampleFilter::Smooth)
+    }
+}
+
+fn map_resampling_note(image: &Image) -> &'static str {
+    if image.width == MAP_SIZE && image.height == MAP_SIZE {
+        "source 1024 px, native-size export with no upscale or resampling"
+    } else if image.width == 512 && image.height == 512 && MAP_SIZE == 1024 {
+        "source 512 px, upscaled to 1024 with smooth bilinear filtering"
+    } else if image.width < MAP_SIZE || image.height < MAP_SIZE {
+        "source texture upscaled to 1024 with smooth bilinear filtering"
+    } else {
+        "source texture fitted to 1024 using smooth filtering"
+    }
+}
+
 /// For each output pixel, the source pixels it covers and their overlap.
-fn weights(start: f64, span: f64, source: u32, out: u32) -> Vec<Vec<(u32, f64)>> {
+fn weights(
+    start: f64,
+    span: f64,
+    source: u32,
+    out: u32,
+    filter: ResampleFilter,
+) -> Vec<Vec<(u32, f64)>> {
     let scale = span / f64::from(out);
     (0..out)
         .map(|i| {
@@ -1097,9 +1399,25 @@ fn weights(start: f64, span: f64, source: u32, out: u32) -> Vec<Vec<(u32, f64)>>
             );
             let mut taps = Vec::new();
             if scale <= 1.0 {
-                // Up-sampling or same size: nearest source pixel.
-                let s = ((a + b) / 2.0).floor().clamp(0.0, f64::from(source - 1)) as u32;
-                taps.push((s, 1.0));
+                match filter {
+                    ResampleFilter::Nearest => {
+                        let s = ((a + b) / 2.0).floor().clamp(0.0, f64::from(source - 1)) as u32;
+                        taps.push((s, 1.0));
+                    }
+                    ResampleFilter::Smooth => {
+                        let center = (a + b) / 2.0 - 0.5;
+                        let lower = center.floor();
+                        let fraction = center - lower;
+                        let first = lower.clamp(0.0, f64::from(source - 1)) as u32;
+                        let second = (lower + 1.0).clamp(0.0, f64::from(source - 1)) as u32;
+                        taps.push((first, 1.0 - fraction));
+                        if second == first {
+                            taps[0].1 += fraction;
+                        } else {
+                            taps.push((second, fraction));
+                        }
+                    }
+                }
             } else {
                 let mut s = a.floor();
                 while s < b {
@@ -1304,6 +1622,156 @@ mod tests {
     use super::*;
 
     #[test]
+    fn overview_parser_reads_both_materials_and_official_calibration() {
+        let parsed = parse_overview_text(
+            r#"
+            "Overview" {
+                "material" "materials/overviews/dota.vmat"
+                "simple_material" "materials/overviews/dota_minimal.vmat"
+                "pos_x" "-9472"
+                "pos_y" "9472"
+                "scale" "18.5"
+            }
+            "Other" { "value" "ignored" }
+            "#,
+        )
+        .expect("synthetic overview");
+        assert_eq!(parsed.material, "materials/overviews/dota.vmat");
+        assert_eq!(parsed.simple_material, "materials/overviews/dota_minimal.vmat");
+        assert_eq!((parsed.pos_x, parsed.pos_y, parsed.scale), (-9472.0, 9472.0, 18.5));
+        assert_eq!(overview_material(&parsed, MapStyle::Detailed), "materials/overviews/dota.vmat");
+        assert_eq!(overview_material(&parsed, MapStyle::Simple), "materials/overviews/dota_minimal.vmat");
+        assert_eq!(
+            compiled_material_path(overview_material(&parsed, MapStyle::Detailed)).unwrap(),
+            "materials/overviews/dota.vmat_c"
+        );
+        assert_eq!(
+            compiled_material_path(overview_material(&parsed, MapStyle::Simple)).unwrap(),
+            "materials/overviews/dota_minimal.vmat_c"
+        );
+    }
+
+    #[test]
+    fn detailed_map_style_is_default_and_both_styles_can_be_selected() {
+        assert_eq!(parse_args(Vec::<String>::new().into_iter()).unwrap().map_style, MapStyle::Detailed);
+        assert_eq!(
+            parse_args(["--map-style", "simple"].map(str::to_owned).into_iter()).unwrap().map_style,
+            MapStyle::Simple
+        );
+        assert_eq!(
+            parse_args(["--map-style", "detailed"].map(str::to_owned).into_iter()).unwrap().map_style,
+            MapStyle::Detailed
+        );
+        assert!(parse_args(["--map-style", "fast"].map(str::to_owned).into_iter()).is_err());
+    }
+
+    #[test]
+    fn overview_provenance_records_both_logical_materials_and_selected_texture() {
+        let overview = MapOverview {
+            style: MapStyle::Detailed,
+            source_path: "resource/overviews/dota.txt".into(),
+            material_logical_path: "materials/overviews/dota.vmat".into(),
+            simple_material_logical_path: "materials/overviews/dota_minimal.vmat".into(),
+            material_path: "materials/overviews/dota.vmat_c".into(),
+            texture_path: "materials/overviews/dota_tga_d8178876.vtex_c".into(),
+            pos_x: -9472.0,
+            pos_y: 9472.0,
+            scale: 18.5,
+            source_texture_bytes: 12,
+            source_texture_sha256: "abc".into(),
+        };
+        let json = overview_provenance_json(Some(&overview));
+        assert!(json.contains("\"style\": \"detailed\""));
+        assert!(json.contains("materials/overviews/dota.vmat"));
+        assert!(json.contains("materials/overviews/dota_minimal.vmat"));
+        assert!(json.contains("materials/overviews/dota_tga_d8178876.vtex_c"));
+    }
+
+    #[test]
+    fn map_entry_override_is_recorded_without_losing_dota_txt_calibration() {
+        let args = parse_args(
+            [
+                "--map-only",
+                "--out",
+                "out",
+                "--map-style",
+                "detailed",
+                "--map-entry",
+                "materials/overviews/dota_psd_8b4a9409.vtex_c",
+            ]
+            .map(str::to_owned)
+            .into_iter(),
+        )
+        .expect("explicit map entry with detailed overview selection");
+        assert_eq!(args.map_entry.as_deref(), Some("materials/overviews/dota_psd_8b4a9409.vtex_c"));
+        assert_eq!(args.map_style, MapStyle::Detailed);
+
+        let overview = MapOverview {
+            style: MapStyle::Detailed,
+            source_path: "resource/overviews/dota.txt".into(),
+            material_logical_path: "materials/overviews/dota.vmat".into(),
+            simple_material_logical_path: "materials/overviews/dota_minimal.vmat".into(),
+            material_path: "materials/overviews/dota.vmat_c".into(),
+            texture_path: "materials/overviews/dota_tga_d8178876.vtex_c".into(),
+            pos_x: -9472.0,
+            pos_y: 9472.0,
+            scale: 18.5,
+            source_texture_bytes: 12,
+            source_texture_sha256: "abc".into(),
+        };
+        let override_path = "materials/overviews/dota_psd_8b4a9409.vtex_c";
+        let image = Image { width: 1024, height: 1024, rgba: Vec::new() };
+        let written = Written {
+            rel: "map.png".into(),
+            source_path: Some(override_path.into()),
+            bytes: 123,
+            sha256: "def".into(),
+        };
+        let json = map_provenance_json(
+            "6997",
+            Path::new("G:/steam/steamapps/common/dota 2 beta"),
+            Some(&overview),
+            args.map_entry.as_deref(),
+            override_path,
+            456,
+            "ghi",
+            &image,
+            &written,
+        );
+        assert!(json.contains("\"mapEntryOverride\": \"materials/overviews/dota_psd_8b4a9409.vtex_c\""));
+        assert!(json.contains("\"pos_x\": -9472, \"pos_y\": 9472, \"scale\": 18.5"));
+        assert!(json.contains("\"selectedTexture\": { \"sourcePath\": \"materials/overviews/dota_psd_8b4a9409.vtex_c\""));
+        assert!(json.contains("\"resampling\": \"source 1024 px, native-size export with no upscale or resampling\""));
+    }
+
+    #[test]
+    fn native_1024_map_export_preserves_pixels_and_reports_no_upscale() {
+        let image = Image {
+            width: MAP_SIZE,
+            height: MAP_SIZE,
+            rgba: vec![17, 23, 31, 255].repeat((MAP_SIZE * MAP_SIZE) as usize),
+        };
+        assert_eq!(map_export_image(&image), image);
+        assert_eq!(map_resampling_note(&image), "source 1024 px, native-size export with no upscale or resampling");
+    }
+
+    #[test]
+    fn compiled_material_texture_reference_extracts_a_vtex_c_path() {
+        for (material, texture) in [
+            ("dota.vmat_c", "dota_tga_d8178876.vtex_c"),
+            ("dota_minimal.vmat_c", "dota_minimal_psd_f4e53729.vtex_c"),
+        ] {
+            let bytes = format!("\x01\0g_tColor\0materials/overviews/{texture}\0");
+            let path = extract_vmat_texture_reference(bytes.as_bytes()).expect("one texture reference");
+            assert_eq!(path, format!("materials/overviews/{texture}"), "{material}");
+        }
+        assert_eq!(
+            extract_vmat_texture_reference(b"textures/dota_minimal.vtex\0").unwrap(),
+            "textures/dota_minimal.vtex_c"
+        );
+    }
+
+    #[test]
     fn sha256_matches_the_fips_vectors() {
         assert_eq!(
             hex(&sha256(b"")),
@@ -1349,10 +1817,10 @@ mod tests {
                 .copied()
                 .collect(),
         };
-        let half = fit(&image, 2, 1);
+        let half = fit(&image, 2, 1, ResampleFilter::Nearest);
         assert_eq!(half.rgba, [128, 128, 128, 255, 128, 128, 128, 255]);
         // 4x2 to a square keeps the centre 2x2.
-        let square = fit(&image, 2, 2);
+        let square = fit(&image, 2, 2, ResampleFilter::Nearest);
         assert_eq!((square.width, square.height), (2, 2));
         assert_eq!(&square.rgba[..4], &[255, 255, 255, 255]);
         // A transparent pixel does not darken its opaque neighbour's colour.
@@ -1361,7 +1829,21 @@ mod tests {
             height: 2,
             rgba: vec![200, 100, 50, 255, 0, 0, 0, 0, 200, 100, 50, 255, 0, 0, 0, 0],
         };
-        assert_eq!(fit(&edge, 1, 1).rgba, [200, 100, 50, 128]);
+        assert_eq!(fit(&edge, 1, 1, ResampleFilter::Nearest).rgba, [200, 100, 50, 128]);
+    }
+
+    #[test]
+    fn smooth_filter_interpolates_when_upscaling_the_detailed_overview() {
+        let image = Image {
+            width: 2,
+            height: 1,
+            rgba: vec![0, 0, 0, 255, 255, 255, 255, 255],
+        };
+        let upscaled = fit(&image, 4, 1, ResampleFilter::Smooth);
+        assert_eq!((upscaled.width, upscaled.height), (4, 1));
+        assert_eq!(upscaled.rgba[4], 64);
+        assert_eq!(upscaled.rgba[8], 191);
+        assert_eq!(upscaled.rgba[12], 255);
     }
 
     #[test]

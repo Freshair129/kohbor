@@ -1969,6 +1969,43 @@
       ],
       "safe_interim": "Until the redesign ships, the current Stage 1 and Stage 2 behaviour stays; UI-002 remains NOT_RUN.",
       "closure_evidence": "Owner words “Approve as recommended” in the lead session on 2026-11-27, recorded by an agent. No implementation or evidence exists yet."
+    },
+    {
+      "id": "DEC-REPLAY-AUTOFETCH",
+      "status": "decided",
+      "milestone": "M5",
+      "blocks": "Opt-in automatic replay acquisition through OpenDota and Valve's replay host (MEM-008) only.",
+      "owner_role": "product owner",
+      "decided_by": "product_owner",
+      "decided_on": "2026-11-27",
+      "channel": "decided by the product owner 2026-11-27 in the lead session, recorded by an agent",
+      "owner_words": "Approve as recommended",
+      "decision": "The product owner approved CR-REPLAY-AUTOFETCH (F:\\kohbor-coord\\design\\replay-autofetch-20261127\\CR.md) as recommended.\n1. Option B: an opt-in switch that, after the player's own match ends, asks OpenDota for the replay location with the in-memory match ID, downloads the replay from Valve's replay host, decompresses it and hands it to the existing local parse queue. Analysis stays local; no OpenDota match statistics are displayed.\n2. The switch is off by default and is a consent separate from the OpenDota history and benchmark switches.\n3. The downloaded replay is deleted after a successful parse.\n4. The fetch starts automatically at match end (after the player leaves the match), not from a button.\n5. Measure first: one owner match ID was sent on 2026-11-27 under DEC-REPLAY-INTEGRATION item 12 (F:\\kohbor-coord\\runs\\replay-autofetch-measure-20261127\\RESULT.md): replay_url was present without a parse request about 1 h after the match, the rate-limit headers read 60 per minute and 3,000 per day, the replay host is plain HTTP (HTTPS handshake fails), the file named .dem.bz2 is Zstandard, 46.4 MB downloaded in 8.6 s and decompressed to a .dem byte-identical to Dota's own download.\nThis amends DEC-REPLAY-INTEGRATION item 6 (later, on demand) to automatic-at-match-end under the opt-in.",
+      "reason": "The owner found the manual download step in Dota unnecessary compared with other companion apps that fetch by match ID.",
+      "alternatives_considered": [
+        "Keep the manual Dota download with live replay-state guidance only (option A; kept as the behaviour while the switch is off).",
+        "Show OpenDota's computed match statistics instead of a local parse (option C; rejected: a second data source for the same screen).",
+        "Default the switch on (rejected: every Kohbor network consent defaults off).",
+        "Keep downloaded replays (rejected: about 90 MB each).",
+        "Fetch only from a post-game button (rejected: the owner wants no manual step)."
+      ],
+      "affected_need_ids": [
+        "PN-008"
+      ],
+      "affected_requirement_ids": [
+        "MEM-008",
+        "MEM-007",
+        "UI-002"
+      ],
+      "related": [
+        "DEC-REPLAY-INTEGRATION",
+        "DEC-REPLAY-AUTO-PARSE",
+        "DEC-POSITIONING-20261125",
+        "DEC-POSTGAME-BREAKDOWN",
+        "DEC-COACH-REVIEW"
+      ],
+      "safe_interim": "Until MEM-008 ships and its switch is turned on, replays arrive only through Dota's own download and the watched folder; no match ID leaves the device.",
+      "closure_evidence": "Owner words “Approve as recommended” in the lead session on 2026-11-27, recorded by an agent; measurement receipt RESULT.md. No implementation exists yet."
     }
   ]
 }

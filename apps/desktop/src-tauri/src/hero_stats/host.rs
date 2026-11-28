@@ -675,7 +675,7 @@ impl Core {
                 self.latch_failed_ticket(ticket);
                 self.set_failure(Failure::Timeout, now_ms, None, None)
             }
-            Err(TransportError::NotSent) => {
+            Err(TransportError::NotSent | TransportError::LocalFailure) => {
                 log_fetch_failed(ticket.request, "setup", None);
                 self.latch_failed_ticket(ticket);
                 self.set_failure(Failure::Network, now_ms, None, None);
@@ -1539,6 +1539,8 @@ mod tests {
             Ok(HttpResponse {
                 status: 200,
                 retry_after: None,
+                rate_limit_remaining_minute: None,
+                rate_limit_remaining_day: None,
                 body: b"[]".to_vec(),
             })
         }
@@ -1718,6 +1720,8 @@ mod tests {
             Ok(HttpResponse {
                 status: 200,
                 retry_after: None,
+                rate_limit_remaining_minute: None,
+                rate_limit_remaining_day: None,
                 body: b"[]".to_vec(),
             }),
             1_000_002,
@@ -2042,6 +2046,8 @@ mod tests {
             Ok(HttpResponse {
                 status: 429,
                 retry_after: Some("60".to_owned()),
+                rate_limit_remaining_minute: None,
+                rate_limit_remaining_day: None,
                 body: Vec::new(),
             }),
             5_000_000,
@@ -2079,6 +2085,8 @@ mod tests {
                 Ok(HttpResponse {
                     status: 503,
                     retry_after: None,
+                    rate_limit_remaining_minute: None,
+                    rate_limit_remaining_day: None,
                     body: b"secret body".to_vec(),
                 }),
                 5_000_001,
@@ -2143,6 +2151,8 @@ mod tests {
                 Ok(HttpResponse {
                     status: 503,
                     retry_after: None,
+                    rate_limit_remaining_minute: None,
+                    rate_limit_remaining_day: None,
                     body: Vec::new(),
                 }),
                 1,
@@ -2215,6 +2225,8 @@ mod tests {
             Ok(HttpResponse {
                 status: 429,
                 retry_after: Some("1".to_owned()),
+                rate_limit_remaining_minute: None,
+                rate_limit_remaining_day: None,
                 body: Vec::new(),
             }),
             now,
@@ -2301,13 +2313,17 @@ mod tests {
                 OutgoingRequest::HeroStats => valid_hero_stats(),
                 OutgoingRequest::LaneRoles(_) => b"[]".to_vec(),
                 OutgoingRequest::OwnHeroDurations(_) => unreachable!(),
-                OutgoingRequest::BenchmarksHeroes | OutgoingRequest::Benchmarks(_) => unreachable!(),
+                OutgoingRequest::BenchmarksHeroes | OutgoingRequest::Benchmarks(_) => {
+                    unreachable!()
+                }
             };
             core.finish(
                 ticket,
                 Ok(HttpResponse {
                     status: 200,
                     retry_after: None,
+                    rate_limit_remaining_minute: None,
+                    rate_limit_remaining_day: None,
                     body,
                 }),
                 8_000_000 + i,

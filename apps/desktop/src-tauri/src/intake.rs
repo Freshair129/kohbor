@@ -3,13 +3,15 @@
 
 use crate::audio::lanes::{Control, EngineTx, TickMsg};
 use crate::clock::MonoClock;
-use crate::match_history::{match_type_from_gsi, MatchEntry, MatchHistoryStore, MatchResult, MatchTracker};
+use crate::match_history::{
+    match_type_from_gsi, MatchEntry, MatchHistoryStore, MatchResult, MatchTracker,
+};
 use crate::objectives::{MapDiagnostic, ObjectiveIntakeWiring, ObjectiveRuntimeFlags};
 use crate::{atomic, secrets};
 use base64::Engine;
 use kohbor_events::{
-    adapter::{tick_from_admitted, ultimate_context_from_admitted}, Detector, Event, EventId,
-    ObjectiveAlertBatch, ObjectiveScheduler,
+    adapter::{tick_from_admitted, ultimate_context_from_admitted},
+    Detector, Event, EventId, ObjectiveAlertBatch, ObjectiveScheduler,
 };
 use kohbor_gsi::admission::{
     parse_objective_map_fields, parse_own_loadout, token_matches, Admitted, DraftScreen, Field,
@@ -113,7 +115,9 @@ impl LastFinishedMatchRecord {
             && self.end_values.hero_id.as_ref().is_none_or(|hero| {
                 hero.starts_with("npc_dota_hero_")
                     && hero.len() <= 64
-                    && hero.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+                    && hero
+                        .bytes()
+                        .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
             })
             && self.end_values.items.as_ref().is_none_or(|items| {
                 items.len() == 6 && items.iter().flatten().all(|item| valid_item_id(item))
@@ -121,7 +125,11 @@ impl LastFinishedMatchRecord {
             && self.end_values.backpack.as_ref().is_none_or(|items| {
                 items.len() == 3 && items.iter().flatten().all(|item| valid_item_id(item))
             })
-            && self.end_values.neutral_item.as_ref().is_none_or(|item| valid_item_id(item))
+            && self
+                .end_values
+                .neutral_item
+                .as_ref()
+                .is_none_or(|item| valid_item_id(item))
     }
 }
 
@@ -129,20 +137,27 @@ fn valid_item_id(item: &str) -> bool {
     item.strip_prefix("item_").is_some_and(|tail| {
         !tail.is_empty()
             && tail.len() <= 64
-            && tail.bytes().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+            && tail
+                .bytes()
+                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
     })
 }
 
 fn observed_item_names(body: &Value, first_slot: u8, count: u8) -> Option<Vec<Option<String>>> {
     let items = body.get("items")?.as_object()?;
-    Some((first_slot..first_slot + count).map(|slot| {
-        let key = format!("slot{slot}");
-        items.get(&key)
-            .and_then(|value| value.get("name"))
-            .and_then(Value::as_str)
-            .filter(|name| valid_item_id(name))
-            .map(str::to_owned)
-    }).collect())
+    Some(
+        (first_slot..first_slot + count)
+            .map(|slot| {
+                let key = format!("slot{slot}");
+                items
+                    .get(&key)
+                    .and_then(|value| value.get("name"))
+                    .and_then(Value::as_str)
+                    .filter(|name| valid_item_id(name))
+                    .map(str::to_owned)
+            })
+            .collect(),
+    )
 }
 
 fn observed_neutral_item(body: &Value) -> Option<String> {
@@ -282,6 +297,7 @@ fn runtime_path(dir: &Path) -> PathBuf {
 
 pub(crate) fn default_settings() -> Value {
     json!({"schema_version": "1.0.0", "revision": 1, "locale": "th",
+           "replay_auto_fetch_enabled": false,
            "gsi": {"game_dir": null, "port": null, "config_sha256": null, "token_ref": null}})
 }
 
@@ -500,7 +516,10 @@ impl Shared {
 
     pub(crate) fn current_match_id_for_epoch(&self, epoch: u64) -> Option<String> {
         (self.epoch == Some(epoch)
-            && self.last_finished_match.as_ref().is_some_and(|record| record.epoch == epoch))
+            && self
+                .last_finished_match
+                .as_ref()
+                .is_some_and(|record| record.epoch == epoch))
         .then(|| self.session_match_id.clone())
         .flatten()
     }
@@ -617,8 +636,15 @@ impl Shared {
                 items: observed_item_names(body, 0, 6),
                 backpack: observed_item_names(body, 6, 3),
                 neutral_item: observed_neutral_item(body),
-                game_mode: body.pointer("/map/game_mode").and_then(Value::as_u64).and_then(|value| u32::try_from(value).ok()),
-                patch: body.pointer("/map/game_version").and_then(Value::as_str).filter(|value| !value.is_empty()).map(str::to_owned),
+                game_mode: body
+                    .pointer("/map/game_mode")
+                    .and_then(Value::as_u64)
+                    .and_then(|value| u32::try_from(value).ok()),
+                patch: body
+                    .pointer("/map/game_version")
+                    .and_then(Value::as_str)
+                    .filter(|value| !value.is_empty())
+                    .map(str::to_owned),
             },
             ended_at,
         };
@@ -672,7 +698,10 @@ impl Shared {
             .and_then(|v| serde_json::from_value(v["sessions"].clone()).ok());
         let last_finished_match = rt
             .as_ref()
-            .and_then(|v| serde_json::from_value::<LastFinishedMatchRecord>(v["last_finished_match"].clone()).ok())
+            .and_then(|v| {
+                serde_json::from_value::<LastFinishedMatchRecord>(v["last_finished_match"].clone())
+                    .ok()
+            })
             .filter(LastFinishedMatchRecord::valid);
         // A runtime-state file that exists but cannot be read back is corrupt. The
         // epoch counter must still never be reused (GSI-INTAKE-SPEC §6): with no
@@ -1020,9 +1049,7 @@ impl Shared {
     /// verified live payload. A known match ID reuses the same install-keyed session hash as
     /// match history; an absent ID leaves the hash unknown so the recorder marks its epoch
     /// fallback explicitly instead of reusing stale match identity.
-    #[cfg(
-        feature = "lab"
-    )]
+    #[cfg(feature = "lab")]
     pub(crate) fn minimap_recorder_snapshot_at(
         &self,
         now: Instant,
@@ -1293,12 +1320,14 @@ impl Shared {
                         SessionChange::Resumed { epoch } => {
                             self.epoch = Some(epoch);
                             self.verify_session_hero(a);
-                            self.session_match_id = a.match_id.clone().or(self.session_match_id.take());
+                            self.session_match_id =
+                                a.match_id.clone().or(self.session_match_id.take());
                         }
                         SessionChange::Unchanged { epoch } => {
                             self.epoch = Some(epoch);
                             self.verify_session_hero(a);
-                            self.session_match_id = a.match_id.clone().or(self.session_match_id.take());
+                            self.session_match_id =
+                                a.match_id.clone().or(self.session_match_id.take());
                         }
                         SessionChange::NoEvidence => self.verify_session_hero(a),
                     }
@@ -1328,11 +1357,8 @@ impl Shared {
                 if let Some(epoch) = self.sessions.current().map(|session| session.epoch) {
                     let at_ms = duration_ms(arrival.saturating_duration_since(self.started_at));
                     let tick = tick_from_admitted(admitted, at_ms, epoch, true);
-                    let ultimate_context = ultimate_context_from_admitted(
-                        admitted,
-                        &loadout,
-                        self.generation.max(1),
-                    );
+                    let ultimate_context =
+                        ultimate_context_from_admitted(admitted, &loadout, self.generation.max(1));
                     let detected = crate::lab::observe_with_ultimate(
                         &mut self.detector,
                         &tick,
@@ -1995,10 +2021,13 @@ mod tests {
         assert_eq!(power["occurrence_seconds"], 480);
         assert_eq!(fresh["map"]["daytime"]["value"], true);
         assert_eq!(fresh["map"]["roshan_respawn_seconds"]["value"], 42);
-        assert_eq!(fresh["map"]["nightstalker_night"], json!({
-            "value": null,
-            "availability": "unknown"
-        }));
+        assert_eq!(
+            fresh["map"]["nightstalker_night"],
+            json!({
+                "value": null,
+                "availability": "unknown"
+            })
+        );
 
         let stale = shared.objective_read_model_at(arrival + Duration::from_secs(3));
         assert_eq!(stale["availability"], "stale");
@@ -2142,18 +2171,45 @@ mod tests {
         // counts in the all-modes win rate (owner, 2026-11-23 "Count all, labelled").
         assert_eq!(e.match_type, crate::match_history::MatchType::Unknown);
         assert_eq!(e.match_key, shared.sessions.current().unwrap().match_key);
-        assert_eq!(shared.phase, None, "the subsequent menu payload leaves the phase at none");
-        let last_match = shared.last_finished_match.clone().expect("post-game record is retained");
+        assert_eq!(
+            shared.phase, None,
+            "the subsequent menu payload leaves the phase at none"
+        );
+        let last_match = shared
+            .last_finished_match
+            .clone()
+            .expect("post-game record is retained");
         assert_eq!(last_match.epoch, shared.epoch.unwrap());
         assert_eq!(last_match.match_key, e.match_key);
-        assert_eq!(last_match.end_values.hero_id.as_deref(), Some("npc_dota_hero_silencer"));
-        assert_eq!(last_match.end_values.result, Some(crate::match_history::MatchResult::Loss));
-        assert_eq!((last_match.end_values.radiant_score, last_match.end_values.dire_score), (Some(36), Some(52)));
+        assert_eq!(
+            last_match.end_values.hero_id.as_deref(),
+            Some("npc_dota_hero_silencer")
+        );
+        assert_eq!(
+            last_match.end_values.result,
+            Some(crate::match_history::MatchResult::Loss)
+        );
+        assert_eq!(
+            (
+                last_match.end_values.radiant_score,
+                last_match.end_values.dire_score
+            ),
+            (Some(36), Some(52))
+        );
         assert_eq!(last_match.end_values.duration_seconds, Some(2101));
         assert_eq!(last_match.end_values.level, Some(22));
-        assert_eq!(last_match.end_values.net_worth, None, "GSI does not supply admitted net worth");
-        assert_eq!(last_match.end_values.items, None, "unobserved item slots stay unknown");
-        assert_eq!(last_match.end_values.backpack, None, "unobserved backpack stays unknown");
+        assert_eq!(
+            last_match.end_values.net_worth, None,
+            "GSI does not supply admitted net worth"
+        );
+        assert_eq!(
+            last_match.end_values.items, None,
+            "unobserved item slots stay unknown"
+        );
+        assert_eq!(
+            last_match.end_values.backpack, None,
+            "unobserved backpack stays unknown"
+        );
         let data_dir = shared.data_dir.clone();
         drop(shared);
         let restarted = Shared::new(data_dir);
@@ -2174,7 +2230,10 @@ mod tests {
             "SteamID64 is never stored"
         );
         assert_eq!(restarted.current_match_id_for_epoch(last_match.epoch), None);
-        assert_eq!(restarted.match_history().view(None)["summary"]["counted"], 1);
+        assert_eq!(
+            restarted.match_history().view(None)["summary"]["counted"],
+            1
+        );
     }
 
     #[test]
@@ -2289,11 +2348,10 @@ mod tests {
         assert_eq!(s.snapshot()["availability"], "unknown");
     }
 
-    #[cfg(
-        feature = "lab"
-    )]
+    #[cfg(feature = "lab")]
     #[test]
-    fn minimap_recorder_snapshot_returns_current_hashed_match_clock_and_side_only_while_fresh_live() {
+    fn minimap_recorder_snapshot_returns_current_hashed_match_clock_and_side_only_while_fresh_live()
+    {
         let mut shared = shared_with_token();
         let token = shared.token.clone().unwrap();
         let mut live = in_game(&token);
@@ -2313,13 +2371,19 @@ mod tests {
         );
         assert_eq!(
             snapshot.match_hash.as_deref(),
-            shared.sessions.current().map(|session| session.match_key.as_str())
+            shared
+                .sessions
+                .current()
+                .map(|session| session.match_key.as_str())
         );
         assert_ne!(snapshot.match_hash.as_deref(), Some("8000000001"));
         assert!(!format!("{snapshot:?}").contains("8000000001"));
 
         let mut missing_match_id = live.clone();
-        missing_match_id["map"].as_object_mut().unwrap().remove("matchid");
+        missing_match_id["map"]
+            .as_object_mut()
+            .unwrap()
+            .remove("matchid");
         assert_eq!(
             shared.accept(
                 &missing_match_id,
@@ -3194,6 +3258,8 @@ mod s0_6_tests {
             // and reads only a local file; no network client.
             "kohbor-lab",
             "flate2",
+            // Replay fetch (MEM-008): pinned local Zstandard decoder, no network client.
+            "ruzstd",
             "tauri",
             "serde",
             "serde_json",

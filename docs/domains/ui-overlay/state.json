@@ -203,6 +203,12 @@
       "type": "design",
       "role": "reference",
       "reviewed_sha256": "8e020ed5179037ce58d383eb5edf2ec5dccf3abb36e80e7652f112eec778820f"
+    },
+    {
+      "path": "tools/banner-warmup/README.md",
+      "type": "code",
+      "role": "reference",
+      "reviewed_sha256": "b5dcb2c7d13a2f1c9493436ff6a8647fac6d1a108ce94696c19e07431498a6d8"
     }
   ],
   "open_questions": [

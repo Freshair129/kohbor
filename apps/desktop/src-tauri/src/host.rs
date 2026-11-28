@@ -811,7 +811,7 @@ fn stop_protocol(protocol: &Mutex<Option<ProtocolServer>>) {
     }
 }
 
-fn unavailable_protocol_response() -> ProtocolResponse {
+pub(crate) fn unavailable_protocol_response() -> ProtocolResponse {
     ProtocolResponse {
         status: 503,
         reason_code: Some("MEDIA_SERVICE_UNAVAILABLE"),

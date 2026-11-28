@@ -111,7 +111,7 @@ test("bundle metadata can be displayed without pretending an unsupported patch h
   assert.equal(detail.durationS, 2460);
 });
 
-test("list view reads host metadata and marks a ready replay needs_pack for an unknown patch", () => {
+test("unlinked list rows keep host hero metadata unknown and mark a ready replay needs_pack for an unknown patch", () => {
   const row = replayListViewModel([{
     ...entry("77", { state: "ready" }),
     match_date_utc: "2026-11-23T21:40:00Z",
@@ -120,7 +120,7 @@ test("list view reads host metadata and marks a ready replay needs_pack for an u
     patch: "7.43",
   }], {}, copy, "en")[0]!;
   assert.equal(row.matchDateLabel, "Nov 24, 2026");
-  assert.equal(row.heroesLabel, "lion");
+  assert.equal(row.heroesLabel, "Unknown");
   assert.equal(row.durationLabel, "Duration 30:00");
   assert.equal(row.status.state, "needs_pack");
   assert.equal(row.canOpen, false);

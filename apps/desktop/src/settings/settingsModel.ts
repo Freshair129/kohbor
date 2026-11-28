@@ -2,7 +2,7 @@ export const SETTINGS_SECTION_STORAGE_KEY = "kohbor.settings-section";
 
 export const SETTINGS_CONTROL_IDS = [
   "locale", "steamName", "glassLevel", "developerMode", "objectiveAlerts", "mapKeyDiagnostics",
-  "objectiveCardLayout", "replayStorage", "replayAutoParse", "analyticsAssistant", "showAppHotkey",
+  "objectiveCardLayout", "replayStorage", "replayAutoParse", "replayAutoFetch", "analyticsAssistant", "showAppHotkey",
   "minimapCropPosition", "minimapCropSize", "minimapCropReset", "minimapDetectCrop", "minimapCropProposal",
   "minimapCropConfirm", "captureDisplayRate", "capturePause", "mapFeedback", "captureRetry", "captureResourceDetails",
   "mockCaptureReason", "newsFeed", "ownHistoryOpenDota", "publicHeroStats", "draftBar", "draftPosition", "draftBracket",
@@ -29,7 +29,7 @@ export const SETTINGS_SECTIONS = [
     ],
     componentIds: ["minimapCapture", "gsiConnection"],
   },
-  { id: "replay-ai", controlIds: ["replayStorage", "replayAutoParse", "analyticsAssistant"], componentIds: ["replayAnalytics"] },
+  { id: "replay-ai", controlIds: ["replayStorage", "replayAutoParse", "replayAutoFetch", "analyticsAssistant"], componentIds: ["replayAnalytics"] },
   { id: "hero-card", controlIds: ["heroCardDisplay"], componentIds: ["heroCardDisplay"] },
   { id: "hotkeys", controlIds: ["showAppHotkey"], componentIds: ["showAppHotkey"] },
   {
@@ -74,8 +74,9 @@ export function rememberSettingsSection(section: SettingsSectionId, storage: Pic
   }
 }
 
-export function initialSettingsSection(entryPoint: "layout" | "hero-card" | null, lastSection: unknown): SettingsSectionId {
+export function initialSettingsSection(entryPoint: "layout" | "hero-card" | "replay-ai" | null, lastSection: unknown): SettingsSectionId {
   if (entryPoint === "layout") return "overlay-layout";
   if (entryPoint === "hero-card") return "hero-card";
+  if (entryPoint === "replay-ai") return "replay-ai";
   return isSettingsSectionId(lastSection) ? lastSection : DEFAULT_SETTINGS_SECTION;
 }

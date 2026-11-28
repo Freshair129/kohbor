@@ -500,7 +500,7 @@ fn transport_code(error: TransportError) -> &'static str {
         TransportError::Timeout => "timeout",
         TransportError::TooLarge => "too_large",
         TransportError::Cancelled | TransportError::CancelledBeforeSend => "cancelled",
-        TransportError::NotSent => "not_sent",
+        TransportError::NotSent | TransportError::LocalFailure => "not_sent",
     }
 }
 
@@ -994,6 +994,8 @@ mod tests {
         HttpResponse {
             status: 200,
             retry_after: None,
+            rate_limit_remaining_minute: None,
+            rate_limit_remaining_day: None,
             body,
         }
     }
@@ -1156,6 +1158,8 @@ mod tests {
             Ok(HttpResponse {
                 status: 404,
                 retry_after: None,
+                rate_limit_remaining_minute: None,
+                rate_limit_remaining_day: None,
                 body: vec![],
             }),
         ]);

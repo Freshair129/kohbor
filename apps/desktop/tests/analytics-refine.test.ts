@@ -102,18 +102,26 @@ test("Analytics viewer uses measured card columns, icon labels, and hosts its pl
   assert.match(viewer, /class="row it" \$\{rowAttr\("it"\)\}>\$\{\[0, 1, 2, 3, 4, 5\]/);
 });
 
-test("Analytics detail uses the selected bundle and time, then exposes its restore control without the report picker", () => {
+test("Analytics detail uses the selected bundle and time, without the removed JSON report reader", () => {
   const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
   const replayPanel = readFileSync(new URL("../src/replay/ReplayPanel.tsx", import.meta.url), "utf8");
   const matchPanel = readFileSync(new URL("../src/replay/MatchViewPanel.tsx", import.meta.url), "utf8");
+  const analyticsPage = readFileSync(new URL("../src/analytics/AnalyticsPage.tsx", import.meta.url), "utf8");
+  const copy = readFileSync(new URL("../src/copy.ts", import.meta.url), "utf8");
   assert.match(app, /onOpenReplay=\{openAnalyticsDetails\}/);
   assert.match(app, /analyticsReturnContext\(analyticsDetail\)/);
   assert.match(replayPanel, /detail\.bundle/);
   assert.match(replayPanel, /detail\.initialTime/);
   assert.match(replayPanel, /analyticsPlayer\.back/);
   assert.match(replayPanel, /initialBundle=\{detail\.bundle\}/);
-  assert.match(matchPanel, /detailOnly/);
-  assert.match(replayPanel, /if \(detail\) return/);
+  assert.doesNotMatch(matchPanel, /detailOnly|pickDemFile|onDragDropEvent|\.dem/);
+  assert.match(matchPanel, /replay-detail/);
+  assert.match(analyticsPage, /onClick=\{\(\) => void pickDem\(\)\}/);
+  assert.match(analyticsPage, /pick: \(\) => invoke<string \| null>\("replay_library_pick_file"\)/);
+  assert.match(copy, /addDem: "เพิ่มไฟล์ \.dem"/);
+  assert.match(replayPanel, /AnalyticsReplayDetailPanel/);
+  assert.doesNotMatch(replayPanel, /ReportReplay|CoachPanel|\.json/);
+  assert.doesNotMatch(app, /ReplayPanel locale|insightsViews/);
 });
 
 test("right rail is 44 px, retains the avatar and wraps its 12 px friend label", () => {

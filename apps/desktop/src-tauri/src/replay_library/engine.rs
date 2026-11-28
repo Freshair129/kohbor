@@ -9,11 +9,11 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
-pub const ENGINE_VERSION: &str = "0.4.2";
-pub const ENGINE_SHA256: &str = "789fe0153462af12432ad6a11083c656209937467812b88d4dc20b83bdf499b0";
-pub const ENGINE_SIZE_BYTES: u64 = 5_204_480;
-pub const ENGINE_SOURCE_COMMIT: &str = "6626b20a02477b0bb8c14de3e5565a09e6ab9eb2";
-pub const BUNDLE_SCHEMA: &str = "3.2";
+pub const ENGINE_VERSION: &str = "0.5.0";
+pub const ENGINE_SHA256: &str = "c3aa986727cd53b83f560336ef60edfa47b89a6a25e0d191d706cec5e8953f4b";
+pub const ENGINE_SIZE_BYTES: u64 = 5_334_528;
+pub const ENGINE_SOURCE_COMMIT: &str = "240f694495a3e93a82bf77f60d6295096a89eeef";
+pub const BUNDLE_SCHEMA: &str = "3.3";
 pub const MAX_DEM_BYTES: u64 = 400 * 1024 * 1024;
 pub const MAX_MANIFEST_BYTES: u64 = 1 * 1024 * 1024;
 pub const MAX_MATCH_BYTES: u64 = 48 * 1024 * 1024;
@@ -99,7 +99,7 @@ fn pinned_hash(hash: &str) -> bool {
 }
 
 fn supported_bundle_schema(schema: &str) -> bool {
-    matches!(schema, "3.0" | "3.1" | BUNDLE_SCHEMA)
+    matches!(schema, "3.0" | "3.1" | "3.2" | BUNDLE_SCHEMA)
 }
 
 pub fn sha256_bytes(bytes: &[u8]) -> String {
@@ -606,7 +606,59 @@ fn validate_match_meta_additions(meta: &Value, schema: &str) -> bool {
             .as_array()
             .is_some_and(|entries| entries.iter().all(valid_draft_entry))
     }) && validate_reasoned_field(meta, "daynight", "daynight_reason", valid_daynight)
-        && (schema != "3.2" || meta.get("daynight").is_some())
+        && (schema != "3.2" && schema != "3.3" || meta.get("daynight").is_some())
+        && (schema != "3.3"
+            || (meta.get("camps").is_some()
+                && validate_reasoned_field(meta, "camps", "camps_reason", valid_camps)
+                && uint_field(meta, "gold_unattached").is_some()
+                && uint_field(meta, "neut_gold_unattached").is_some()))
+}
+
+fn valid_camps(value: &Value) -> bool {
+    value.is_null() || value.as_array().is_some_and(|camps| {
+        camps.iter().all(|camp| {
+            let Some(camp) = camp.as_object() else {
+                return false;
+            };
+            let camp_type = camp.get("type");
+            let type_valid = match camp_type {
+                Some(value) if value.is_null() => camp
+                    .get("type_reason")
+                    .and_then(Value::as_str)
+                    .is_some_and(|reason| !reason.is_empty()),
+                Some(value) => {
+                    matches!(value.as_str(), Some("small" | "medium" | "large" | "ancient"))
+                        && !camp.contains_key("type_reason")
+                }
+                None => false,
+            };
+            let expected_len = if camp.get("type").is_some_and(Value::is_null) { 5 } else { 4 };
+            camp.len() == expected_len
+                && camp.get("id").and_then(Value::as_u64).is_some()
+                && camp.get("x").and_then(Value::as_i64).is_some()
+                && camp.get("y").and_then(Value::as_i64).is_some()
+                && type_valid
+        })
+    })
+}
+
+fn valid_neut_gold(value: &Value) -> bool {
+    value.as_array().is_some_and(|rows| {
+        rows.iter().all(|row| {
+            row.as_array().is_some_and(|parts| {
+                parts.len() == 3
+                    && parts[0].as_f64().is_some_and(f64::is_finite)
+                    && (parts[1].is_null() || parts[1].as_u64().is_some())
+                    && parts[2].as_u64().is_some()
+            })
+        })
+    })
+}
+
+fn valid_bounty(value: &Value) -> bool {
+    value.is_null() || value.as_object().is_some_and(|bounty| {
+        bounty.iter().all(|(hero, gold)| valid_hero_id(hero) && gold.as_u64().is_some())
+    })
 }
 
 fn validate_damage_out(value: &Value) -> bool {
@@ -639,8 +691,12 @@ fn validate_hero_additions(hero: &Value, schema: &str) -> bool {
         .map_or(true, validate_damage_out);
     let mods_long_valid = hero.get("mods_long").map_or(true, valid_mods_long);
     let mod_stacks_valid = hero.get("mod_stacks").map_or(true, valid_mod_stacks);
-    let schema32_required = schema != "3.2" || (hero.get("mods_long").is_some() && hero.get("mod_stacks").is_some());
-    earned_valid && final_valid && damage_valid && mods_long_valid && mod_stacks_valid && schema32_required
+    let schema32_required = !matches!(schema, "3.2" | "3.3") || (hero.get("mods_long").is_some() && hero.get("mod_stacks").is_some());
+    let schema33_required = schema != "3.3"
+        || (hero.get("neut_gold").is_some()
+            && hero.get("neut_gold_unattached").and_then(Value::as_u64).is_some()
+            && validate_reasoned_field(hero, "neut_gold", "neut_gold_reason", valid_neut_gold));
+    earned_valid && final_valid && damage_valid && mods_long_valid && mod_stacks_valid && schema32_required && schema33_required
 }
 
 fn validate_manifest(value: &Value) -> Result<String, EngineFailure> {
@@ -723,7 +779,11 @@ fn validate_manifest(value: &Value) -> Result<String, EngineFailure> {
 }
 
 fn validate_match(value: &Value) -> Result<(String, String), EngineFailure> {
-    object(value).ok_or(EngineFailure::InvalidBundle)?;
+    let match_object = object(value).ok_or(EngineFailure::InvalidBundle)?;
+    const MATCH_KEYS: [&str; 9] = ["meta", "t0", "t1", "dtick", "heroes", "deaths", "names", "statdb", "sampleT"];
+    if match_object.keys().any(|key| !MATCH_KEYS.contains(&key.as_str())) {
+        return Err(EngineFailure::InvalidBundle);
+    }
     if !number_field(value, "t0")
         || !number_field(value, "t1")
         || !number_field(value, "dtick")
@@ -806,6 +866,13 @@ fn validate_match(value: &Value) -> Result<(String, String), EngineFailure> {
                 .all(|name| has_array(death, name))
             || !has_object(death, "seen")
             || !integer_field(death, "out")
+            || (schema == "3.3"
+                && (death.get("gold_lost").is_none()
+                    || !validate_reasoned_field(death, "gold_lost", "gold_lost_reason", |value| {
+                        value.as_u64().is_some()
+                    })
+                    || death.get("bounty").is_none()
+                    || !validate_reasoned_field(death, "bounty", "bounty_reason", valid_bounty)))
     }) {
         return Err(EngineFailure::InvalidBundle);
     }
@@ -1003,7 +1070,7 @@ mod tests {
     }
 
     fn match_fixture(schema: &str, unknown_new_values: bool, dem_sha: &str) -> Value {
-        let engine_version = match schema { "3.0" => "0.2.0", "3.1" => "0.3.0", _ => ENGINE_VERSION };
+        let engine_version = match schema { "3.0" => "0.2.0", "3.1" => "0.3.0", "3.2" => "0.4.2", _ => ENGINE_VERSION };
         let mut match_doc = json!({
             "meta": {
                 "schema": schema,
@@ -1039,7 +1106,7 @@ mod tests {
             "sampleT": []
         });
 
-        if schema == "3.1" || schema == "3.2" {
+        if matches!(schema, "3.1" | "3.2" | "3.3") {
             if unknown_new_values {
                 match_doc["meta"]["winner"] = Value::Null;
                 match_doc["meta"]["winner_reason"] = json!("not recorded in the replay");
@@ -1058,7 +1125,7 @@ mod tests {
             }
             match_doc["heroes"][0]["dmg_out"] = json!({"total": 75, "p": 25, "m": 40, "u": 10});
         }
-        if schema == "3.2" {
+        if matches!(schema, "3.2" | "3.3") {
             match_doc["meta"]["daynight"] = if unknown_new_values {
                 match_doc["meta"]["daynight_reason"] = json!("not in replay");
                 Value::Null
@@ -1072,11 +1139,27 @@ mod tests {
             ]);
             match_doc["heroes"][0]["mod_stacks"] = json!([[1.2, "modifier_alpha_permanent", 1], [2.0, "modifier_alpha_permanent", 0]]);
         }
+        if schema == "3.3" {
+            match_doc["meta"]["camps"] = json!([{"id":0,"x":-8313,"y":-553,"type":"small"}]);
+            match_doc["meta"]["gold_unattached"] = json!(0);
+            match_doc["meta"]["neut_gold_unattached"] = json!(0);
+            match_doc["heroes"][0]["neut_gold"] = json!([[10.0, 0, 100]]);
+            match_doc["heroes"][0]["neut_gold_unattached"] = json!(0);
+            match_doc["deaths"] = json!([{
+                "t": 1.0,
+                "hero": "npc_dota_hero_alpha",
+                "killer": null,
+                "last": [], "by": [], "win": [], "hits": [], "heals": [],
+                "seen": {}, "out": 0,
+                "gold_lost": null, "gold_lost_reason": "not recorded",
+                "bounty": null, "bounty_reason": "not recorded"
+            }]);
+        }
         match_doc
     }
 
     fn write_bundle_fixture(directory: &Path, manifest_schema: &str, match_doc: &Value, dem_sha: &str) {
-        let engine_version = match manifest_schema { "3.0" => "0.2.0", "3.1" => "0.3.0", _ => ENGINE_VERSION };
+        let engine_version = match manifest_schema { "3.0" => "0.2.0", "3.1" => "0.3.0", "3.2" => "0.4.2", _ => ENGINE_VERSION };
         let world_doc = json!({
             "v": 1, "qh": 8, "qu": 30, "t0": 0,
             "heroes": {}, "tracks": [], "runes": []
@@ -1351,15 +1434,15 @@ mod tests {
 
     #[test]
     fn non_pinned_hash_is_not_in_the_allowlist() {
-        assert_eq!(ENGINE_VERSION, "0.4.2");
+        assert_eq!(ENGINE_VERSION, "0.5.0");
         assert_eq!(
             ENGINE_SHA256,
-            "789fe0153462af12432ad6a11083c656209937467812b88d4dc20b83bdf499b0"
+            "c3aa986727cd53b83f560336ef60edfa47b89a6a25e0d191d706cec5e8953f4b"
         );
-        assert_eq!(ENGINE_SIZE_BYTES, 5_204_480);
+        assert_eq!(ENGINE_SIZE_BYTES, 5_334_528);
         assert_eq!(
             ENGINE_SOURCE_COMMIT,
-            "6626b20a02477b0bb8c14de3e5565a09e6ab9eb2"
+            "240f694495a3e93a82bf77f60d6295096a89eeef"
         );
         assert!(!pinned_hash(&sha256_bytes(b"wrong engine")));
         assert!(pinned_hash(ENGINE_SHA256));
@@ -1417,7 +1500,7 @@ mod tests {
     }
 
     #[test]
-    fn structural_validation_accepts_schemas_3_0_3_1_and_3_2_and_rejects_3_3() {
+    fn structural_validation_accepts_schemas_3_0_through_3_3_and_rejects_schema_mismatch() {
         let directory = temp_dir("schema-3-2");
         let dem_sha = "d".repeat(64);
         for schema in ["3.0", "3.1", "3.2"] {
@@ -1433,10 +1516,35 @@ mod tests {
 
         let match_doc = match_fixture("3.3", false, &dem_sha);
         write_bundle_fixture(&directory, "3.3", &match_doc, &dem_sha);
-        assert_eq!(
-            validate_bundle_dir(&directory, &dem_sha),
-            Err(EngineFailure::InvalidBundle)
-        );
+        assert!(validate_bundle_dir(&directory, &dem_sha).is_ok(), "schema 3.3");
+
+        let mut missing = match_doc.clone();
+        missing["heroes"][0].as_object_mut().unwrap().remove("neut_gold_unattached");
+        write_bundle_fixture(&directory, "3.3", &missing, &dem_sha);
+        assert_eq!(validate_bundle_dir(&directory, &dem_sha), Err(EngineFailure::InvalidBundle), "schema 3.3 requires every appended key");
+
+        let mut forbidden_top_level = match_doc.clone();
+        forbidden_top_level["opponent_stats"] = json!({});
+        write_bundle_fixture(&directory, "3.3", &forbidden_top_level, &dem_sha);
+        assert_eq!(validate_bundle_dir(&directory, &dem_sha), Err(EngineFailure::InvalidBundle), "match remains closed");
+
+        for (path, parent) in [
+            ("gold_lost_reason", "/deaths/0"),
+            ("bounty_reason", "/deaths/0"),
+        ] {
+            let mut missing_reason = match_doc.clone();
+            missing_reason.pointer_mut(parent).unwrap().as_object_mut().unwrap().remove(path);
+            write_bundle_fixture(&directory, "3.3", &missing_reason, &dem_sha);
+            assert_eq!(validate_bundle_dir(&directory, &dem_sha), Err(EngineFailure::InvalidBundle), "missing reason: {path}");
+        }
+        let mut reason_for_known_neutral_gold = match_doc.clone();
+        reason_for_known_neutral_gold["heroes"][0]["neut_gold_reason"] = json!("unexpected");
+        write_bundle_fixture(&directory, "3.3", &reason_for_known_neutral_gold, &dem_sha);
+        assert_eq!(validate_bundle_dir(&directory, &dem_sha), Err(EngineFailure::InvalidBundle), "known neut_gold must not have a reason");
+        let mut reason_for_known_camps = match_doc.clone();
+        reason_for_known_camps["meta"]["camps_reason"] = json!("unexpected");
+        write_bundle_fixture(&directory, "3.3", &reason_for_known_camps, &dem_sha);
+        assert_eq!(validate_bundle_dir(&directory, &dem_sha), Err(EngineFailure::InvalidBundle), "known camps must not have a reason");
 
         let match_doc = match_fixture("3.1", false, &dem_sha);
         write_bundle_fixture(&directory, "3.0", &match_doc, &dem_sha);

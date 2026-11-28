@@ -192,7 +192,7 @@ mod tests {
     #[test]
     fn provider_request_snapshot_excludes_personal_average_and_keeps_result_in_session() {
         let digest = json!({
-            "knowledge_version":4,
+            "knowledge_version":6,
             "meta":{"result":{"winner":"radiant","source":"engine","own_side":"radiant","own_result":"win"}},
             "lanes":[{"lane":"top","personal_average":{"value":4.5,"n":6}}]
         });

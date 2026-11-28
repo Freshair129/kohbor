@@ -21,7 +21,7 @@ import { OpenDotaSettings } from "./overview/OpenDotaSettings";
 import { PacksPage } from "./packs/PacksPage";
 import { StorePage } from "./store/StorePage";
 import { Readiness } from "./Readiness";
-import { DEFAULT_SHELL_DESTINATION, deriveHeaderState, insightsViews, statusLineModel, type InsightsView, type ShellDestination } from "./shell/state";
+import { DEFAULT_SHELL_DESTINATION, deriveHeaderState, statusLineModel, type ShellDestination } from "./shell/state";
 import { publishHudLocale, usePlayback, useRuntime } from "./runtime";
 import { useSettings } from "./settings";
 import { useGlassPreference, type GlassLevel } from "./shell/glassPreference";
@@ -46,7 +46,7 @@ import { LayoutEditor } from "./layoutEditor/LayoutEditor";
 import { useDotaLauncher, useShowSteamName, useSteamStatus } from "./steam/hooks";
 import { steamPersonaName } from "./steam/model";
 import { StartDotaBar } from "./steam/StartDotaBar";
-import { canOpenPostMatchReplay, useMatchEnded } from "./replay/admission";
+import { useMatchEnded } from "./replay/admission";
 import { AnalyticsPage } from "./analytics/AnalyticsPage";
 import { returnToAnalytics as analyticsReturnContext, type AnalyticsReplayDetailsRoute, type AnalyticsReturnContext } from "./analytics/analyticsModel";
 import { AnalyticsSettings } from "./analytics/AnalyticsSettings";
@@ -62,10 +62,7 @@ import { usePreviewMetrics } from "./live/previewMetricsStore";
 import { footerStateLabel } from "./shell/statusFooterModel";
 import { previewRateTooltip } from "./live/previewDiagnostics";
 
-const ReplayPanel = import.meta.env.DEV || import.meta.env.VITE_KOHBOR_LAB === "1"
-  ? lazy(() => import("./replay/ReplayPanel").then((module) => ({ default: module.ReplayPanel })))
-  : null;
-const AnalyticsDetailsPanel = lazy(() => import("./replay/ReplayPanel").then((module) => ({ default: module.ReplayPanel })));
+const AnalyticsDetailsPanel = lazy(() => import("./replay/ReplayPanel").then((module) => ({ default: module.AnalyticsReplayDetailPanel })));
 
 type ShellPage = ShellDestination | "account";
 
@@ -102,10 +99,10 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
   const steamName = useShowSteamName();
   const launch = useDotaLauncher(steamStatus);
   const [activePage, setActivePage] = useState<ShellPage>(DEFAULT_SHELL_DESTINATION);
-  const [settingsEntryPoint, setSettingsEntryPoint] = useState<"hero-card" | null>(null);
-  const [insightsView, setInsightsView] = useState<InsightsView>("summary");
+  const [settingsEntryPoint, setSettingsEntryPoint] = useState<"hero-card" | "replay-ai" | null>(null);
   const [analyticsDetail, setAnalyticsDetail] = useState<AnalyticsReplayDetailsRoute | null>(null);
   const [analyticsRestore, setAnalyticsRestore] = useState<AnalyticsReturnContext | null>(null);
+  const [openReplayLibraryNonce, setOpenReplayLibraryNonce] = useState(0);
   const [showGsiFirstRun, setShowGsiFirstRun] = useState(false);
   const firstRunDecisionMade = useRef(false);
   const firstRunEligible = useRef(false);
@@ -158,8 +155,6 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
   const setupNeeded = gsiNeedsAttention(gsiPhase(hostLost ? null : status ?? null));
   const intakeState = status?.intake.state ?? null;
   const gsiTone = hostLost ? "stale" : intakeState === "receiving" ? "fresh" : intakeState === "unavailable" ? "warn" : intakeState === "stale" ? "stale" : "unknown";
-  const insightViewOptions = insightsViews(ReplayPanel !== null || analyticsDetail !== null);
-  const currentInsightsView = insightViewOptions.includes(insightsView) ? insightsView : "summary";
   const statusModel = statusLineModel({
     labels: {
       gsi: "GSI",
@@ -244,6 +239,10 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
     setSettingsEntryPoint(null);
     setActivePage(destination);
   };
+  const openReplaySettings = () => {
+    setSettingsEntryPoint("replay-ai");
+    setActivePage("settings");
+  };
   const openHeroCardSettings = () => {
     setSettingsEntryPoint("hero-card");
     setActivePage("settings");
@@ -251,12 +250,10 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
   const openAnalyticsDetails = (route: AnalyticsReplayDetailsRoute) => {
     setAnalyticsRestore(null);
     setAnalyticsDetail(route);
-    setInsightsView("replay");
   };
   const returnToAnalyticsPage = () => {
     if (analyticsDetail) setAnalyticsRestore(analyticsReturnContext(analyticsDetail));
     setAnalyticsDetail(null);
-    setInsightsView("summary");
   };
   const [postGameMatchKey, setPostGameMatchKey] = useState<{ key: string; nonce: number } | null>(null);
   // The post-game button opens Insights -> Analytics on the match that just ended. The panel knows the match only by
@@ -267,9 +264,8 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
     setActivePage("insights");
     if (matchKey) {
       setPostGameMatchKey(previous => ({ key: matchKey, nonce: (previous?.nonce ?? 0) + 1 }));
-      setInsightsView("summary");
     } else {
-      setInsightsView("replay");
+      setOpenReplayLibraryNonce(nonce => nonce + 1);
     }
   };
   // Second-monitor mode (UI-016): on the Live page only while a match runs (hero selection through the game) and a side
@@ -286,21 +282,15 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
       <RailLeft current={activePage} labels={text.shell.destinations} navigationLabel={text.shell.navigationLabel}
         gameConnection={steamStatus?.gsi ?? "unknown"} locale={displayLocale} railState={rail.state} onToggleRail={rail.toggle} onNavigate={navigate} />
       <main className="shell-main">
-        <header className="shell-page-header" data-analytics-layout={activePage === "insights" && currentInsightsView === "summary" ? "true" : undefined}>
+        <header className="shell-page-header" data-analytics-layout={activePage === "insights" && analyticsDetail === null ? "true" : undefined}>
           <div className="shell-page-heading">
             <div className="shell-page-title">
               <p className="shell-page-eyebrow">DOTA 2</p>
               <h1 id="shell-page-heading">{activePage === "account" ? text.shell.accountProfile : text.shell.destinations[activePage]}</h1>
             </div>
-            {activePage === "insights" && <div className="shell-subtabs" role="tablist" aria-label={text.shell.insightsViews.label}>
-              {insightViewOptions.map((view) => <button key={view} type="button" role="tab" aria-selected={currentInsightsView === view}
-                aria-controls="shell-panel" onClick={() => setInsightsView(view)}>
-                {text.shell.insightsViews[view]}
-              </button>)}
-            </div>}
           </div>
           <div className="shell-page-head-tools">
-            {activePage === "insights" && currentInsightsView === "summary" && <div className="analytics-shell-tools" data-analytics-shell-tools />}
+            {activePage === "insights" && analyticsDetail === null && <div className="analytics-shell-tools" data-analytics-shell-tools />}
             {/* Owner decision 2026-11-23 item 5: no GSI/game status chips on the Overview; every other page keeps them. */}
             {activePage !== "overview" && <StatusLine model={statusModel} label={text.shell.statusLineLabel} hostLostMessage={`${text.hostLost} — ${text.hostOutdated}`} onNavigate={navigate} />}
             {activePage === "live" && steamStatus?.dota_running === false && !steamStatus.launch_pending && <div className="shell-live-start-control">
@@ -318,7 +308,7 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
             <div className="shell-screen shell-live-page">
               <Deck locale={displayLocale} status={status} snapshot={snapshot} state={deckState} hostLost={hostLost} steamStatus={steamStatus}
                 inMatch={inMatch} matchEnded={matchEnded} secondMonitor={pinnedSide ? { side: pinnedSide } : undefined}
-                onOpenReplay={openPostGameReplay} />
+                onOpenReplay={openPostGameReplay} onOpenReplaySettings={openReplaySettings} />
             </div>
           )}
 
@@ -334,17 +324,14 @@ export function App({ devScenarioSwitcher, accountPort = defaultAccountPort }: {
             )
           )}
 
-          {activePage === "insights" && (currentInsightsView === "summary" || analyticsDetail !== null) && <div hidden={currentInsightsView === "replay"}
+          {activePage === "insights" && analyticsDetail === null && <div
             style={{ width: "100%", height: "100%", minWidth: 0, minHeight: 0 }}>
-            <AnalyticsPage locale={displayLocale} active={currentInsightsView === "summary"} restoreContext={analyticsRestore}
+            <AnalyticsPage locale={displayLocale} active={true} restoreContext={analyticsRestore}
+              openReplayLibraryNonce={openReplayLibraryNonce}
               openMatchKey={postGameMatchKey} onOpenReplay={openAnalyticsDetails} onOpenHeroCardSettings={openHeroCardSettings} />
           </div>}
-          {activePage === "insights" && currentInsightsView === "replay" && analyticsDetail && <Suspense fallback={<p role="status">{text.loading}</p>}>
-            <AnalyticsDetailsPanel locale={displayLocale} available={canOpenPostMatchReplay(status, steamStatus, hostLost, matchEnded)}
-              detail={analyticsDetail} onBack={returnToAnalyticsPage} />
-          </Suspense>}
-          {activePage === "insights" && currentInsightsView === "replay" && !analyticsDetail && ReplayPanel && <Suspense fallback={<p role="status">{text.loading}</p>}>
-            <ReplayPanel locale={displayLocale} available={canOpenPostMatchReplay(status, steamStatus, hostLost, matchEnded)} />
+          {activePage === "insights" && analyticsDetail && <Suspense fallback={<p role="status">{text.loading}</p>}>
+            <AnalyticsDetailsPanel locale={displayLocale} detail={analyticsDetail} onBack={returnToAnalyticsPage} />
           </Suspense>}
 
           {activePage === "settings" && (
