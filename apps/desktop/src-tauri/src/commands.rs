@@ -2512,7 +2512,19 @@ pub(crate) fn media_protocol_handler(
             .and_then(|value| value.to_str().ok())
             .map(str::to_owned),
     };
-    let state = context.app_handle().state::<AppState>();
+    // The webview can ask for media before `setup()` has managed `AppState`.
+    // `state()` panics in that window and aborts the app; answer 503 instead.
+    let Some(state) = context.app_handle().try_state::<AppState>() else {
+        crate::log_info!(
+            "media",
+            "protocol_early_request",
+            "media protocol request arrived before app state was ready"
+        );
+        responder.respond(media_http_response(
+            crate::host::unavailable_protocol_response(),
+        ));
+        return;
+    };
     state
         .host
         .dispatch_protocol(protocol_request, move |response| {
@@ -2525,19 +2537,57 @@ pub(crate) fn media_protocol_handler(
                     reason_code = response.reason_code.unwrap_or("MEDIA_RESPONSE_UNKNOWN")
                 );
             }
-            let mut output = tauri::http::Response::new(response.body);
-            *output.status_mut() = tauri::http::StatusCode::from_u16(response.status)
-                .unwrap_or(tauri::http::StatusCode::SERVICE_UNAVAILABLE);
-            for (name, value) in response.headers {
-                if let (Ok(name), Ok(value)) = (
-                    tauri::http::header::HeaderName::from_bytes(name.as_bytes()),
-                    tauri::http::header::HeaderValue::from_str(&value),
-                ) {
-                    output.headers_mut().insert(name, value);
-                }
-            }
-            responder.respond(output);
+            responder.respond(media_http_response(response));
         });
+}
+
+fn media_http_response(
+    response: crate::media::protocol::ProtocolResponse,
+) -> tauri::http::Response<Vec<u8>> {
+    let mut output = tauri::http::Response::new(response.body);
+    *output.status_mut() = tauri::http::StatusCode::from_u16(response.status)
+        .unwrap_or(tauri::http::StatusCode::SERVICE_UNAVAILABLE);
+    for (name, value) in response.headers {
+        if let (Ok(name), Ok(value)) = (
+            tauri::http::header::HeaderName::from_bytes(name.as_bytes()),
+            tauri::http::header::HeaderValue::from_str(&value),
+        ) {
+            output.headers_mut().insert(name, value);
+        }
+    }
+    output
+}
+
+#[cfg(test)]
+mod media_protocol_tests {
+    use super::media_http_response;
+
+    #[test]
+    fn early_request_response_is_503_not_a_panic() {
+        let output = media_http_response(crate::host::unavailable_protocol_response());
+        assert_eq!(
+            output.status(),
+            tauri::http::StatusCode::SERVICE_UNAVAILABLE
+        );
+        assert_eq!(
+            output
+                .headers()
+                .get("Cache-Control")
+                .and_then(|v| v.to_str().ok()),
+            Some("no-store")
+        );
+    }
+
+    #[test]
+    fn unknown_status_falls_back_to_503() {
+        let mut response = crate::host::unavailable_protocol_response();
+        response.status = 1000;
+        let output = media_http_response(response);
+        assert_eq!(
+            output.status(),
+            tauri::http::StatusCode::SERVICE_UNAVAILABLE
+        );
+    }
 }
 
 #[cfg(test)]
