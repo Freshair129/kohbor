@@ -176,7 +176,8 @@ test("the CSP img-src admits the media host for pack covers and nothing else cha
   const csp: string = conf.app.security.csp;
   const directives = new Map(csp.split(";").map(part => part.trim().split(/\s+/)).map(([name, ...values]) => [name!, values]));
   assert.deepEqual(directives.get("img-src"), ["'self'", "data:", "http://kohbor-media.localhost", "kohbor-media:"]);
-  assert.deepEqual(directives.get("media-src"), ["http://kohbor-media.localhost", "kohbor-media:"]);
+  // 'self' is there for the bundled banner warm-up clip (owner decision 2026-11-28, route 1).
+  assert.deepEqual(directives.get("media-src"), ["'self'", "http://kohbor-media.localhost", "kohbor-media:"]);
   assert.deepEqual(directives.get("default-src"), ["'self'"]);
   assert.deepEqual(directives.get("connect-src"), ["ipc:", "http://ipc.localhost"]);
 });
